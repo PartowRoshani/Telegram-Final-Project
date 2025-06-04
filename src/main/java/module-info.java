@@ -9,6 +9,8 @@ module org.to.telegramfinalproject {
     requires org.kordamp.ikonli.javafx;
     requires org.kordamp.bootstrapfx.core;
     requires eu.hansolo.tilesfx;
+    requires org.json;
+    requires java.sql;
     opens org.to.telegramfinalproject to javafx.fxml;
     exports org.to.telegramfinalproject;
 }
