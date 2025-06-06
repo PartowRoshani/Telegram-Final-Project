@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS groups (
     group_name VARCHAR(100),
     creator_id UUID REFERENCES users(internal_uuid),
     image_url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     description TEXT
 );
 
@@ -67,6 +68,7 @@ CREATE TABLE IF NOT EXISTS channels (
     channel_name VARCHAR(100),
     creator_id UUID REFERENCES users(internal_uuid),
     image_url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     description TEXT
     
     );
