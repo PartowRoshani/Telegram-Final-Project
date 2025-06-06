@@ -94,3 +94,11 @@ CREATE TABLE IF NOT EXISTS channel_admins (
     can_add_members BOOLEAN DEFAULT TRUE,
     PRIMARY KEY (channel_id, user_id)
     );
+
+CREATE TABLE IF NOT EXISTS message_receipts (
+    message_id UUID REFERENCES messages(message_id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(internal_uuid) ON DELETE CASCADE,
+    read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (message_id, user_id)
+);
+
