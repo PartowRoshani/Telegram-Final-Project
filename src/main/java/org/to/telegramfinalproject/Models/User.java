@@ -1,6 +1,7 @@
 package org.to.telegramfinalproject.Models;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public class User {
@@ -13,6 +14,9 @@ public class User {
     private String image_url;
     private String status;
     private LocalDateTime last_seen;
+    private List<Contact> contactList;
+    private List<Group> groupList;
+    private List<Channel> channelList;
 
     public User(String user_id, UUID internal_uuid, String username, String password, String profile_name) {
         this.user_id = user_id;
@@ -54,6 +58,12 @@ public class User {
         this.last_seen = last_seen;
     }
 
+    public void setContactList(List<Contact> contactList){this.contactList = contactList;}
+
+    public void setChannelList(List<Channel> channelList){this.channelList = channelList;}
+
+    public void setGroupList(List<Group> groupList){this.groupList = groupList;}
+
     public UUID getInternal_uuid() {
         return this.internal_uuid;
     }
@@ -89,5 +99,11 @@ public class User {
     public LocalDateTime getLast_seen() {
         return this.last_seen;
     }
+
+    public List<Contact> getContactList(){return this.contactList;}
+
+    public List<Channel> getChannelList(){return this.channelList;}
+
+    public List<Group> getGroupList(){return this.groupList;}
 }
 
