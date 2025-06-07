@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS channel_subscribers (
 
 --(Bouns)
 CREATE TABLE IF NOT EXISTS channel_admins (
-    channel_id UUID REFERENCES channels(channel_id),
+    channel_id VARCHAR(70) REFERENCES channels(channel_id),
     user_id UUID REFERENCES users(internal_uuid),
     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     added_by UUID REFERENCES users(internal_uuid),
