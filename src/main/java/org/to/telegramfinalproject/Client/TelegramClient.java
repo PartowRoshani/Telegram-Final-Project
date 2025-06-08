@@ -47,6 +47,13 @@ public class TelegramClient {
                     break;
                 case "2":
                     this.handler.loginHandler();
+                    if (Session.currentUser != null) {
+                        System.out.println("Login successful.");
+                        this.handler.userMenu();
+
+                    } else {
+                        System.out.println("Login failed.");
+                    }
                     break;
                 case "3":
                     System.out.println(" Disconnecting...");

@@ -21,6 +21,10 @@ public class Group {
         this.created_at = created_at;
     }
 
+    public Group() {
+
+    }
+
     public void setGroup_id(String group_id){this.group_id = group_id;}
     public void  setCreator_id(UUID creator_id){this.creator_id = creator_id;}
     public void setGroup_name(String group_name){this.group_name = group_name;}
@@ -40,4 +44,6 @@ public class Group {
         return this.internal_uuid;
     }
 
+    public void setInternal_uuid(UUID internalUuid) { this.internal_uuid = internalUuid;
+    }
 }

@@ -41,6 +41,19 @@ public class AuthService {
             return user;
         }
     }
+
+    public boolean loginCheck(String username , String password){
+        User user = userDb.findByUsername(username);
+        String pass = user.getPassword();
+        password = PasswordHashing.hash(password);
+        String Username = user.getUsername();
+        boolean login = false;
+        if(user!= null && Username.equals(username)&& pass.equals(password)){
+            login = true;
+        }
+        return login;
+
+    }
 }
 
 

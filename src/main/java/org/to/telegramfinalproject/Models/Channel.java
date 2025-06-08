@@ -21,6 +21,10 @@ public class Channel {
         this.created_at = created_at;
     }
 
+    public Channel() {
+
+    }
+
     public void setChannel_id(String Channel_id){this.channel_id = Channel_id;}
     public void setCreator_id(UUID creator_id){this.creator_id = creator_id;}
     public void setChannel_name(String channel_name){this.channel_name = channel_name;}
@@ -40,4 +44,6 @@ public class Channel {
         return this.internal_uuid;
     }
 
+    public void setInternal_uuid(UUID internalUuid) { this.internal_uuid = internalUuid;
+    }
 }

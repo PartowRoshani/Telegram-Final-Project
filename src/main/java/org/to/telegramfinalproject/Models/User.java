@@ -1,5 +1,7 @@
 package org.to.telegramfinalproject.Models;
 
+import org.json.JSONObject;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -17,6 +19,8 @@ public class User {
     private List<Contact> contactList;
     private List<Group> groupList;
     private List<Channel> channelList;
+    private List<Message> unreadMessages;
+    private List<ChatEntry> chatList;
 
     public User(String user_id, UUID internal_uuid, String username, String password, String profile_name) {
         this.user_id = user_id;
@@ -64,6 +68,10 @@ public class User {
 
     public void setGroupList(List<Group> groupList){this.groupList = groupList;}
 
+    public void setUnreadMessages(List<Message> unreadMessages){this.unreadMessages = unreadMessages;}
+
+    public void setChatList(List<ChatEntry> chatList){this.chatList = chatList;}
+
     public UUID getInternal_uuid() {
         return this.internal_uuid;
     }
@@ -105,5 +113,13 @@ public class User {
     public List<Channel> getChannelList(){return this.channelList;}
 
     public List<Group> getGroupList(){return this.groupList;}
+
+    public List<Message> getUnreadMessages(){return  this.unreadMessages;}
+
+    public List<ChatEntry> getChatList(){return  this.chatList;}
+
+
+
+
 }
 

@@ -3,10 +3,7 @@ package org.to.telegramfinalproject.Database;
 
 import org.to.telegramfinalproject.Models.User;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -203,5 +200,87 @@ public class userDatabase {
             return false;
         }
     }
+
+
+    public static void updateUserStatus(UUID uuid, String status) {
+        String sql = "UPDATE users SET status = ? WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, status);
+            stmt.setObject(2, uuid);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void updateLastSeen(UUID uuid) {
+        String sql = "UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, uuid);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+
+    public static User findByInternalUUID(UUID internalUuid) {
+        String sql = "SELECT * FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, internalUuid);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                User user = new User(
+                        rs.getString("user_id"),
+                        UUID.fromString(rs.getString("internal_uuid")),
+                        rs.getString("username"),
+                        rs.getString("password"),
+                        rs.getString("profile_name")
+                );
+
+                user.setBio(rs.getString("bio"));
+                user.setImage_url(rs.getString("image_url"));
+                user.setStatus(rs.getString("status"));
+
+                Timestamp lastSeenTs = rs.getTimestamp("last_seen");
+                if (lastSeenTs != null) {
+                    user.setLast_seen(lastSeenTs.toLocalDateTime());
+                }
+
+                return user;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public List<User> searchUsers(String keyword) {
+        String query = "SELECT * FROM users WHERE user_id ILIKE ? OR profile_name ILIKE ?";  //(ILIKE) case_insensitive
+        List<User> result = new ArrayList<>();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, "%" + keyword + "%");
+            stmt.setString(2, "%" + keyword + "%");
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                result.add(extractUser(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+
 }
 
