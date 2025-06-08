@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS users(
     internal_uuid UUID PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    profile_name VARCHAR(100),
+    profile_name VARCHAR(100) NOT NULL,
     bio TEXT,                               --(Bonus)
     image_url TEXT,
     status VARCHAR(20) DEFAULT 'offline',
@@ -87,8 +87,8 @@ CREATE TABLE IF NOT EXISTS channel_admins (
     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     added_by UUID REFERENCES users(internal_uuid),
     role VARCHAR(20) DEFAULT 'admin',              --owner, admin
-    can_post BOOLEAN DEFAULT TRUE,
-    can_edit BOOLEAN DEFAULT FALSE,
+    can_post_messages BOOLEAN DEFAULT TRUE,
+    can_edit_setting BOOLEAN DEFAULT FALSE,          -- profile, bio, name, etc.
     can_delete_messages BOOLEAN DEFAULT FALSE,
     can_delete_members BOOLEAN DEFAULT FALSE,
     can_add_members BOOLEAN DEFAULT TRUE,
