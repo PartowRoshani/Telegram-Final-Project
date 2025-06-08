@@ -73,7 +73,15 @@ public class ActionHandler {
 
     private void send(JSONObject request) {
         try {
+            if (!request.has("action") || request.isNull("action")) {
+                System.err.println("Error: Request does not contain 'action'.");
+                return;
+            }
+
+            String action = request.getString("action");
+
             this.out.println(request.toString());
+
             String responseText = this.in.readLine();
 
             if (responseText != null) {
@@ -81,52 +89,60 @@ public class ActionHandler {
                 System.out.println("Server response: " + response.getString("message"));
                 String status = response.getString("status");
 
-                String action = request.getString("action");
-
                 if (status.equals("success") && response.has("data") && !response.isNull("data")) {
-                    if (action.equals("login") || action.equals("register")) {
+                    switch (action) {
+                        case "login":
+                        case "register":
+                            Session.currentUser = response.getJSONObject("data");
+                            JSONArray chatListJson = Session.currentUser.getJSONArray("chat_list");
+                            List<ChatEntry> chatList = new ArrayList<>();
 
-                        Session.currentUser = response.getJSONObject("data");
+                            for (Object obj : chatListJson) {
+                                JSONObject chat = (JSONObject) obj;
+                                ChatEntry entry = new ChatEntry(
+                                        chat.getString("id"),
+                                        chat.getString("name"),
+                                        chat.getString("image_url"),
+                                        chat.getString("type"),
+                                        chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time"))
+                                );
+                                chatList.add(entry);
+                            }
 
-                        JSONArray chatListJson = Session.currentUser.getJSONArray("chat_list");
-                        List<ChatEntry> chatList = new ArrayList<>();
+                            Session.chatList = chatList;
+                            break;
 
-                        for (Object obj : chatListJson) {
-                            JSONObject chat = (JSONObject) obj;
+                        case "search":
+                            JSONArray results = response.getJSONObject("data").getJSONArray("results");
 
-                            ChatEntry entry = new ChatEntry(
-                                    chat.getString("id"),
-                                    chat.getString("name"),
-                                    chat.getString("image_url"),
-                                    chat.getString("type"),
-                                    chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time"))
-                            );
+                            if (results.isEmpty()) {
+                                System.out.println("No results found.");
+                            } else {
+                                System.out.println("\nSearch Results:");
+                                for (Object obj : results) {
+                                    JSONObject item = (JSONObject) obj;
+                                    System.out.println("- [" + item.getString("type") + "] " + item.getString("name") + " (ID: " + item.getString("id") + ")");
+                                }
+                            }
+                            break;
 
-                            chatList.add(entry);
-                        }
-
-                        Session.chatList = chatList;
-                    }
-
-                    else if (action.equals("search")) {
-
-                        JSONArray results = response.getJSONObject("data").getJSONArray("results");
-
-                        System.out.println("\nSearch Results:");
-                        for (Object obj : results) {
-                            JSONObject item = (JSONObject) obj;
-                            System.out.println("- [" + item.getString("type") + "] " + item.getString("name") + " (ID: " + item.getString("id") + ")");
-                        }
+                        case "get_messages":
+                            break;
                     }
                 }
+
             } else {
                 System.out.println("No response from server.");
             }
 
         } catch (IOException e) {
-            System.err.println("Error: " + e.getMessage());
+            System.err.println("Error while communicating with server: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Client error: " + e.getMessage());
+            e.printStackTrace();
         }
     }
+
 
 
 

@@ -55,6 +55,8 @@ public class GroupDatabase {
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, "%" + keyword + "%");
+            stmt.setString(2, keyword);
+
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 Group group = new Group(
