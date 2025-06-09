@@ -69,11 +69,19 @@ public class ClientHandler implements Runnable {
                         } else {
 
                             User user = authService.login(request.getUsername(), request.getPassword());
-                            if (user == null) {
+
+                            if (user == null){
                                 response = new ResponseModel("error", "Login failed.");
                                 break;
                             }
                             this.currentUser = user;
+
+                            if (SessionManager.contains(user.getInternal_uuid())) {
+                                response = new ResponseModel("error", "You are already logged in from another device.");
+                                break;
+
+                            }
+
 
                             SessionManager.addUser(user.getInternal_uuid(), this.socket);
                             userDatabase.updateUserStatus(user.getInternal_uuid(), "online");
@@ -118,16 +126,21 @@ public class ClientHandler implements Runnable {
 
                     case "logout": {
                         String user_Id = requestJson.optString("user_id");
-                        if (userId != null && !user_Id.isEmpty()) {
-                            UUID uuid = UUID.fromString(user_Id);
-                            userDatabase.updateUserStatus(uuid, "offline");
-                            userDatabase.updateLastSeen(uuid);
-                            SessionManager.removeUser(uuid);
-                            response = new ResponseModel("success", "Logged out.");
+                        if (user_Id != null && !user_Id.isEmpty()) {
+                            try {
+                                UUID uuid = UUID.fromString(user_Id);
+                                userDatabase.updateUserStatus(uuid, "offline");
+                                userDatabase.updateLastSeen(uuid);
+                                SessionManager.removeUser(uuid);
+                                response = new ResponseModel("success", "Logged out.");
+                            } catch (IllegalArgumentException ex) {
+                                response = new ResponseModel("error", "Invalid UUID format for user_id.");
+                            }
                         } else {
                             response = new ResponseModel("error", "Invalid user_id for logout.");
                         }
                         break;
+
                     }
 
                     case "search": {

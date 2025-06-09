@@ -177,9 +177,9 @@ public class ActionHandler {
                     break;
 
                 case "3":
-                    Session.currentUser = null;
-                    Session.chatList = null;
-                    System.out.println("Logged out.");
+
+                    logout();
+
                     return;
                 default:
                     System.out.println("Invalid choice.");
@@ -223,6 +223,22 @@ public class ActionHandler {
         request.put("receiver_type", chat.getType());
 
         send(request);
+    }
+
+
+
+    public void logout() {
+        if (Session.currentUser != null && Session.currentUser.has("user_id")) {
+            JSONObject request = new JSONObject();
+            String userId = Session.currentUser.getString("internalUUID");
+            request.put("action", "logout");
+            request.put("user_id",userId);
+            send(request);
+            Session.currentUser = null;
+            Session.chatList = null;
+        } else {
+            System.out.println("Not logged in.");
+        }
     }
 
 }

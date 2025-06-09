@@ -1,5 +1,7 @@
 package org.to.telegramfinalproject.Client;
 
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -56,27 +58,32 @@ public class TelegramClient {
                     }
                     break;
                 case "3":
-                    System.out.println(" Disconnecting...");
+                    System.out.println("Disconnecting...");
+
+                    if (Session.currentUser != null && Session.currentUser.has("internalUUID")) {
+                        try {
+                            JSONObject logoutRequest = new JSONObject();
+                            logoutRequest.put("action", "logout");
+                            logoutRequest.put("user_id", Session.currentUser.getString("internalUUID"));
+                            out.println(logoutRequest.toString());
+                            in.readLine();
+                        } catch (Exception e) {
+                            System.err.println("Failed to notify server on logout: " + e.getMessage());
+                        }
+                    }
 
                     try {
-                        if (this.socket != null) {
-                            this.socket.close();
-                        }
-
-                        if (this.in != null) {
-                            this.in.close();
-                        }
-
-                        if (this.out != null) {
-                            this.out.close();
-                        }
-
+                        if (socket != null) socket.close();
+                        if (in != null) in.close();
+                        if (out != null) out.close();
                         System.out.println("Disconnected.");
                     } catch (IOException e) {
-                        System.err.println(" Error closing connection: " + e.getMessage());
+                        System.err.println("Error closing connection: " + e.getMessage());
                     }
 
                     return;
+
+
                 default:
                     System.out.println("Invalid choice. Please try again.");
             }
