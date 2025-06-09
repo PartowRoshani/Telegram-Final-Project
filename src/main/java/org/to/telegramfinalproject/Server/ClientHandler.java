@@ -13,6 +13,8 @@ import java.util.*;
 public class ClientHandler implements Runnable {
     private final Socket socket;
     private final AuthService authService = new AuthService();
+    private User currentUser;
+
 
     public ClientHandler(Socket socket) {
         this.socket = socket;
@@ -20,6 +22,8 @@ public class ClientHandler implements Runnable {
 
     @Override
     public void run() {
+        UUID userId = null;
+
         try (
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
@@ -63,15 +67,16 @@ public class ClientHandler implements Runnable {
                                     ? new ResponseModel("success", "Registration successful.")
                                     : new ResponseModel("error", "Registration failed.");
                         } else {
+
                             User user = authService.login(request.getUsername(), request.getPassword());
                             if (user == null) {
                                 response = new ResponseModel("error", "Login failed.");
                                 break;
                             }
+                            this.currentUser = user;
 
                             SessionManager.addUser(user.getInternal_uuid(), this.socket);
                             userDatabase.updateUserStatus(user.getInternal_uuid(), "online");
-
                             List<Contact> contacts = ContactDatabase.getContacts(user.getInternal_uuid());
                             List<Group> groups = GroupDatabase.getGroupsByUser(user.getInternal_uuid());
                             List<Channel> channels = ChannelDatabase.getChannelsByUser(user.getInternal_uuid());
@@ -112,9 +117,9 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "logout": {
-                        String userId = requestJson.optString("user_id");
-                        if (userId != null && !userId.isEmpty()) {
-                            UUID uuid = UUID.fromString(userId);
+                        String user_Id = requestJson.optString("user_id");
+                        if (userId != null && !user_Id.isEmpty()) {
+                            UUID uuid = UUID.fromString(user_Id);
                             userDatabase.updateUserStatus(uuid, "offline");
                             userDatabase.updateLastSeen(uuid);
                             SessionManager.removeUser(uuid);
@@ -128,8 +133,11 @@ public class ClientHandler implements Runnable {
                     case "search": {
                         String keyword = requestJson.optString("keyword");
                         List<JSONObject> results = new ArrayList<>();
+                        String user_Id = requestJson.getString("user_id");
+                        User currentUser = new userDatabase().findByUserId(user_Id);
+                        UUID currentUserUUID = currentUser.getInternal_uuid();
 
-                        for (User u : new userDatabase().searchUsers(keyword)) {
+                        for (User u : new userDatabase().searchUsers(keyword, currentUserUUID)) {
                             JSONObject obj = new JSONObject();
                             obj.put("type", "user");
                             obj.put("id", u.getUser_id());
@@ -153,6 +161,50 @@ public class ClientHandler implements Runnable {
                             results.add(obj);
                         }
 
+                        List<Message> matchedMessages = MessageDatabase.searchMessagesForUser(currentUser.getInternal_uuid(), keyword);
+                        for (Message m : matchedMessages) {
+                            JSONObject obj = new JSONObject();
+                            obj.put("type", "message");
+                            obj.put("content", m.getContent());
+                            obj.put("sender", m.getSender_id().toString());
+                            obj.put("time", m.getSend_at().toString());
+                            results.add(obj);
+                        }
+
+
+
+                        List<UUID> groupIds = new ArrayList<>();
+                        for (Group g : GroupDatabase.getGroupsByUser(currentUser.getInternal_uuid())) {
+                            groupIds.add(g.getInternal_uuid());
+                        }
+
+                        List<UUID> channelIds = new ArrayList<>();
+                        for (Channel c : ChannelDatabase.getChannelsByUser(currentUser.getInternal_uuid())) {
+                            channelIds.add(c.getInternal_uuid());
+                        }
+
+
+                        List<Message> groupMessages = MessageDatabase.searchMessagesInGroups(groupIds, keyword);
+                        for (Message m : groupMessages) {
+                            JSONObject obj = new JSONObject();
+                            obj.put("type", "message");
+                            obj.put("from", "group");
+                            obj.put("content", m.getContent());
+                            obj.put("time", m.getSend_at().toString());
+                            results.add(obj);
+                        }
+
+                        List<Message> channelMessages = MessageDatabase.searchMessagesInChannels(channelIds, keyword);
+                        for (Message m : channelMessages) {
+                            JSONObject obj = new JSONObject();
+                            obj.put("type", "message");
+                            obj.put("from", "channel");
+                            obj.put("content", m.getContent());
+                            obj.put("time", m.getSend_at().toString());
+                            results.add(obj);
+                        }
+
+
                         JSONObject data = new JSONObject();
                         data.put("results", new JSONArray(results));
                         response = new ResponseModel("success", "Search results found", data);
@@ -171,12 +223,29 @@ public class ClientHandler implements Runnable {
             }
         } catch (IOException e) {
             System.out.println("Connection with client lost.");
-            UUID userId = SessionManager.getUserIdBySocket(this.socket);
+             userId = (currentUser != null) ? currentUser.getInternal_uuid() : SessionManager.getUserIdBySocket(this.socket);
             if (userId != null) {
                 userDatabase.updateUserStatus(userId, "offline");
                 userDatabase.updateLastSeen(userId);
                 SessionManager.removeUser(userId);
             }
+        }   finally {
+            try {
+                if (currentUser != null) {
+                    userId = currentUser.getInternal_uuid();
+                    System.out.println("🔚 Client disconnected. Cleaning up user " + userId);
+                    userDatabase.updateUserStatus(userId, "offline");
+                    userDatabase.updateLastSeen(userId);
+                    SessionManager.removeUser(userId);
+                } else {
+                    System.out.println("❗ currentUser is null, couldn't set offline.");
+                }
+                socket.close();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         }
+
+
     }
 }

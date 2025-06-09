@@ -11,6 +11,7 @@ import java.util.Scanner;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.ChatEntry;
+import org.to.telegramfinalproject.Models.SearchRequestModel;
 
 public class ActionHandler {
     private final PrintWriter out;
@@ -63,12 +64,15 @@ public class ActionHandler {
         System.out.print("Enter keyword to search: ");
         String keyword = scanner.nextLine();
 
-        JSONObject request = new JSONObject();
-        request.put("action", "search");
-        request.put("keyword", keyword);
+        if (Session.currentUser == null || !Session.currentUser.has("user_id")) {
+            System.out.println("You must be logged in to search.");
+            return;
+        }
 
-        send(request);
+        String userId = Session.currentUser.getString("user_id");
+        SearchRequestModel model = new SearchRequestModel("search", keyword, userId);
 
+        send(model.toJson());
     }
 
     private void send(JSONObject request) {
@@ -121,7 +125,14 @@ public class ActionHandler {
                                 System.out.println("\nSearch Results:");
                                 for (Object obj : results) {
                                     JSONObject item = (JSONObject) obj;
-                                    System.out.println("- [" + item.getString("type") + "] " + item.getString("name") + " (ID: " + item.getString("id") + ")");
+                                    if (item.getString("type").equals("message")) {
+                                        System.out.println("- [message] \"" + item.getString("content") + "\""
+                                                + " (from: " + item.getString("sender") + ", at: " + item.getString("time") + ")");
+                                    } else {
+                                        System.out.println("- [" + item.getString("type") + "] "
+                                                + item.getString("name") + " (ID: " + item.getString("id") + ")");
+                                    }
+
                                 }
                             }
                             break;

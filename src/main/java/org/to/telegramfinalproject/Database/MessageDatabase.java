@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class MessageDatabase {
 
@@ -131,5 +132,123 @@ public class MessageDatabase {
 
         return null;
     }
+
+
+    public static Message extractMessage(ResultSet rs) throws SQLException {
+        return new Message(
+                UUID.fromString(rs.getString("message_id")),
+                UUID.fromString(rs.getString("sender_id")),
+                rs.getString("receiver_type"),
+                UUID.fromString(rs.getString("receiver_id")),
+                rs.getString("content"),
+                rs.getString("message_type"),
+                rs.getString("file_url"),
+                rs.getTimestamp("send_at").toLocalDateTime(),
+                rs.getString("status"),
+                (UUID) rs.getObject("reply_to_id"),
+                rs.getBoolean("is_edited"),
+                (UUID) rs.getObject("original_message_id"),
+                (UUID) rs.getObject("forwarded_by"),
+                (UUID) rs.getObject("forwarded_from")
+        );
+    }
+
+
+
+    public static List<Message> searchMessagesForUser(UUID userId, String keyword) {
+        List<Message> result = new ArrayList<>();
+        String sql = """
+        SELECT * FROM messages
+        WHERE receiver_type = 'private'
+          AND (sender_id = ? OR receiver_id = ?)
+          AND content ILIKE ?
+        ORDER BY send_at DESC
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            stmt.setObject(2, userId);
+            stmt.setString(3, "%" + keyword + "%");
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                result.add(extractMessage(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
+
+    public static List<Message> searchMessagesInGroups(List<UUID> groupIds, String keyword) {
+        List<Message> result = new ArrayList<>();
+        if (groupIds.isEmpty()) return result;
+
+        String placeholders = groupIds.stream().map(id -> "?").collect(Collectors.joining(", "));
+        String sql = """
+        SELECT * FROM messages
+        WHERE receiver_type = 'group'
+        AND receiver_id IN (%s)
+        AND content ILIKE ?
+        ORDER BY send_at DESC
+    """.formatted(placeholders);
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            int i = 1;
+            for (UUID id : groupIds) {
+                stmt.setObject(i++, id);
+            }
+            stmt.setString(i, "%" + keyword + "%");
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                result.add(extractMessage(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
+
+    public static List<Message> searchMessagesInChannels(List<UUID> channelIds, String keyword) {
+        List<Message> result = new ArrayList<>();
+        if (channelIds.isEmpty()) return result;
+
+        String placeholders = channelIds.stream().map(id -> "?").collect(Collectors.joining(", "));
+        String sql = """
+        SELECT * FROM messages
+        WHERE receiver_type = 'channel'
+        AND receiver_id IN (%s)
+        AND content ILIKE ?
+        ORDER BY send_at DESC
+    """.formatted(placeholders);
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            int i = 1;
+            for (UUID id : channelIds) {
+                stmt.setObject(i++, id);
+            }
+            stmt.setString(i, "%" + keyword + "%");
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                result.add(extractMessage(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
 
 }
