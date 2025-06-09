@@ -208,11 +208,13 @@ public class userDatabase {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, status);
             stmt.setObject(2, uuid);
-            stmt.executeUpdate();
+            int rows = stmt.executeUpdate();
+            System.out.println("🔁 updateUserStatus: set '" + status + "' for " + uuid + " → affected rows = " + rows);
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+
 
     public static void updateLastSeen(UUID uuid) {
         String sql = "UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE internal_uuid = ?";
@@ -263,14 +265,21 @@ public class userDatabase {
 
         return null;
     }
+    public List<User> searchUsers(String keyword, UUID currentUserId) {
+        String query = """
+        SELECT * FROM users 
+        WHERE (user_id ILIKE ? OR profile_name ILIKE ?)
+        AND internal_uuid <> ?
+    """;
 
-    public List<User> searchUsers(String keyword) {
-        String query = "SELECT * FROM users WHERE user_id ILIKE ? OR profile_name ILIKE ?";  //(ILIKE) case_insensitive
         List<User> result = new ArrayList<>();
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
+
             stmt.setString(1, "%" + keyword + "%");
             stmt.setString(2, "%" + keyword + "%");
+            stmt.setObject(3, currentUserId);
+
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 result.add(extractUser(rs));
@@ -279,6 +288,19 @@ public class userDatabase {
             e.printStackTrace();
         }
         return result;
+    }
+
+
+
+    public static void setAllUsersOffline() {
+        String sql = "UPDATE users SET status = 'offline'";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            int affected = stmt.executeUpdate();
+            System.out.println("🔁 All users set to offline. Rows affected: " + affected);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
 
