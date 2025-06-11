@@ -1,17 +1,17 @@
 package org.to.telegramfinalproject.Client;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.to.telegramfinalproject.Models.ChatEntry;
+import org.to.telegramfinalproject.Models.ContactRequestModel;
+import org.to.telegramfinalproject.Models.SearchRequestModel;
+import org.to.telegramfinalproject.Models.SearchResultModel;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-import org.to.telegramfinalproject.Models.ChatEntry;
-import org.to.telegramfinalproject.Models.SearchRequestModel;
+import java.util.*;
 
 public class ActionHandler {
     private final PrintWriter out;
@@ -26,41 +26,43 @@ public class ActionHandler {
 
     public void loginHandler() {
         System.out.println("Login form: \n");
-        System.out.println("Username: ");
+        System.out.print("Username: ");
         String username = this.scanner.nextLine();
-        System.out.println("Password: ");
+        System.out.print("Password: ");
         String password = this.scanner.nextLine();
+
         JSONObject request = new JSONObject();
         request.put("action", "login");
         request.put("user_id", JSONObject.NULL);
         request.put("username", username);
         request.put("password", password);
         request.put("profile_name", JSONObject.NULL);
+
         this.send(request);
     }
 
     public void register() {
         System.out.println("Register form: \n");
-        System.out.println("Username: ");
+        System.out.print("Username: ");
         String username = this.scanner.nextLine();
-        System.out.println("User id: ");
+        System.out.print("User id: ");
         String user_id = this.scanner.nextLine();
-        System.out.println("Password: ");
+        System.out.print("Password: ");
         String password = this.scanner.nextLine();
-        System.out.println("Profile name: ");
+        System.out.print("Profile name: ");
         String profile_name = this.scanner.nextLine();
+
         JSONObject request = new JSONObject();
         request.put("action", "register");
         request.put("user_id", user_id);
         request.put("username", username);
         request.put("password", password);
         request.put("profile_name", profile_name);
+
         this.send(request);
     }
 
-
-    public void search(){
-
+    public void search() {
         System.out.print("Enter keyword to search: ");
         String keyword = scanner.nextLine();
 
@@ -71,9 +73,26 @@ public class ActionHandler {
 
         String userId = Session.currentUser.getString("user_id");
         SearchRequestModel model = new SearchRequestModel("search", keyword, userId);
-
         send(model.toJson());
     }
+
+    private void addContact(UUID contactId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "add_contact");
+        req.put("user_id", Session.currentUser.getString("user_id"));
+        req.put("contact_id", contactId.toString());
+        send(req);
+    }
+
+
+    private void joinGroupOrChannel(String type, String id) {
+        JSONObject req = new JSONObject();
+        req.put("action", "join_" + type);
+        req.put("user_id", Session.currentUser.getString("user_id"));
+        req.put("id", id);
+        send(req);
+    }
+
 
     private void send(JSONObject request) {
         try {
@@ -83,112 +102,121 @@ public class ActionHandler {
             }
 
             String action = request.getString("action");
-
             this.out.println(request.toString());
 
             String responseText = this.in.readLine();
-
-            if (responseText != null) {
-                JSONObject response = new JSONObject(responseText);
-                System.out.println("Server response: " + response.getString("message"));
-                String status = response.getString("status");
-
-                if (status.equals("success") && response.has("data") && !response.isNull("data")) {
-                    switch (action) {
-                        case "login":
-                        case "register":
-                            Session.currentUser = response.getJSONObject("data");
-                            JSONArray chatListJson = Session.currentUser.getJSONArray("chat_list");
-                            List<ChatEntry> chatList = new ArrayList<>();
-
-                            for (Object obj : chatListJson) {
-                                JSONObject chat = (JSONObject) obj;
-                                ChatEntry entry = new ChatEntry(
-                                        chat.getString("id"),
-                                        chat.getString("name"),
-                                        chat.getString("image_url"),
-                                        chat.getString("type"),
-                                        chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time"))
-                                );
-                                chatList.add(entry);
-                            }
-
-                            Session.chatList = chatList;
-                            break;
-
-                        case "search":
-                            JSONArray results = response.getJSONObject("data").getJSONArray("results");
-
-                            if (results.isEmpty()) {
-                                System.out.println("No results found.");
-                            } else {
-                                System.out.println("\nSearch Results:");
-                                for (Object obj : results) {
-                                    JSONObject item = (JSONObject) obj;
-                                    if (item.getString("type").equals("message")) {
-                                        System.out.println("- [message] \"" + item.getString("content") + "\""
-                                                + " (from: " + item.getString("sender") + ", at: " + item.getString("time") + ")");
-                                    } else {
-                                        System.out.println("- [" + item.getString("type") + "] "
-                                                + item.getString("name") + " (ID: " + item.getString("id") + ")");
-                                    }
-
-                                }
-                            }
-                            break;
-
-                        case "get_messages":
-                            break;
-                    }
-                }
-
-            } else {
+            if (responseText == null) {
                 System.out.println("No response from server.");
+                return;
+            }
+
+            JSONObject response = new JSONObject(responseText);
+            System.out.println("Server response: " + response.getString("message"));
+
+            String status = response.getString("status");
+            if (!"success".equals(status) || !response.has("data") || response.isNull("data"))
+                return;
+
+            switch (action) {
+                case "login":
+                case "register":
+                    Session.currentUser = response.getJSONObject("data");
+                    JSONArray chatListJson = Session.currentUser.getJSONArray("chat_list");
+                    List<ChatEntry> chatList = new ArrayList<>();
+
+                    for (Object obj : chatListJson) {
+                        JSONObject chat = (JSONObject) obj;
+                        ChatEntry entry = new ChatEntry(
+                                chat.getString("id"),
+                                chat.getString("name"),
+                                chat.getString("image_url"),
+                                chat.getString("type"),
+                                chat.isNull("last_message_time") ? null :
+                                        LocalDateTime.parse(chat.getString("last_message_time"))
+                        );
+                        chatList.add(entry);
+                    }
+
+                    Session.chatList = chatList;
+                    break;
+
+                case "search":
+                    JSONArray results = response.getJSONObject("data").getJSONArray("results");
+
+                    if (results.isEmpty()) {
+                        System.out.println("No results found.");
+                    } else {
+                        System.out.println("\nSearch Results:");
+                        for (int i = 0; i < results.length(); i++) {
+                            JSONObject item = results.getJSONObject(i);
+                            String type = item.getString("type");
+                            if (type.equals("message")) {
+                                System.out.println((i + 1) + ". [message] \"" + item.getString("content") + "\""
+                                        + " (from: " + item.optString("sender", "N/A") + ", at: " + item.getString("time") + ")");
+                            } else {
+                                System.out.println((i + 1) + ". [" + type + "] "
+                                        + item.getString("name") + " (ID: " + item.getString("id") + ")");
+                            }
+                        }
+
+                        System.out.print("Select a result number to interact: ");
+                        int index = Integer.parseInt(scanner.nextLine()) - 1;
+                        if (index < 0 || index >= results.length()) return;
+
+                        JSONObject selected = results.getJSONObject(index);
+                        String type = selected.getString("type");
+                        switch (type) {
+                            case "user" -> {
+                                UUID contactId = UUID.fromString(selected.getString("uuid"));  // ✅ درست
+                                addContact(contactId);
+                            }
+
+                            case "group", "channel" -> {
+                                joinGroupOrChannel(selected.getString("type"), selected.getString("uuid"));  // ✅
+                            }
+
+                            default -> System.out.println("No interaction available for type: " + type);
+                        }
+                    }
+                    break;
+
+
+
+                case "get_messages":
+                    // Optional: handle later
+                    break;
             }
 
         } catch (IOException e) {
-            System.err.println("Error while communicating with server: " + e.getMessage());
+            System.err.println("Error communicating with server: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Client error: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-
-
-
-    public void userMenu() {
+    public void userMenu(UUID internal_uuid) {
         while (true) {
             System.out.println("\nUser Menu:");
             System.out.println("1. Show chat list");
             System.out.println("2. Search");
-            System.out.println("3. Logout");
-
+            System.out.println("3. Add contact");
+            System.out.println("4. Logout");
             System.out.print("Choose an option: ");
             String choice = scanner.nextLine();
 
             switch (choice) {
-
-                case "1":
-                    showChatListAndSelect();
-                    break;
-                case "2" :
-                    search();
-                    break;
-
-                case "3":
-
+                case "1" -> showChatListAndSelect();
+                case "2" -> search();
+                case "3" -> addContact(internal_uuid);
+                case "4" -> {
                     logout();
-
                     return;
-                default:
-                    System.out.println("Invalid choice.");
+                }
+                default -> System.out.println("Invalid choice.");
             }
         }
     }
-
-
-
 
     public void showChatListAndSelect() {
         if (Session.chatList == null || Session.chatList.isEmpty()) {
@@ -199,8 +227,11 @@ public class ActionHandler {
         System.out.println("\nYour Chats:");
         for (int i = 0; i < Session.chatList.size(); i++) {
             ChatEntry entry = Session.chatList.get(i);
-            String time = entry.getLastMessageTime() == null ? "No messages yet" : entry.getLastMessageTime().toString();
-            System.out.println((i + 1) + ". [" + entry.getType() + "] " + entry.getName() + " - Last: " + time);
+            String time = (entry.getLastMessageTime() == null)
+                    ? "No messages yet"
+                    : entry.getLastMessageTime().toString();
+            System.out.println((i + 1) + ". [" + entry.getType() + "] " +
+                    entry.getName() + " - Last: " + time);
         }
 
         System.out.print("Select a chat by number: ");
@@ -215,24 +246,20 @@ public class ActionHandler {
         openChat(selected);
     }
 
-
     private void openChat(ChatEntry chat) {
         JSONObject request = new JSONObject();
         request.put("action", "get_messages");
         request.put("receiver_id", chat.getId());
         request.put("receiver_type", chat.getType());
-
         send(request);
     }
-
-
 
     public void logout() {
         if (Session.currentUser != null && Session.currentUser.has("user_id")) {
             JSONObject request = new JSONObject();
-            String userId = Session.currentUser.getString("internalUUID");
             request.put("action", "logout");
-            request.put("user_id",userId);
+            request.put("user_id", Session.currentUser.getString("internalUUID"));
+
             send(request);
             Session.currentUser = null;
             Session.chatList = null;
@@ -241,5 +268,6 @@ public class ActionHandler {
         }
     }
 
-}
 
+
+}

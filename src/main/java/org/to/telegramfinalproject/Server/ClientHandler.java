@@ -69,19 +69,11 @@ public class ClientHandler implements Runnable {
                         } else {
 
                             User user = authService.login(request.getUsername(), request.getPassword());
-
-                            if (user == null){
+                            if (user == null) {
                                 response = new ResponseModel("error", "Login failed.");
                                 break;
                             }
                             this.currentUser = user;
-
-                            if (SessionManager.contains(user.getInternal_uuid())) {
-                                response = new ResponseModel("error", "You are already logged in from another device.");
-                                break;
-
-                            }
-
 
                             SessionManager.addUser(user.getInternal_uuid(), this.socket);
                             userDatabase.updateUserStatus(user.getInternal_uuid(), "online");
@@ -126,21 +118,16 @@ public class ClientHandler implements Runnable {
 
                     case "logout": {
                         String user_Id = requestJson.optString("user_id");
-                        if (user_Id != null && !user_Id.isEmpty()) {
-                            try {
-                                UUID uuid = UUID.fromString(user_Id);
-                                userDatabase.updateUserStatus(uuid, "offline");
-                                userDatabase.updateLastSeen(uuid);
-                                SessionManager.removeUser(uuid);
-                                response = new ResponseModel("success", "Logged out.");
-                            } catch (IllegalArgumentException ex) {
-                                response = new ResponseModel("error", "Invalid UUID format for user_id.");
-                            }
+                        if (userId != null && !user_Id.isEmpty()) {
+                            UUID uuid = UUID.fromString(user_Id);
+                            userDatabase.updateUserStatus(uuid, "offline");
+                            userDatabase.updateLastSeen(uuid);
+                            SessionManager.removeUser(uuid);
+                            response = new ResponseModel("success", "Logged out.");
                         } else {
                             response = new ResponseModel("error", "Invalid user_id for logout.");
                         }
                         break;
-
                     }
 
                     case "search": {
@@ -154,6 +141,7 @@ public class ClientHandler implements Runnable {
                             JSONObject obj = new JSONObject();
                             obj.put("type", "user");
                             obj.put("id", u.getUser_id());
+                            obj.put("uuid", u.getInternal_uuid().toString());  // ✅ اضافه شود
                             obj.put("name", u.getProfile_name());
                             results.add(obj);
                         }
@@ -161,7 +149,8 @@ public class ClientHandler implements Runnable {
                         for (Group g : GroupDatabase.searchGroups(keyword)) {
                             JSONObject obj = new JSONObject();
                             obj.put("type", "group");
-                            obj.put("id", g.getGroup_id());
+                            obj.put("id", g.getGroup_id());              // قابل نمایش
+                            obj.put("uuid", g.getInternal_uuid().toString());  // برای عملیات
                             obj.put("name", g.getGroup_name());
                             results.add(obj);
                         }
@@ -169,7 +158,8 @@ public class ClientHandler implements Runnable {
                         for (Channel c : ChannelDatabase.searchChannels(keyword)) {
                             JSONObject obj = new JSONObject();
                             obj.put("type", "channel");
-                            obj.put("id", c.getChannel_id());
+                            obj.put("id", c.getChannel_id());               // قابل نمایش
+                            obj.put("uuid", c.getInternal_uuid().toString());   // برای عملیات
                             obj.put("name", c.getChannel_name());
                             results.add(obj);
                         }
@@ -224,6 +214,40 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "add_contact": {
+                        UUID userUUID = new userDatabase().findByUserId(requestJson.getString("user_id")).getInternal_uuid();
+                        UUID contactUUID = UUID.fromString(requestJson.getString("contact_id"));
+
+                        boolean success = ContactDatabase.addContact(userUUID, contactUUID);
+                        response = success
+                                ? new ResponseModel("success", "Contact added successfully.")
+                                : new ResponseModel("error", "Failed to add contact. Maybe already exists.");
+                        break;
+                    }
+
+                    case "join_group": {
+                        UUID userUUID = new userDatabase().findByUserId(requestJson.getString("user_id")).getInternal_uuid();
+                        UUID groupUUID = GroupDatabase.findInternalUUIDByGroupId(requestJson.getString("id"));
+
+                        boolean joined = GroupDatabase.addMemberToGroup(userUUID, groupUUID);
+                        response = joined
+                                ? new ResponseModel("success", "Joined group.")
+                                : new ResponseModel("error", "Failed to join group.");
+                        break;
+                    }
+
+                    case "join_channel": {
+                        UUID userUUID = new userDatabase().findByUserId(requestJson.getString("user_id")).getInternal_uuid();
+                        UUID channelUUID = ChannelDatabase.findInternalUUIDByChannelId(requestJson.getString("id"));
+
+                        boolean joined = ChannelDatabase.addSubscriberToChannel(userUUID, channelUUID);
+                        response = joined
+                                ? new ResponseModel("success", "Joined channel.")
+                                : new ResponseModel("error", "Failed to join channel.");
+                        break;
+                    }
+
+
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);
                 }
@@ -236,7 +260,7 @@ public class ClientHandler implements Runnable {
             }
         } catch (IOException e) {
             System.out.println("Connection with client lost.");
-             userId = (currentUser != null) ? currentUser.getInternal_uuid() : SessionManager.getUserIdBySocket(this.socket);
+            userId = (currentUser != null) ? currentUser.getInternal_uuid() : SessionManager.getUserIdBySocket(this.socket);
             if (userId != null) {
                 userDatabase.updateUserStatus(userId, "offline");
                 userDatabase.updateLastSeen(userId);

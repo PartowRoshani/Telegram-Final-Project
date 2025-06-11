@@ -8,10 +8,11 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Scanner;
+import java.util.UUID;
 
 public class TelegramClient {
     private static final String SERVER_HOST = "localhost";
-    private static final int SERVER_PORT = 12345;
+    private static final int SERVER_PORT = 8000;
     private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
@@ -51,7 +52,11 @@ public class TelegramClient {
                     this.handler.loginHandler();
                     if (Session.currentUser != null) {
                         System.out.println("Login successful.");
-                        this.handler.userMenu();
+                        UUID internalId = UUID.fromString(Session.currentUser.getString("internalUUID"));
+                        //Thread listenerThread = new Thread(new IncomingMessageListener(in));
+                        //listenerThread.setDaemon(true);
+                       //listenerThread.start();
+                        this.handler.userMenu(internalId);
 
                     } else {
                         System.out.println("Login failed.");

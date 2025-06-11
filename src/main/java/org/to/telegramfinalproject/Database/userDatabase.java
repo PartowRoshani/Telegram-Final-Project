@@ -228,7 +228,6 @@ public class userDatabase {
     }
 
 
-
     public static User findByInternalUUID(UUID internalUuid) {
         String sql = "SELECT * FROM users WHERE internal_uuid = ?";
 

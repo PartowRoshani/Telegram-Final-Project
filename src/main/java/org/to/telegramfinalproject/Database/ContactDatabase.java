@@ -16,19 +16,24 @@ public class ContactDatabase {
         return ConnectionDb.connect();
     }
 
+    public static boolean addContact(UUID userId, UUID contactId) {
+        String sql = """
+        INSERT INTO contacts (user_id, contact_id)
+        VALUES (?, ?)
+        ON CONFLICT DO NOTHING
+    """;
 
-    public boolean addContact(UUID user_id, UUID contact_id) {
-        String sql = "INSERT INTO contacts (user_id, contact_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
-        try (Connection connection = getConnection()) {
-            PreparedStatement stmt = connection.prepareStatement(sql);
-            stmt.setObject(1, user_id);
-            stmt.setObject(2,contact_id);
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            stmt.setObject(2, contactId);
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
     }
+
 
 
     public boolean removeContact(UUID user_id, UUID contact_id)  {
@@ -94,7 +99,7 @@ public class ContactDatabase {
     }
 
 
-    public boolean existsContact(UUID user_id, UUID contact_id) {
+    public static boolean existsContact(UUID user_id, UUID contact_id) {
         String sql = "SELECT 1 FROM contacts WHERE user_id = ? AND contact_id = ? LIMIT 1"; // stop searching when find the first item in DB(LIMIT 1)
         try (Connection connection = getConnection()) {
             PreparedStatement stmt = connection.prepareStatement(sql);
@@ -153,6 +158,8 @@ public class ContactDatabase {
         }
         return results;
     }
+
+
 
 
 }

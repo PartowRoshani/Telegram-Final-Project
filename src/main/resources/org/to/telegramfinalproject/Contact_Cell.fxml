@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<HBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.to.telegramfinalproject.ContactCell"
+      spacing="10.0" alignment="CENTER_LEFT"
+      prefHeight="60.0" style="-fx-padding: 10;">
+
+    <ImageView fx:id="profileImage" fitHeight="40.0" fitWidth="40.0" preserveRatio="true">
+        <image>
+            <Image url="@/Icons/default_user.png" />
+        </image>
+    </ImageView>
+
+    <VBox spacing="4.0">
+        <Label fx:id="nameLabel" text="profile_name"
+               style="-fx-font-size: 14px; -fx-font-weight: bold;" />
+        <Label fx:id="statusLabel" text="● Online"
+               style="-fx-font-size: 12px; -fx-text-fill: green;" />
+    </VBox>
+</HBox>
