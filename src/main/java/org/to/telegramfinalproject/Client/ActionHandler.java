@@ -85,13 +85,14 @@ public class ActionHandler {
     }
 
 
-    private void joinGroupOrChannel(String type, String id) {
+    private void joinGroupOrChannel(String type, String uuid) {
         JSONObject req = new JSONObject();
         req.put("action", "join_" + type);
-        req.put("user_id", Session.currentUser.getString("user_id"));
-        req.put("id", id);
+        req.put("user_id", Session.currentUser.getString("internalUUID")); // ✅ internal_uuid لازم است
+        req.put("id", uuid);  // ✅ این هم internal_uuid است
         send(req);
     }
+
 
 
     private ChatEntry fetchChatInfo(String receiverId, String receiverType) {
@@ -312,11 +313,12 @@ public class ActionHandler {
                                 } else {
                                     joinGroupOrChannel(type, uuid);
 
-                                    ChatEntry newChat = fetchChatInfo(uuid, type);
+                                    ChatEntry newChat = fetchChatInfo(id, type);
                                     refreshChatList();
                                     openChat(newChat);
                                 }
                             }
+
 
                             case "message" -> {
                                 String receiverId = selected.getString("receiver_id");

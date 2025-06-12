@@ -252,4 +252,31 @@ public class ChannelDatabase {
         }
     }
 
+
+    public static Channel findByInternalUUID(UUID internalUUID) {
+        String sql = "SELECT * FROM channels WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, internalUUID);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                Channel channel = new Channel();
+                channel.setInternal_uuid(UUID.fromString(rs.getString("internal_uuid")));
+                channel.setChannel_id(rs.getString("channel_id"));
+                channel.setChannel_name(rs.getString("channel_name"));
+                channel.setImage_url(rs.getString("image_url"));
+                channel.setCreator_id(UUID.fromString(rs.getString("creator_id")));
+                channel.setDescription(rs.getString("description"));
+                channel.setCreated_at(rs.getTimestamp("created_at").toLocalDateTime());
+                return channel;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+
 }

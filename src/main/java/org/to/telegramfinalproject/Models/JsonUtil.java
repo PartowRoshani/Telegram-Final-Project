@@ -109,9 +109,13 @@ public class JsonUtil {
 
 
 
-
     public static JSONArray groupMemberListToJson(List<GroupMember> members) {
         JSONArray array = new JSONArray();
+
+        if (members == null) {
+            return array;
+        }
+
         for (GroupMember m : members) {
             JSONObject obj = new JSONObject();
             obj.put("group_id", m.getGroup_id().toString());
@@ -120,20 +124,29 @@ public class JsonUtil {
             obj.put("role", m.getRole());
             array.put(obj);
         }
+
         return array;
     }
 
-    public static JSONArray channelSubscribeToJson(List<ChannelSubscribe> subscribes){
+
+    public static JSONArray channelSubscribeToJson(List<ChannelSubscribe> subscribes) {
         JSONArray array = new JSONArray();
-        for(ChannelSubscribe s :subscribes ){
+
+        if (subscribes == null) {
+            return array;
+        }
+
+        for (ChannelSubscribe s : subscribes) {
             JSONObject obj = new JSONObject();
-            obj.put("channel_id",s.getChannel_id().toString());
+            obj.put("channel_id", s.getChannel_id().toString());
             obj.put("user_id", s.getUser_id().toString());
             obj.put("Subscribed_at", s.getJoin_at().toString());
+            array.put(obj);
         }
 
         return array;
     }
+
 
 
     public static JSONArray chatListToJson(List<ChatEntry> chatList) {

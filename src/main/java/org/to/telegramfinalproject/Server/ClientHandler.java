@@ -228,10 +228,15 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "join_group": {
-                        UUID userUUID = new userDatabase().findByUserId(requestJson.getString("user_id")).getInternal_uuid();
-                        UUID groupUUID = GroupDatabase.findInternalUUIDByGroupId(requestJson.getString("id"));
+                        UUID userUUID = UUID.fromString(requestJson.getString("user_id")); // مستقیم internalUUID دریافت می‌کنیم
+                        Group group = GroupDatabase.findByInternalUUID(UUID.fromString(requestJson.getString("id")));
+                        if (group == null) {
+                            response = new ResponseModel("error", "Group not found.");
+                            break;
+                        }
 
-                        boolean joined = GroupDatabase.addMemberToGroup(userUUID, groupUUID);
+
+                        boolean joined = GroupDatabase.addMemberToGroup(userUUID, group.getInternal_uuid());
                         response = joined
                                 ? new ResponseModel("success", "Joined group.")
                                 : new ResponseModel("error", "Failed to join group.");
@@ -239,10 +244,15 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "join_channel": {
-                        UUID userUUID = new userDatabase().findByUserId(requestJson.getString("user_id")).getInternal_uuid();
-                        UUID channelUUID = ChannelDatabase.findInternalUUIDByChannelId(requestJson.getString("id"));
+                        UUID userUUID = UUID.fromString(requestJson.getString("user_id")); // مستقیم internalUUID دریافت می‌کنیم
+                        Channel channel = ChannelDatabase.findByInternalUUID(UUID.fromString(requestJson.getString("id")));
+                        if (channel == null) {
+                            response = new ResponseModel("error", "Channel not found.");
+                            break;
+                        }
 
-                        boolean joined = ChannelDatabase.addSubscriberToChannel(userUUID, channelUUID);
+
+                        boolean joined = ChannelDatabase.addSubscriberToChannel(userUUID, channel.getInternal_uuid());
                         response = joined
                                 ? new ResponseModel("success", "Joined channel.")
                                 : new ResponseModel("error", "Failed to join channel.");

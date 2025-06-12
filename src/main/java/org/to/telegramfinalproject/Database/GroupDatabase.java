@@ -256,4 +256,32 @@ public class GroupDatabase {
         }
     }
 
+
+
+    public static Group findByInternalUUID(UUID internalUUID) {
+        String sql = "SELECT * FROM groups WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, internalUUID);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                Group group = new Group();
+                group.setInternal_uuid(UUID.fromString(rs.getString("internal_uuid")));
+                group.setGroup_id(rs.getString("group_id"));
+                group.setGroup_name(rs.getString("group_name"));
+                group.setImage_url(rs.getString("image_url"));
+                group.setCreator_id(UUID.fromString(rs.getString("creator_id")));
+                group.setDescription(rs.getString("description"));
+                group.setCreated_at(rs.getTimestamp("created_at").toLocalDateTime());
+                return group;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+
 }
