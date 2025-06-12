@@ -154,4 +154,16 @@ public class JsonUtil {
     }
 
 
+    public static JSONObject chatToJson(ChatEntry chat) {
+        JSONObject obj = new JSONObject();
+        obj.put("id", chat.getId());
+        obj.put("name", chat.getName());
+        obj.put("image_url", chat.getImageUrl() != null ? chat.getImageUrl() : JSONObject.NULL);
+        obj.put("type", chat.getType());
+        obj.put("last_message_time", chat.getLastMessageTime() != null ? chat.getLastMessageTime().toString() : JSONObject.NULL);
+        return obj;
+    }
+
+
+
 }

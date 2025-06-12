@@ -94,6 +94,117 @@ public class ActionHandler {
     }
 
 
+    private ChatEntry fetchChatInfo(String receiverId, String receiverType) {
+        JSONObject req = new JSONObject();
+        req.put("action", "get_chat_info");
+        req.put("receiver_id", receiverId);
+        req.put("receiver_type", receiverType);
+        out.println(req.toString());
+
+        try {
+            String responseText = in.readLine();
+            if (responseText != null) {
+                JSONObject response = new JSONObject(responseText);
+                if (response.getString("status").equals("success")) {
+                    JSONObject data = response.getJSONObject("data");
+                    return new ChatEntry(
+                            receiverId,
+                            data.getString("name"),
+                            data.optString("image_url", ""),
+                            receiverType,
+                            null
+                    );
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching chat info: " + e.getMessage());
+        }
+
+        return new ChatEntry(receiverId, "[Unknown " + receiverType + "]", "", receiverType, null);
+    }
+
+
+    private void refreshChatList() {
+        JSONObject req = new JSONObject();
+        req.put("action", "get_chat_list");
+        req.put("user_id", Session.currentUser.getString("user_id"));
+        out.println(req.toString());
+
+        try {
+            String responseText = in.readLine();
+            if (responseText != null) {
+                JSONObject response = new JSONObject(responseText);
+                if (response.getString("status").equals("success")) {
+                    JSONArray chatListJson = response.getJSONObject("data").getJSONArray("chat_list");
+                    List<ChatEntry> chatList = new ArrayList<>();
+
+                    for (Object obj : chatListJson) {
+                        JSONObject chat = (JSONObject) obj;
+                        ChatEntry entry = new ChatEntry(
+                                chat.getString("id"),
+                                chat.getString("name"),
+                                chat.optString("image_url", ""),
+                                chat.getString("type"),
+                                chat.isNull("last_message_time")
+                                        ? null
+                                        : LocalDateTime.parse(chat.getString("last_message_time"))
+                        );
+                        chatList.add(entry);
+                    }
+
+                    Session.chatList = chatList;
+                    System.out.println("✅ Chat list updated.");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Failed to refresh chat list: " + e.getMessage());
+        }
+    }
+
+
+    public void createGroup() {
+        System.out.print("Enter group ID: ");
+        String groupId = scanner.nextLine();
+        System.out.print("Enter group name: ");
+        String groupName = scanner.nextLine();
+        System.out.print("Enter image URL (optional): ");
+        String imageUrl = scanner.nextLine();
+
+        JSONObject req = new JSONObject();
+        req.put("action", "create_group");
+        req.put("user_id", Session.getUserUUID());
+        req.put("group_id", groupId);                               // ID قابل نمایش
+        req.put("group_name", groupName);
+        req.put("image_url", imageUrl.isBlank() ? JSONObject.NULL : imageUrl);
+
+        send(req);
+    }
+
+
+
+    public void createChannel() {
+        System.out.print("Enter channel ID: ");
+        String channelId = scanner.nextLine();
+        System.out.print("Enter channel name: ");
+        String channelName = scanner.nextLine();
+        System.out.print("Enter image URL (optional): ");
+        String imageUrl = scanner.nextLine();
+
+        JSONObject req = new JSONObject();
+        req.put("action", "create_channel");
+        req.put("user_id", Session.getUserUUID());
+        req.put("channel_id", channelId);
+        req.put("channel_name", channelName);
+        req.put("image_url", imageUrl.isBlank() ? JSONObject.NULL : imageUrl);
+
+        send(req);
+    }
+
+
+
+
+
+
     private void send(JSONObject request) {
         try {
             if (!request.has("action") || request.isNull("action")) {
@@ -129,7 +240,7 @@ public class ActionHandler {
                         ChatEntry entry = new ChatEntry(
                                 chat.getString("id"),
                                 chat.getString("name"),
-                                chat.getString("image_url"),
+                                chat.optString("image_url", ""),
                                 chat.getString("type"),
                                 chat.isNull("last_message_time") ? null :
                                         LocalDateTime.parse(chat.getString("last_message_time"))
@@ -165,20 +276,84 @@ public class ActionHandler {
 
                         JSONObject selected = results.getJSONObject(index);
                         String type = selected.getString("type");
+
                         switch (type) {
                             case "user" -> {
-                                UUID contactId = UUID.fromString(selected.getString("uuid"));  // ✅ درست
-                                addContact(contactId);
+                                String userId = selected.getString("id");
+                                String uuid = selected.getString("uuid");
+
+                                ChatEntry existing = Session.chatList.stream()
+                                        .filter(c -> c.getId().equals(userId) && c.getType().equals("private"))
+                                        .findFirst()
+                                        .orElse(null);
+
+                                if (existing != null) {
+                                    openChat(existing);
+                                } else {
+                                    UUID contactId = UUID.fromString(uuid);
+                                    addContact(contactId);
+                                    ChatEntry newChat = fetchChatInfo(contactId.toString(), "private");
+                                    refreshChatList();
+                                    openChat(newChat);
+                                }
                             }
 
                             case "group", "channel" -> {
-                                joinGroupOrChannel(selected.getString("type"), selected.getString("uuid"));  // ✅
+                                String id = selected.getString("id");
+                                String uuid = selected.getString("uuid");
+
+                                ChatEntry existing = Session.chatList.stream()
+                                        .filter(c -> c.getId().equals(id) && c.getType().equals(type))
+                                        .findFirst()
+                                        .orElse(null);
+
+                                if (existing != null) {
+                                    openChat(existing);
+                                } else {
+                                    joinGroupOrChannel(type, uuid);
+
+                                    ChatEntry newChat = fetchChatInfo(uuid, type);
+                                    refreshChatList();
+                                    openChat(newChat);
+                                }
+                            }
+
+                            case "message" -> {
+                                String receiverId = selected.getString("receiver_id");
+                                String receiverType = selected.getString("receiver_type");
+
+                                ChatEntry chat = Session.chatList.stream()
+                                        .filter(c -> c.getId().equals(receiverId) && c.getType().equals(receiverType))
+                                        .findFirst()
+                                        .orElseGet(() -> fetchChatInfo(receiverId, receiverType));
+
+                                openChat(chat);
                             }
 
                             default -> System.out.println("No interaction available for type: " + type);
                         }
+
                     }
                     break;
+
+
+                case "create_group":
+                case "create_channel":
+                    if (status.equals("success") && response.has("data")) {
+                        JSONObject chatJson = response.getJSONObject("data");
+                        ChatEntry chat = new ChatEntry(
+                                chatJson.getString("id"),
+                                chatJson.getString("name"),
+                                chatJson.optString("image_url", ""),
+                                chatJson.getString("type"),
+                                null
+                        );
+                        refreshChatList();
+                        System.out.println("✅ Created and opening chat...");
+                        openChat(chat);
+                    }
+                    break;
+
 
 
 
@@ -200,16 +375,18 @@ public class ActionHandler {
             System.out.println("\nUser Menu:");
             System.out.println("1. Show chat list");
             System.out.println("2. Search");
-            System.out.println("3. Add contact");
-            System.out.println("4. Logout");
+            System.out.println("3. Create Channel");
+            System.out.println("4. Create group");
+            System.out.println("5. Logout");
             System.out.print("Choose an option: ");
             String choice = scanner.nextLine();
 
             switch (choice) {
                 case "1" -> showChatListAndSelect();
                 case "2" -> search();
-                case "3" -> addContact(internal_uuid);
-                case "4" -> {
+                case "3" -> createChannel();
+                case "4" -> createGroup();
+                case "5" -> {
                     logout();
                     return;
                 }

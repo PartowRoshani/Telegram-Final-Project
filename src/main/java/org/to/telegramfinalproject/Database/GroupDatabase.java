@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -180,6 +181,78 @@ public class GroupDatabase {
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
+        }
+    }
+    public static boolean createGroup(Group group, UUID creatorId) {
+        String sql = """
+            INSERT INTO groups (
+                internal_uuid, group_id, group_name,
+                creator_id, image_url, description, created_at
+            )
+            VALUES (gen_random_uuid(), ?, ?, ?, ?, ?, ?)
+            RETURNING internal_uuid
+        """;
+
+        String memberSql = """
+            INSERT INTO group_members (group_id, user_id) VALUES (?, ?)
+        """;
+
+        try (Connection conn = ConnectionDb.connect()) {
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, group.getGroup_id());
+            stmt.setString(2, group.getGroup_name());
+            stmt.setObject(3, creatorId);
+            stmt.setString(4, group.getImage_url());
+            stmt.setString(5, group.getDescription());
+            stmt.setObject(6, group.getCreated_at());
+
+            ResultSet rs = stmt.executeQuery();
+            if (!rs.next()) return false;
+
+            UUID internalUUID = (UUID) rs.getObject("internal_uuid");
+            group.setInternal_uuid(internalUUID);
+
+            PreparedStatement memberStmt = conn.prepareStatement(memberSql);
+            memberStmt.setObject(1, internalUUID);
+            memberStmt.setObject(2, creatorId);
+            memberStmt.executeUpdate();
+
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static boolean insertGroup(UUID internalUUID, String groupId, String groupName, UUID creatorId, String imageUrl, LocalDateTime createdAt) {
+        String sql = "INSERT INTO groups (internal_uuid, group_id, group_name, creator_id, image_url, created_at) VALUES (?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, internalUUID);
+            stmt.setString(2, groupId);
+            stmt.setString(3, groupName);
+            stmt.setObject(4, creatorId);
+            stmt.setString(5, imageUrl);
+            stmt.setObject(6, createdAt);
+            stmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static void addMember(UUID groupId, UUID userId, String role) {
+        String sql = "INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?) ON CONFLICT DO NOTHING";
+
+        try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, groupId);
+            stmt.setObject(2, userId);
+            stmt.setString(3, role);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 

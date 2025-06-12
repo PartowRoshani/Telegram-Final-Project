@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -139,16 +140,7 @@ public class ChannelDatabase {
         return false;
     }
 
-    public static void addSubscriber(UUID channelInternalId, UUID userId) {
-        String sql = "INSERT INTO channel_subscribe (channel_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
-        try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, channelInternalId);
-            stmt.setObject(2, userId);
-            stmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
+
 
 
     public static UUID findInternalUUIDByChannelId(String channelId) {
@@ -185,5 +177,79 @@ public class ChannelDatabase {
         }
     }
 
+
+    public static boolean createChannel(Channel channel, UUID creatorId) {
+        String sql = """
+            INSERT INTO channels (
+                internal_uuid, channel_id, channel_name,
+                creator_id, image_url, description, created_at
+            )
+            VALUES (gen_random_uuid(), ?, ?, ?, ?, ?, ?)
+            RETURNING internal_uuid
+        """;
+
+        String subscriberSql = """
+            INSERT INTO channel_subscribers (channel_id, user_id) VALUES (?, ?)
+        """;
+
+        try (Connection conn = ConnectionDb.connect()) {
+            // مرحله اول: ساخت کانال
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, channel.getChannel_id());
+            stmt.setString(2, channel.getChannel_name());
+            stmt.setObject(3, creatorId);
+            stmt.setString(4, channel.getImage_url());
+            stmt.setString(5, channel.getDescription());
+            stmt.setObject(6, channel.getCreated_at());
+
+            ResultSet rs = stmt.executeQuery();
+            if (!rs.next()) return false;
+
+            UUID internalUUID = (UUID) rs.getObject("internal_uuid");
+            channel.setInternal_uuid(internalUUID); // اختیاری برای پیگیری بعدی
+
+            // مرحله دوم: افزودن کاربر به لیست سابسکرایبرها
+            PreparedStatement subStmt = conn.prepareStatement(subscriberSql);
+            subStmt.setObject(1, internalUUID);
+            subStmt.setObject(2, creatorId);
+            subStmt.executeUpdate();
+
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static boolean insertChannel(UUID internalUUID, String channelId, String channelName, UUID creatorId, String imageUrl, LocalDateTime createdAt) {
+        String sql = "INSERT INTO channels (internal_uuid, channel_id, channel_name, creator_id, image_url, created_at) VALUES (?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, internalUUID);
+            stmt.setString(2, channelId);
+            stmt.setString(3, channelName);
+            stmt.setObject(4, creatorId);
+            stmt.setString(5, imageUrl);
+            stmt.setObject(6, createdAt);
+            stmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static void addSubscriber(UUID channelId, UUID userId) {
+        String sql = "INSERT INTO channel_subscribers (channel_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
+
+        try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, channelId);
+            stmt.setObject(2, userId);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
 }

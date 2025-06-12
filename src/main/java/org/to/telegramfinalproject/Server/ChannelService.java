@@ -1,0 +1,23 @@
+package org.to.telegramfinalproject.Server;
+
+import org.to.telegramfinalproject.Models.Channel;
+import org.to.telegramfinalproject.Database.ChannelDatabase;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public class ChannelService {
+    public static boolean createChannel(String channelId, String channelName, UUID creatorUUID, String imageUrl) {
+        UUID internalUUID = UUID.randomUUID();
+        LocalDateTime now = LocalDateTime.now();
+
+        boolean inserted = ChannelDatabase.insertChannel(internalUUID, channelId, channelName, creatorUUID, imageUrl, now);
+
+        if (inserted) {
+            ChannelDatabase.addSubscriber(internalUUID, creatorUUID); // اضافه کردن سازنده
+            return true;
+        }
+        return false;
+    }
+
+}

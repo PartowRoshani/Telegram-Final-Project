@@ -141,7 +141,7 @@ public class ClientHandler implements Runnable {
                             JSONObject obj = new JSONObject();
                             obj.put("type", "user");
                             obj.put("id", u.getUser_id());
-                            obj.put("uuid", u.getInternal_uuid().toString());  // ✅ اضافه شود
+                            obj.put("uuid", u.getInternal_uuid().toString());
                             obj.put("name", u.getProfile_name());
                             results.add(obj);
                         }
@@ -149,8 +149,8 @@ public class ClientHandler implements Runnable {
                         for (Group g : GroupDatabase.searchGroups(keyword)) {
                             JSONObject obj = new JSONObject();
                             obj.put("type", "group");
-                            obj.put("id", g.getGroup_id());              // قابل نمایش
-                            obj.put("uuid", g.getInternal_uuid().toString());  // برای عملیات
+                            obj.put("id", g.getGroup_id());
+                            obj.put("uuid", g.getInternal_uuid().toString());
                             obj.put("name", g.getGroup_name());
                             results.add(obj);
                         }
@@ -158,8 +158,8 @@ public class ClientHandler implements Runnable {
                         for (Channel c : ChannelDatabase.searchChannels(keyword)) {
                             JSONObject obj = new JSONObject();
                             obj.put("type", "channel");
-                            obj.put("id", c.getChannel_id());               // قابل نمایش
-                            obj.put("uuid", c.getInternal_uuid().toString());   // برای عملیات
+                            obj.put("id", c.getChannel_id());
+                            obj.put("uuid", c.getInternal_uuid().toString());
                             obj.put("name", c.getChannel_name());
                             results.add(obj);
                         }
@@ -171,6 +171,8 @@ public class ClientHandler implements Runnable {
                             obj.put("content", m.getContent());
                             obj.put("sender", m.getSender_id().toString());
                             obj.put("time", m.getSend_at().toString());
+                            obj.put("receiver_id", m.getReceiver_id().toString());
+                            obj.put("receiver_type", m.getReceiver_type());
                             results.add(obj);
                         }
 
@@ -246,6 +248,146 @@ public class ClientHandler implements Runnable {
                                 : new ResponseModel("error", "Failed to join channel.");
                         break;
                     }
+
+
+                    case "get_chat_info": {
+                        String id = requestJson.getString("receiver_id");
+                        String type = requestJson.getString("receiver_type");
+                        JSONObject data = new JSONObject();
+
+                        switch (type) {
+                            case "private" -> {
+                                User u = new userDatabase().findByUserId(id);
+                                if (u != null) {
+                                    data.put("name", u.getProfile_name());
+                                    data.put("image_url", u.getImage_url());
+                                } else {
+                                    response = new ResponseModel("error", "User not found.");
+                                    break;
+                                }
+
+                            }
+                            case "group" -> {
+                                Group g = GroupDatabase.findByGroupId(id);
+                                if (g != null) {
+                                    data.put("name", g.getGroup_name());
+                                    data.put("image_url", g.getImage_url());
+                                } else {
+                                    response = new ResponseModel("error", "Group not found.");
+                                    break;
+                                }
+                            }
+                            case "channel" -> {
+                                Channel c = ChannelDatabase.findByChannelId(id);
+                                if (c != null) {
+                                    data.put("name", c.getChannel_name());
+                                    data.put("image_url", c.getImage_url());
+                                } else {
+                                    response = new ResponseModel("error", "Channel not found.");
+                                    break;
+                                }
+                            }
+
+                            default -> {
+                                response = new ResponseModel("error", "Unknown type.");
+                                break;
+                            }
+                        }
+
+                        if (data.has("name")) {
+                            response = new ResponseModel("success", "Chat info fetched", data);
+                        }
+
+                        break;
+                    }
+
+
+                    case "get_chat_list": {
+                        String userIdStr = requestJson.getString("user_id");
+                        User user = new userDatabase().findByUserId(userIdStr);
+
+                        List<Contact> contacts = ContactDatabase.getContacts(user.getInternal_uuid());
+                        List<Group> groups = GroupDatabase.getGroupsByUser(user.getInternal_uuid());
+                        List<Channel> channels = ChannelDatabase.getChannelsByUser(user.getInternal_uuid());
+
+                        List<ChatEntry> chatList = new ArrayList<>();
+
+                        for (Contact contact : contacts) {
+                            User target = userDatabase.findByInternalUUID(contact.getContact_id());
+                            if (target == null) continue;
+                            LocalDateTime last = MessageDatabase.getLastMessageTimeBetween(user.getInternal_uuid(), target.getInternal_uuid(), "private");
+
+                            chatList.add(new ChatEntry(target.getUser_id(), target.getProfile_name(), target.getImage_url(), "private", last));
+                        }
+
+                        for (Group group : groups) {
+                            LocalDateTime last = MessageDatabase.getLastMessageTime(group.getInternal_uuid(), "group");
+                            chatList.add(new ChatEntry(group.getGroup_id(), group.getGroup_name(), group.getImage_url(), "group", last));
+                        }
+
+                        for (Channel channel : channels) {
+                            LocalDateTime last = MessageDatabase.getLastMessageTime(channel.getInternal_uuid(), "channel");
+                            chatList.add(new ChatEntry(channel.getChannel_id(), channel.getChannel_name(), channel.getImage_url(), "channel", last));
+                        }
+
+                        chatList.sort((a, b) -> {
+                            if (a.getLastMessageTime() == null) return 1;
+                            if (b.getLastMessageTime() == null) return -1;
+                            return b.getLastMessageTime().compareTo(a.getLastMessageTime());
+                        });
+
+                        JSONObject data = new JSONObject();
+                        data.put("chat_list", JsonUtil.chatListToJson(chatList));
+
+                        response = new ResponseModel("success", "Chat list updated.", data);
+                        break;
+                    }
+                    case "create_group": {
+                        try {
+                            String groupId = requestJson.getString("group_id");           // ID نمایشی
+                            String groupName = requestJson.getString("group_name");
+                            String userIdStr = requestJson.getString("user_id");
+                            String imageUrl = requestJson.optString("image_url", null);
+
+                            UUID creatorUUID = UUID.fromString(userIdStr);
+
+                            boolean created = GroupService.createGroup(groupId, groupName, creatorUUID, imageUrl);
+
+                            response = created
+                                    ? new ResponseModel("success", "Group created.")
+                                    : new ResponseModel("error", "Group creation failed.");
+
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error creating group: " + e.getMessage());
+                        }
+                        break;
+                    }
+
+                    case "create_channel": {
+                        try {
+                            String channelId = requestJson.getString("channel_id");
+                            String channelName = requestJson.getString("channel_name");
+                            String userIdStr = requestJson.getString("user_id");
+                            String imageUrl = requestJson.optString("image_url", null);
+
+                            UUID creatorUUID = UUID.fromString(userIdStr);
+
+                            boolean created = ChannelService.createChannel(channelId, channelName, creatorUUID, imageUrl);
+
+                            response = created
+                                    ? new ResponseModel("success", "Channel created.")
+                                    : new ResponseModel("error", "Channel creation failed.");
+
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error creating channel: " + e.getMessage());
+                        }
+                        break;
+                    }
+
+
+
+
+
 
 
                     default:
