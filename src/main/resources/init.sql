@@ -55,13 +55,16 @@ CREATE TABLE IF NOT EXISTS groups (
     description TEXT
 );
 
-CREATE TABLE IF NOT EXISTS group_members (
-    group_id UUID REFERENCES groups(internal_uuid) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(internal_uuid),
+CREATE TABLE group_members (
+    group_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    role TEXT CHECK (role IN ('owner', 'admin', 'member')) DEFAULT 'member',
+    permissions JSONB DEFAULT '{}'::jsonb, -- مخصوص adminها
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    role VARCHAR(20) DEFAULT 'member',                  -- member/admin/owner
     PRIMARY KEY (group_id, user_id)
-    );
+);
+
+
 CREATE TABLE IF NOT EXISTS channels (
     channel_id VARCHAR(70) UNIQUE,
     internal_uuid UUID PRIMARY KEY,,
@@ -73,12 +76,16 @@ CREATE TABLE IF NOT EXISTS channels (
     
     );
 
-CREATE TABLE IF NOT EXISTS channel_subscribers (
-     channel_id UUID REFERENCES channels(internal_uuid) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(internal_uuid),
+
+CREATE TABLE channel_subscribers (
+    channel_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    role TEXT CHECK (role IN ('owner', 'admin', 'subscriber')) DEFAULT 'subscriber',
+    permissions JSONB DEFAULT '{}'::jsonb,
     subscribed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (channel_id, user_id)
-    );
+);
+
 
 --(Bouns)
 CREATE TABLE IF NOT EXISTS channel_admins (
