@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<AnchorPane xmlns:fx="http://javafx.com/fxml" fx:controller="org.to.telegramfinalproject.UI.IntroController">
+    <VBox spacing="20" alignment="CENTER" AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">
+        <StackPane fx:id="imagePane" prefHeight="300" prefWidth="300"/>
+
+        <Label fx:id="caption" style="-fx-font-size: 14px; -fx-text-alignment: center;" wrapText="true" text=""/>
+
+        <HBox fx:id="dotContainer" spacing="8" alignment="CENTER"/>
+
+        <Button fx:id="startButton" text="Start messaging" onAction="#handleStartMessaging"
+                style="-fx-background-color: #2AABEE; -fx-text-fill: white; -fx-font-weight: bold;"/>
+    </VBox>
+</AnchorPane>
