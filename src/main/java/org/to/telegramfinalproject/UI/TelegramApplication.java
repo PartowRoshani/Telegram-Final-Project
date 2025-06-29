@@ -13,7 +13,7 @@ public class TelegramApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
         FXMLLoader fxmlLoader = new FXMLLoader(TelegramApplication.class.getResource("/org/to/telegramfinalproject/Intro.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 350, 500);
+        Scene scene = new Scene(fxmlLoader.load(), 1480, 820);
         stage.setTitle("Telegram");
         stage.setScene(scene);
         stage.show();
