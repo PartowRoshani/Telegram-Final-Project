@@ -1,5 +1,7 @@
 package org.to.telegramfinalproject.Database;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.Group;
 
 import java.sql.Connection;
@@ -281,6 +283,225 @@ public class GroupDatabase {
             e.printStackTrace();
         }
         return null;
+    }
+
+
+    public static boolean addOwnerToGroup(UUID groupId, UUID userId) {
+        String sql = "INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'owner')";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, groupId);
+            stmt.setObject(2, userId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static boolean addAdminToGroup(UUID groupId, UUID userId, JSONObject permissions) {
+        String sql = """
+        UPDATE group_members
+        SET role = 'admin',
+            permissions = ?::jsonb
+        WHERE group_id = ? AND user_id = ? AND role = 'member'
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, permissions.toString());
+            stmt.setObject(2, groupId);
+            stmt.setObject(3, userId);
+
+            return stmt.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+
+    public static String getGroupRole(UUID groupId, UUID userId) {
+        String sql = "SELECT role FROM group_members WHERE group_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, groupId);
+            stmt.setObject(2, userId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("role");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "member"; // پیش‌فرض
+    }
+
+
+
+
+
+    public static boolean updateGroupAdminPermissions(UUID groupId, UUID userId, JSONObject permissions) {
+        String sql = """
+        UPDATE group_members
+        SET permissions = ?::jsonb
+        WHERE group_id = ? AND user_id = ? AND role = 'admin'
+    """;
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, permissions.toString());
+            stmt.setObject(2, groupId);
+            stmt.setObject(3, userId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static List<JSONObject> getGroupAdminsAndOwner(UUID groupId) {
+        String sql = "SELECT user_id, role, permissions FROM group_members WHERE group_id = ? AND role IN ('owner', 'admin')";
+        List<JSONObject> admins = new ArrayList<>();
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, groupId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                JSONObject obj = new JSONObject();
+                obj.put("user_id", rs.getObject("user_id").toString());
+                obj.put("role", rs.getString("role"));
+                obj.put("permissions", new JSONObject(rs.getString("permissions")));
+                admins.add(obj);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return admins;
+    }
+
+
+    public static boolean isOwner(UUID groupId, UUID userId) {
+        String sql = "SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ? AND role = 'owner'";
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, groupId);
+            stmt.setObject(2, userId);
+
+            ResultSet rs = stmt.executeQuery();
+            return rs.next();  // اگر رکوردی پیدا شد یعنی owner است
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public static boolean isAdmin(UUID groupId, UUID userId) {
+        String sql = "SELECT role FROM group_members WHERE group_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, groupId);
+            stmt.setObject(2, userId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                String role = rs.getString("role");
+                return "admin".equals(role) || "owner".equals(role); // owner هم admin هست
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public static JSONObject getGroupPermissions(UUID groupId, UUID userId) {
+        String sql = "SELECT permissions FROM group_members WHERE group_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, groupId);
+            stmt.setObject(2, userId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                String permissions = rs.getString("permissions");
+                if (permissions != null && !permissions.isBlank()) {
+                    return new JSONObject(permissions);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return new JSONObject();
+    }
+
+
+
+    public static JSONArray getGroupMembers(UUID groupId) {
+        String sql = """
+        SELECT u.profile_name, u.user_id, u.internal_uuid, gm.role, gm.permissions
+        FROM group_members gm
+        JOIN users u ON gm.user_id = u.internal_uuid
+        WHERE gm.group_id = ?
+    """;
+
+        JSONArray members = new JSONArray();
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, groupId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                JSONObject member = new JSONObject();
+                member.put("profile_name", rs.getString("profile_name"));
+                member.put("user_id", rs.getString("user_id"));  // آیدی قابل نمایش
+                member.put("internal_uuid", rs.getObject("internal_uuid").toString());
+                member.put("role", rs.getString("role"));
+
+                String permissions = rs.getString("permissions");
+                if (permissions != null && !permissions.isBlank()) {
+                    member.put("permissions", new JSONObject(permissions));
+                }
+
+                members.put(member);
+            }
+
+            return members;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+
+    public static boolean demoteAdminToMember(UUID groupId, UUID userId) {
+        String sql = "UPDATE group_members SET role = 'member', permissions = '{}'::jsonb WHERE group_id = ? AND user_id = ? AND role = 'admin'";
+        try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, groupId);
+            stmt.setObject(2, userId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static boolean removeMemberFromGroup(UUID groupId, UUID userId) {
+        String sql = "DELETE FROM group_members WHERE group_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, groupId);
+            stmt.setObject(2, userId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
 

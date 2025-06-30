@@ -1,5 +1,6 @@
 package org.to.telegramfinalproject.Database;
 
+import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.Channel;
 import org.to.telegramfinalproject.Models.Group;
 
@@ -81,7 +82,7 @@ public class ChannelDatabase {
 
     public static List<UUID> getSubscriberUUIDs(UUID channelInternalUUID) {
         List<UUID> subscriberIds = new ArrayList<>();
-        String sql = "SELECT user_id FROM channel_subscribe WHERE channel_id = ?";
+        String sql = "SELECT user_id FROM channel_subscribers WHERE channel_id = ?";
 
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -128,7 +129,7 @@ public class ChannelDatabase {
 
 
     public static boolean isUserSubscribed(UUID userId, UUID channelInternalId) {
-        String sql = "SELECT * FROM channel_subscribe WHERE user_id = ? AND channel_id = ?";
+        String sql = "SELECT * FROM channel_subscribers WHERE user_id = ? AND channel_id = ?";
         try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, userId);
             stmt.setObject(2, channelInternalId);
@@ -240,12 +241,14 @@ public class ChannelDatabase {
         }
     }
 
-    public static void addSubscriber(UUID channelId, UUID userId) {
-        String sql = "INSERT INTO channel_subscribers (channel_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
+    public static void addSubscriber(UUID channelId, UUID userId, String role) {
+        String sql = "INSERT INTO channel_subscribers (channel_id, user_id, role) VALUES (?, ?, ?) ON CONFLICT DO NOTHING";
 
         try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, channelId);
             stmt.setObject(2, userId);
+            stmt.setString(3, role);
+
             stmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -277,6 +280,144 @@ public class ChannelDatabase {
         }
         return null;
     }
+
+
+    public static boolean addOwnerToChannel(UUID channelId, UUID userId) {
+        String sql = "INSERT INTO channel_subscribers (channel_id, user_id, role) VALUES (?, ?, 'owner')";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, channelId);
+            stmt.setObject(2, userId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static boolean addAdminToChannel(UUID channelId, UUID userId, JSONObject permissions) {
+        String sql = "UPDATE channel_subscribers SET role = 'admin', permissions = ?::jsonb WHERE channel_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, permissions.toString());
+            stmt.setObject(2, channelId);
+            stmt.setObject(3, userId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static String getChannelRole(UUID channelId, UUID userId) {
+        String sql = "SELECT role FROM channel_subscribers WHERE channel_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, channelId);
+            stmt.setObject(2, userId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("role");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "subscriber"; // پیش‌فرض
+    }
+
+
+
+    public static JSONObject getChannelPermissions(UUID channelId, UUID userId) {
+        String sql = "SELECT permissions FROM channel_subscribers WHERE channel_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, channelId);
+            stmt.setObject(2, userId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return new JSONObject(rs.getString("permissions"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return new JSONObject();
+    }
+
+
+
+    public static boolean updateChannelAdminPermissions(UUID channelId, UUID userId, JSONObject permissions) {
+        String sql = "UPDATE channel_subscribers SET permissions = ?::jsonb WHERE channel_id = ? AND user_id = ? AND role = 'admin'";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, permissions.toString());
+            stmt.setObject(2, channelId);
+            stmt.setObject(3, userId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+
+    public static List<JSONObject> getChannelAdminsAndOwner(UUID channelId) {
+        String sql = "SELECT user_id, role, permissions FROM channel_subscribers WHERE channel_id = ? AND role IN ('owner', 'admin')";
+        List<JSONObject> admins = new ArrayList<>();
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, channelId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                JSONObject obj = new JSONObject();
+                obj.put("user_id", rs.getObject("user_id").toString());
+                obj.put("role", rs.getString("role"));
+                obj.put("permissions", new JSONObject(rs.getString("permissions")));
+                admins.add(obj);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return admins;
+    }
+
+
+    public static boolean isOwner(UUID channelId, UUID userId) {
+        String sql = "SELECT role FROM channel_subscribers WHERE channel_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, channelId);
+            stmt.setObject(2, userId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return "owner".equals(rs.getString("role"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+
+    public static boolean isAdmin(UUID channelId, UUID userId) {
+        String sql = "SELECT role FROM channel_subscribers WHERE channel_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, channelId);
+            stmt.setObject(2, userId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                String role = rs.getString("role");
+                return "admin".equals(role) || "owner".equals(role); // owner هم admin هست
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
 
 
 }

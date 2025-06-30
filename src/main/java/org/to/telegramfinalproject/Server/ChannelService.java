@@ -14,7 +14,7 @@ public class ChannelService {
         boolean inserted = ChannelDatabase.insertChannel(internalUUID, channelId, channelName, creatorUUID, imageUrl, now);
 
         if (inserted) {
-            ChannelDatabase.addSubscriber(internalUUID, creatorUUID); // اضافه کردن سازنده
+            ChannelDatabase.addSubscriber(internalUUID, creatorUUID,"owner");
             return true;
         }
         return false;

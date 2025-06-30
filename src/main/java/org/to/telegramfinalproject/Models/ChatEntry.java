@@ -1,28 +1,70 @@
 package org.to.telegramfinalproject.Models;
 
+import org.json.JSONObject;
+
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public class ChatEntry {
-    private final String name;
-    private final String id;
-    private final String imageUrl;
-    private final String type; // "private", "group", "channel"
-    private final LocalDateTime lastMessageTime;
+    private UUID internalId;
+    private String displayId;
+    private String name;
+    private String imageUrl;
+    private String type;
+    private LocalDateTime lastMessageTime;
 
-    public ChatEntry(String name, String id, String imageUrl, String type, LocalDateTime lastMessageTime) {
+    // 🔹 نقش‌ها
+    private boolean isOwner = false;
+    private boolean isAdmin = false;
+    private JSONObject permissions;
+
+
+    public ChatEntry(UUID internalId, String displayId, String name, String imageUrl, String type, LocalDateTime lastMessageTime) {
+        this.internalId = internalId;
+        this.displayId = displayId;
         this.name = name;
-        this.id = id;
         this.imageUrl = imageUrl;
         this.type = type;
         this.lastMessageTime = lastMessageTime;
     }
 
-    public String getName() {
-        return name;
+    // ✅ کانستراکتور اضافه‌شده برای پشتیبانی از نقش‌ها (اختیاری، برای استفاده‌های جدید)
+    public ChatEntry(UUID internalId, String displayId, String name, String imageUrl, String type, LocalDateTime lastMessageTime, boolean isOwner, boolean isAdmin) {
+        this(internalId, displayId, name, imageUrl, type, lastMessageTime);
+        this.isOwner = isOwner;
+        this.isAdmin = isAdmin;
+        this.permissions = permissions;
+
     }
 
-    public String getId() {
-        return id;
+    // 🟩 گتر و ستر جدید
+    public boolean isOwner() {
+        return isOwner;
+    }
+
+    public void setOwner(boolean owner) {
+        isOwner = owner;
+    }
+
+    public boolean isAdmin() {
+        return isAdmin;
+    }
+
+    public void setAdmin(boolean admin) {
+        isAdmin = admin;
+    }
+
+    // سایر گترها
+    public UUID getId() {
+        return internalId;
+    }
+
+    public String getDisplayId() {
+        return displayId;
+    }
+
+    public String getName() {
+        return name;
     }
 
     public String getImageUrl() {
@@ -35,5 +77,14 @@ public class ChatEntry {
 
     public LocalDateTime getLastMessageTime() {
         return lastMessageTime;
+    }
+
+
+    public JSONObject getPermissions() {
+        return permissions;
+    }
+
+    public void setPermissions(JSONObject permissions) {
+        this.permissions = permissions;
     }
 }

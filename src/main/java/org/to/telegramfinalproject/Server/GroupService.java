@@ -14,10 +14,13 @@ public class GroupService {
         boolean inserted = GroupDatabase.insertGroup(internalUUID, groupId, groupName, creatorUUID, imageUrl, now);
 
         if (inserted) {
-            GroupDatabase.addMember(internalUUID, creatorUUID, "owner"); // سازنده owner می‌شود
+            GroupDatabase.addMember(internalUUID, creatorUUID, "owner");
             return true;
         }
         return false;
     }
+
+
+
 
 }

@@ -4,6 +4,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.*;
 import org.to.telegramfinalproject.Models.*;
+import org.to.telegramfinalproject.Utils.GroupPermissionUtil;
 
 import java.io.*;
 import java.net.Socket;
@@ -92,16 +93,53 @@ public class ClientHandler implements Runnable {
                                 User target = userDatabase.findByInternalUUID(contact.getContact_id());
                                 if (target == null) continue;
                                 LocalDateTime last = MessageDatabase.getLastMessageTimeBetween(user.getInternal_uuid(), target.getInternal_uuid(), "private");
-                                chatList.add(new ChatEntry(target.getUser_id(), target.getProfile_name(), target.getImage_url(), "private", last));
+
+                                chatList.add(new ChatEntry(
+                                        target.getInternal_uuid(),      // internal UUID
+                                        target.getUser_id(),            // public display ID
+                                        target.getProfile_name(),
+                                        target.getImage_url(),
+                                        "private",
+                                        last,
+                                        false,
+                                        false
+                                ));
                             }
+
                             for (Group group : groups) {
                                 LocalDateTime last = MessageDatabase.getLastMessageTime(group.getInternal_uuid(), "group");
-                                chatList.add(new ChatEntry(group.getGroup_id(), group.getGroup_name(), group.getImage_url(), "group", last));
+                                boolean isOwner = GroupDatabase.isOwner(group.getInternal_uuid(), user.getInternal_uuid());
+                                boolean isAdmin = GroupDatabase.isAdmin(group.getInternal_uuid(), user.getInternal_uuid());
+
+                                chatList.add(new ChatEntry(
+                                        group.getInternal_uuid(),
+                                        group.getGroup_id(),
+                                        group.getGroup_name(),
+                                        group.getImage_url(),
+                                        "group",
+                                        last,
+                                        isOwner,
+                                        isAdmin
+                                ));
                             }
+
                             for (Channel channel : channels) {
                                 LocalDateTime last = MessageDatabase.getLastMessageTime(channel.getInternal_uuid(), "channel");
-                                chatList.add(new ChatEntry(channel.getChannel_id(), channel.getChannel_name(), channel.getImage_url(), "channel", last));
+                                boolean isOwner = ChannelDatabase.isOwner(channel.getInternal_uuid(), user.getInternal_uuid());
+                                boolean isAdmin = ChannelDatabase.isAdmin(channel.getInternal_uuid(), user.getInternal_uuid());
+
+                                chatList.add(new ChatEntry(
+                                        channel.getInternal_uuid(),
+                                        channel.getChannel_id(),
+                                        channel.getChannel_name(),
+                                        channel.getImage_url(),
+                                        "channel",
+                                        last,
+                                        isOwner,
+                                        isAdmin
+                                ));
                             }
+
 
                             chatList.sort((a, b) -> {
                                 if (a.getLastMessageTime() == null) return 1;
@@ -115,18 +153,43 @@ public class ClientHandler implements Runnable {
                         }
                         break;
                     }
-
                     case "logout": {
                         String user_Id = requestJson.optString("user_id");
-                        if (userId != null && !user_Id.isEmpty()) {
-                            UUID uuid = UUID.fromString(user_Id);
-                            userDatabase.updateUserStatus(uuid, "offline");
-                            userDatabase.updateLastSeen(uuid);
-                            SessionManager.removeUser(uuid);
-                            response = new ResponseModel("success", "Logged out.");
+                        if (user_Id != null && !user_Id.isEmpty()) {
+                            try {
+                                UUID uuid = UUID.fromString(user_Id);
+                                userDatabase.updateUserStatus(uuid, "offline");
+                                userDatabase.updateLastSeen(uuid);
+                                SessionManager.removeUser(uuid);
+                                response = new ResponseModel("success", "Logged out.");
+                            } catch (IllegalArgumentException e) {
+                                response = new ResponseModel("error", "Invalid UUID format.");
+                            }
                         } else {
                             response = new ResponseModel("error", "Invalid user_id for logout.");
                         }
+                        break;
+                    }
+
+
+                    case "searchInUsers":{
+                        String keyword = requestJson.optString("keyword");
+                        List<JSONObject> results = new ArrayList<>();
+                        String user_Id = requestJson.getString("user_id");
+                        User currentUser = new userDatabase().findByUserId(user_Id);
+                        UUID currentUserUUID = currentUser.getInternal_uuid();
+
+                        for (User u : new userDatabase().searchUsers(keyword, currentUserUUID)) {
+                            JSONObject obj = new JSONObject();
+                            obj.put("type", "user");
+                            obj.put("id", u.getUser_id());
+                            obj.put("uuid", u.getInternal_uuid().toString());
+                            obj.put("name", u.getProfile_name());
+                            results.add(obj);
+                        }
+                        JSONObject data = new JSONObject();
+                        data.put("results", new JSONArray(results));
+                        response = new ResponseModel("success", "Search results found", data);
                         break;
                     }
 
@@ -228,7 +291,7 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "join_group": {
-                        UUID userUUID = UUID.fromString(requestJson.getString("user_id")); // مستقیم internalUUID دریافت می‌کنیم
+                        UUID userUUID = UUID.fromString(requestJson.getString("user_id"));
                         Group group = GroupDatabase.findByInternalUUID(UUID.fromString(requestJson.getString("id")));
                         if (group == null) {
                             response = new ResponseModel("error", "Group not found.");
@@ -244,7 +307,7 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "join_channel": {
-                        UUID userUUID = UUID.fromString(requestJson.getString("user_id")); // مستقیم internalUUID دریافت می‌کنیم
+                        UUID userUUID = UUID.fromString(requestJson.getString("user_id"));
                         Channel channel = ChannelDatabase.findByInternalUUID(UUID.fromString(requestJson.getString("id")));
                         if (channel == null) {
                             response = new ResponseModel("error", "Channel not found.");
@@ -261,55 +324,86 @@ public class ClientHandler implements Runnable {
 
 
                     case "get_chat_info": {
-                        String id = requestJson.getString("receiver_id");
-                        String type = requestJson.getString("receiver_type");
-                        JSONObject data = new JSONObject();
+                        try {
+                            String id = requestJson.getString("receiver_id");
+                            String type = requestJson.getString("receiver_type");
+                            JSONObject data = new JSONObject();
 
-                        switch (type) {
-                            case "private" -> {
-                                User u = new userDatabase().findByUserId(id);
-                                if (u != null) {
-                                    data.put("name", u.getProfile_name());
-                                    data.put("image_url", u.getImage_url());
-                                } else {
-                                    response = new ResponseModel("error", "User not found.");
-                                    break;
+                            switch (type) {
+                                case "private" -> {
+                                    userDatabase userDatabase = new userDatabase();
+                                    User u = userDatabase.findByUserId(id);
+                                    if (u == null) {
+                                        try {
+                                            UUID uuid = UUID.fromString(id);
+                                            u = userDatabase.findByInternalUUID(uuid);
+                                        } catch (IllegalArgumentException ignored) {}
+                                    }
+
+                                    if (u != null) {
+                                        data.put("internal_id", u.getInternal_uuid().toString());
+                                        data.put("name", u.getProfile_name());
+                                        data.put("image_url", u.getImage_url());
+                                        data.put("type", "private");
+                                        data.put("id", u.getUser_id());
+                                    } else {
+                                        response = new ResponseModel("error", "User not found.");
+                                        break;
+                                    }
                                 }
 
-                            }
-                            case "group" -> {
-                                Group g = GroupDatabase.findByGroupId(id);
-                                if (g != null) {
-                                    data.put("name", g.getGroup_name());
-                                    data.put("image_url", g.getImage_url());
-                                } else {
-                                    response = new ResponseModel("error", "Group not found.");
-                                    break;
+                                case "group" -> {
+                                    Group group = GroupDatabase.findByInternalUUID(UUID.fromString(id));
+                                    if (group != null) {
+                                        data.put("internal_id", group.getInternal_uuid().toString());
+                                        data.put("name", group.getGroup_name());
+                                        data.put("image_url", group.getImage_url());
+                                        data.put("type", "group");
+                                        data.put("id", group.getGroup_id());
+
+                                        // اضافه کردن owner و admin بودن
+                                        boolean isOwner = GroupDatabase.isOwner(group.getInternal_uuid(), currentUser.getInternal_uuid());
+                                        boolean isAdmin = GroupDatabase.isAdmin(group.getInternal_uuid(), currentUser.getInternal_uuid());
+
+                                        data.put("is_owner", isOwner);
+                                        data.put("is_admin", isAdmin);
+                                    } else {
+                                        response = new ResponseModel("error", "Group not found.");
+                                        break;
+                                    }
                                 }
-                            }
-                            case "channel" -> {
-                                Channel c = ChannelDatabase.findByChannelId(id);
-                                if (c != null) {
-                                    data.put("name", c.getChannel_name());
-                                    data.put("image_url", c.getImage_url());
-                                } else {
-                                    response = new ResponseModel("error", "Channel not found.");
+
+
+                                case "channel" -> {
+                                    Channel channel = ChannelDatabase.findByChannelId(id);
+                                    if (channel != null) {
+                                        data.put("internal_id", channel.getInternal_uuid().toString());
+                                        data.put("name", channel.getChannel_name());
+                                        data.put("image_url", channel.getImage_url());
+                                        data.put("type", "channel");
+                                        data.put("id", channel.getChannel_id());
+                                    } else {
+                                        response = new ResponseModel("error", "Channel not found.");
+                                        break;
+                                    }
+                                }
+
+                                default -> {
+                                    response = new ResponseModel("error", "Unknown type.");
                                     break;
                                 }
                             }
 
-                            default -> {
-                                response = new ResponseModel("error", "Unknown type.");
-                                break;
+                            if (response == null) {
+                                response = new ResponseModel("success", "Chat info fetched", data);
                             }
+
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error fetching chat info: " + e.getMessage());
                         }
-
-                        if (data.has("name")) {
-                            response = new ResponseModel("success", "Chat info fetched", data);
-                        }
-
                         break;
                     }
+
 
 
                     case "get_chat_list": {
@@ -321,24 +415,57 @@ public class ClientHandler implements Runnable {
                         List<Channel> channels = ChannelDatabase.getChannelsByUser(user.getInternal_uuid());
 
                         List<ChatEntry> chatList = new ArrayList<>();
-
                         for (Contact contact : contacts) {
                             User target = userDatabase.findByInternalUUID(contact.getContact_id());
                             if (target == null) continue;
                             LocalDateTime last = MessageDatabase.getLastMessageTimeBetween(user.getInternal_uuid(), target.getInternal_uuid(), "private");
 
-                            chatList.add(new ChatEntry(target.getUser_id(), target.getProfile_name(), target.getImage_url(), "private", last));
+                            chatList.add(new ChatEntry(
+                                    target.getInternal_uuid(),      // internal UUID
+                                    target.getUser_id(),            // public display ID
+                                    target.getProfile_name(),
+                                    target.getImage_url(),
+                                    "private",
+                                    last,
+                                    false,
+                                    false
+                            ));
                         }
 
                         for (Group group : groups) {
                             LocalDateTime last = MessageDatabase.getLastMessageTime(group.getInternal_uuid(), "group");
-                            chatList.add(new ChatEntry(group.getGroup_id(), group.getGroup_name(), group.getImage_url(), "group", last));
+                            boolean isOwner = GroupDatabase.isOwner(group.getInternal_uuid(), user.getInternal_uuid());
+                            boolean isAdmin = GroupDatabase.isAdmin(group.getInternal_uuid(), user.getInternal_uuid());
+
+                            chatList.add(new ChatEntry(
+                                    group.getInternal_uuid(),
+                                    group.getGroup_id(),
+                                    group.getGroup_name(),
+                                    group.getImage_url(),
+                                    "group",
+                                    last,
+                                    isOwner,
+                                    isAdmin
+                            ));
                         }
 
                         for (Channel channel : channels) {
                             LocalDateTime last = MessageDatabase.getLastMessageTime(channel.getInternal_uuid(), "channel");
-                            chatList.add(new ChatEntry(channel.getChannel_id(), channel.getChannel_name(), channel.getImage_url(), "channel", last));
+                            boolean isOwner = ChannelDatabase.isOwner(channel.getInternal_uuid(), user.getInternal_uuid());
+                            boolean isAdmin = ChannelDatabase.isAdmin(channel.getInternal_uuid(), user.getInternal_uuid());
+
+                            chatList.add(new ChatEntry(
+                                    channel.getInternal_uuid(),
+                                    channel.getChannel_id(),
+                                    channel.getChannel_name(),
+                                    channel.getImage_url(),
+                                    "channel",
+                                    last,
+                                    isOwner,
+                                    isAdmin
+                            ));
                         }
+
 
                         chatList.sort((a, b) -> {
                             if (a.getLastMessageTime() == null) return 1;
@@ -354,7 +481,7 @@ public class ClientHandler implements Runnable {
                     }
                     case "create_group": {
                         try {
-                            String groupId = requestJson.getString("group_id");           // ID نمایشی
+                            String groupId = requestJson.getString("group_id");
                             String groupName = requestJson.getString("group_name");
                             String userIdStr = requestJson.getString("user_id");
                             String imageUrl = requestJson.optString("image_url", null);
@@ -363,15 +490,29 @@ public class ClientHandler implements Runnable {
 
                             boolean created = GroupService.createGroup(groupId, groupName, creatorUUID, imageUrl);
 
-                            response = created
-                                    ? new ResponseModel("success", "Group created.")
-                                    : new ResponseModel("error", "Group creation failed.");
+                            if (created) {
+                                Group createdGroup = GroupDatabase.findByGroupId(groupId);
+                                if (createdGroup != null) {
+                                    JSONObject data = new JSONObject();
+                                    data.put("internal_id", createdGroup.getInternal_uuid().toString());
+                                    data.put("id", createdGroup.getGroup_id());
+                                    data.put("name", createdGroup.getGroup_name());
+                                    data.put("image_url", createdGroup.getImage_url());
+                                    data.put("type", "group");
 
+                                    response = new ResponseModel("success", "Group created.", data);
+                                } else {
+                                    response = new ResponseModel("error", "Group created but not found.");
+                                }
+                            } else {
+                                response = new ResponseModel("error", "Group creation failed.");
+                            }
                         } catch (Exception e) {
                             response = new ResponseModel("error", "Error creating group: " + e.getMessage());
                         }
                         break;
                     }
+
 
                     case "create_channel": {
                         try {
@@ -384,13 +525,340 @@ public class ClientHandler implements Runnable {
 
                             boolean created = ChannelService.createChannel(channelId, channelName, creatorUUID, imageUrl);
 
-                            response = created
-                                    ? new ResponseModel("success", "Channel created.")
-                                    : new ResponseModel("error", "Channel creation failed.");
+                            if (created) {
+                                Channel createdChannel = ChannelDatabase.findByChannelId(channelId);
+                                if (createdChannel != null) {
+                                    JSONObject data = new JSONObject();
+                                    data.put("internal_id", createdChannel.getInternal_uuid().toString());
+                                    data.put("id", createdChannel.getChannel_id());
+                                    data.put("name", createdChannel.getChannel_name());
+                                    data.put("image_url", createdChannel.getImage_url());
+                                    data.put("type", "channel");
+
+                                    response = new ResponseModel("success", "Channel created.", data);
+                                } else {
+                                    response = new ResponseModel("error", "Channel created but not found.");
+                                }
+                            } else {
+                                response = new ResponseModel("error", "Channel creation failed.");
+                            }
 
                         } catch (Exception e) {
                             response = new ResponseModel("error", "Error creating channel: " + e.getMessage());
                         }
+                        break;
+                    }
+
+
+                    case "add_admin_to_channel": {
+                        UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+                        UUID targetUserId = UUID.fromString(requestJson.getString("target_user_id"));
+                        JSONObject permissions = requestJson.optJSONObject("permissions");
+
+                        //if (!ChannelPermissionUtil.canAddAdmins(channelId, currentUser.getInternal_uuid())) {
+                            //response = new ResponseModel("error", "You are not allowed to add admins to the channel.");
+                            //break;
+                        //}
+
+
+                        boolean success = ChannelDatabase.addAdminToChannel(channelId, targetUserId, permissions);
+                        response = success
+                                ? new ResponseModel("success", "Admin added to channel.")
+                                : new ResponseModel("error", "Failed to add admin.");
+                        break;
+                    }
+
+
+
+                    case "edit_channel_admin_permissions": {
+                        UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+                        UUID targetUserId = UUID.fromString(requestJson.getString("target_user_id"));
+                        JSONObject permissions = requestJson.optJSONObject("permissions");
+
+                        String role = ChannelDatabase.getChannelRole(channelId, currentUser.getInternal_uuid());
+                        if (!role.equals("owner")) {
+                            response = new ResponseModel("error", "Only owner can update admin permissions.");
+                            break;
+                        }
+
+                        boolean success = ChannelDatabase.updateChannelAdminPermissions(channelId, targetUserId, permissions);
+                        response = success
+                                ? new ResponseModel("success", "Permissions updated.")
+                                : new ResponseModel("error", "Failed to update permissions.");
+                        break;
+                    }
+
+
+                    case "view_channel_admins": {
+                        UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+
+                        //if (!ChannelPermissionUtil.canAddAdmins(channelId, currentUser.getInternal_uuid())) {
+                           // response = new ResponseModel("error", "You are not allowed to add admins to the channel.");
+                            //break;
+                        //}
+
+
+                        List<JSONObject> admins = ChannelDatabase.getChannelAdminsAndOwner(channelId);
+                        JSONObject data = new JSONObject();
+                        data.put("admins", new JSONArray(admins));
+                        response = new ResponseModel("success", "Admins fetched.", data);
+                        break;
+                    }
+
+
+
+                    case "add_admin_to_group": {
+                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+                        UUID targetUserId = UUID.fromString(requestJson.getString("user_id"));
+                        JSONObject permissions = requestJson.optJSONObject("permissions");
+
+                        if (!GroupPermissionUtil.canAddAdmins(groupId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "You are not allowed to add admins.");
+                            break;
+                        }
+
+
+                        boolean success = GroupDatabase.addAdminToGroup(groupId, targetUserId, permissions);
+                        response = success
+                                ? new ResponseModel("success", "Admin added to group.")
+                                : new ResponseModel("error", "Failed to add admin.");
+                        break;
+                    }
+
+
+                    case "edit_group_admin_permissions": {
+                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+                        UUID targetUserId = UUID.fromString(requestJson.getString("target_user_id"));
+                        JSONObject permissions = requestJson.optJSONObject("permissions");
+
+                        if (!GroupPermissionUtil.canAddAdmins(groupId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "You are not allowed to edit admin permissions.");
+                            break;
+                        }
+
+                        boolean success = GroupDatabase.updateGroupAdminPermissions(groupId, targetUserId, permissions);
+                        response = success
+                                ? new ResponseModel("success", "Permissions updated.")
+                                : new ResponseModel("error", "Failed to update permissions.");
+                        break;
+                    }
+
+
+                    case "remove_admin_from_group": {
+                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+                        String targetUserIdStr = requestJson.getString("user_id");
+
+                        // تبدیل user_id نمایشی به internal_uuid واقعی
+                        User targetUser = new userDatabase().findByUserId(targetUserIdStr);
+                        if (targetUser == null) {
+                            response = new ResponseModel("error", "User not found.");
+                            break;
+                        }
+
+                        UUID targetUserUUID = targetUser.getInternal_uuid();
+
+                        if (!GroupPermissionUtil.canRemoveAdmins(groupId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "You are not allowed to remove admins.");
+                            break;
+                        }
+
+                        String targetRole = GroupDatabase.getGroupRole(groupId, targetUserUUID);
+                        if (targetRole.equals("owner")) {
+                            response = new ResponseModel("error", "You cannot remove the owner.");
+                            break;
+                        }
+                        if (!targetRole.equals("admin")) {
+                            response = new ResponseModel("error", "Target user is not an admin.");
+                            break;
+                        }
+
+                        boolean success = GroupDatabase.demoteAdminToMember(groupId, targetUserUUID);
+                        response = success
+                                ? new ResponseModel("success", "Admin removed successfully.")
+                                : new ResponseModel("error", "Failed to remove admin.");
+                        break;
+                    }
+
+
+
+                    case "add_member_to_group": {
+                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+                        UUID targetUserId = UUID.fromString(requestJson.getString("user_id"));
+
+                        if (!GroupPermissionUtil.canAddMembers(groupId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "You are not allowed to add members.");
+                            break;
+                        }
+
+                        if (GroupDatabase.isUserInGroup(targetUserId, groupId)) {
+                            response = new ResponseModel("error", "User is already a member.");
+                            break;
+                        }
+
+                        boolean success = GroupDatabase.addMemberToGroup(targetUserId, groupId);
+                        response = success
+                                ? new ResponseModel("success", "Member added to group.")
+                                : new ResponseModel("error", "Failed to add member.");
+                        break;
+                    }
+
+
+                    case "remove_member_from_group": {
+                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+                        UUID targetUserId = UUID.fromString(requestJson.getString("user_id"));
+
+                        if (!GroupPermissionUtil.canRemoveMembers(groupId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "You are not allowed to remove members.");
+                            break;
+                        }
+
+                        String targetRole = GroupDatabase.getGroupRole(groupId, targetUserId);
+                        if (targetRole.equals("owner") || targetRole.equals("admin")) {
+                            response = new ResponseModel("error", "You cannot remove admins or owner this way.");
+                            break;
+                        }
+
+                        boolean success = GroupDatabase.removeMemberFromGroup(groupId, targetUserId);
+                        response = success
+                                ? new ResponseModel("success", "Member removed from group.")
+                                : new ResponseModel("error", "Failed to remove member.");
+                        break;
+                    }
+
+
+                    case "view_group_admins": {
+                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+
+                        String role = GroupDatabase.getGroupRole(groupId, currentUser.getInternal_uuid());
+                        if (!role.equals("owner") && !role.equals("admin")) {
+                            response = new ResponseModel("error", "You are not authorized to view admins.");
+                            break;
+                        }
+
+                        List<JSONObject> admins = GroupDatabase.getGroupAdminsAndOwner(groupId);
+                        JSONObject data = new JSONObject();
+                        data.put("admins", new JSONArray(admins));
+                        response = new ResponseModel("success", "Admins fetched.", data);
+                        break;
+                    }
+
+
+                    case "get_messages": {
+                        try {
+                            String receiverId = requestJson.getString("receiver_id");
+                            String receiverType = requestJson.getString("receiver_type");
+
+                            List<Message> messages = new ArrayList<>();
+
+                            switch (receiverType) {
+                                case "private" -> {
+                                    // تبدیل user_id به internal_uuid
+                                    User otherUser = new userDatabase().findByInternalUUID(UUID.fromString(receiverId));
+                                    if (otherUser == null) {
+                                        response = new ResponseModel("error", "User not found.");
+                                        break;
+                                    }
+                                    messages = MessageDatabase.privateChatHistory(currentUser.getInternal_uuid(), otherUser.getInternal_uuid());
+                                }
+                                case "group" -> {
+                                    Group group = GroupDatabase.findByInternalUUID(UUID.fromString(receiverId));
+                                    if (group == null) {
+                                        response = new ResponseModel("error", "Group not found.");
+                                        break;
+                                    }
+                                    messages = MessageDatabase.groupChatHistory(group.getInternal_uuid());
+                                }
+
+
+                                case "channel" -> {
+                                    Channel channel = ChannelDatabase.findByChannelId(receiverId);
+                                    if (channel == null) {
+                                        response = new ResponseModel("error", "Channel not found.");
+                                        break;
+                                    }
+                                    messages = MessageDatabase.channelChatHistory(channel.getInternal_uuid());
+                                }
+                                default -> {
+                                    response = new ResponseModel("error", "Invalid receiver type.");
+                                    break;
+                                }
+                            }
+
+                            if (response == null) {
+                                JSONArray messageArray = new JSONArray();
+                                for (Message m : messages) {
+                                    JSONObject obj = new JSONObject();
+                                    obj.put("id", m.getMessage_id().toString());
+                                    obj.put("sender_id", m.getSender_id().toString());
+                                    obj.put("receiver_id", m.getReceiver_id().toString());
+                                    obj.put("receiver_type", m.getReceiver_type());
+                                    obj.put("content", m.getContent());
+                                    obj.put("send_at", m.getSend_at().toString());
+                                    messageArray.put(obj);
+                                }
+
+                                JSONObject data = new JSONObject();
+                                data.put("messages", messageArray);
+
+                                response = new ResponseModel("success", "Messages fetched.", data);
+                            }
+
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error fetching messages: " + e.getMessage());
+                        }
+                        break;
+                    }
+
+                    case "toggle_block": {
+                        try {
+                            UUID userUUID = UUID.fromString(requestJson.getString("user_id"));
+                            UUID targetUUID = UUID.fromString(requestJson.getString("target_id"));
+
+                            boolean isBlocked = ContactDatabase.toggleBlock(userUUID, targetUUID);
+
+                            String message = isBlocked ? "🔒 User blocked successfully." : "🔓 User unblocked successfully.";
+                            response = new ResponseModel("success", message);
+
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error processing block/unblock: " + e.getMessage());
+                        }
+                        break;
+                    }
+
+
+
+                    case "view_group_members" : {
+                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+
+                        JSONArray members = GroupDatabase.getGroupMembers(groupId);
+
+                        if (members != null) {
+                            JSONObject data = new JSONObject();
+                            data.put("members", members);
+                            response = new ResponseModel("success", "Members fetched successfully.", data);
+                        } else {
+                            response = new ResponseModel("error", "Failed to fetch members.");
+                        }
+                        break;
+                    }
+
+
+
+                    case "delete_private_chat" : {
+                        UUID targetId = UUID.fromString(requestJson.getString("target_id"));
+                        boolean both = requestJson.getBoolean("both");
+                        response = PrivateChatService.deletePrivateChat(currentUser.getInternal_uuid(), targetId, both);
+                        break;
+                    }
+
+
+                    case "get_group_permissions": {
+                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+                        userId = currentUser.getInternal_uuid();
+
+                        JSONObject permissions = GroupDatabase.getGroupPermissions(groupId, userId);
+
+                        response = new ResponseModel("success", "Permissions fetched.", permissions);
                         break;
                     }
 

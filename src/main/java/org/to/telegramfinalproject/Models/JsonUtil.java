@@ -28,7 +28,7 @@ public class JsonUtil {
 
     public static JSONObject userToJson(User user) {
         JSONObject obj = new JSONObject();
-        obj.put("internalUUID", user.getInternal_uuid().toString());
+        obj.put("internal_uuid", user.getInternal_uuid().toString());
         obj.put("user_id", user.getUser_id() != null ?user.getUser_id().toString() :JSONObject.NULL);
         obj.put("username", user.getUsername());
         obj.put("profile_name", user.getProfile_name());
@@ -154,11 +154,15 @@ public class JsonUtil {
 
         for (ChatEntry entry : chatList) {
             JSONObject obj = new JSONObject();
-            obj.put("id", entry.getId() != null ?entry.getId() :JSONObject.NULL);
+            obj.put("internal_id", entry.getId().toString());
+            obj.put("id", entry.getDisplayId());
             obj.put("name", entry.getName());
-            obj.put("image_url", entry.getImageUrl() != null ?entry.getImageUrl() :JSONObject.NULL);
+            obj.put("image_url", entry.getImageUrl());
             obj.put("type", entry.getType());
-            obj.put("last_message_time", entry.getLastMessageTime() != null ? entry.getLastMessageTime().toString() : JSONObject.NULL);
+            obj.put("last_message_time", entry.getLastMessageTime() == null ? JSONObject.NULL : entry.getLastMessageTime().toString());
+            obj.put("is_owner", entry.isOwner());
+            obj.put("is_admin", entry.isAdmin());
+
 
             jsonArray.put(obj);
         }

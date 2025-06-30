@@ -24,6 +24,8 @@ public class RealTimeEventDispatcher {
 
 
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                System.out.println("🚀 Sending to user: " + userId + " → " + data);
+
                 out.println(data.toString());
             } catch (IOException e) {
                 System.err.println("❌ Error sending to user: " + e.getMessage());

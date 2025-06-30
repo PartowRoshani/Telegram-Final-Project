@@ -21,7 +21,7 @@ public class userDatabase {
 
         try {
             User var6;
-            try (Connection conn = this.getConnection()) {
+            try (Connection conn = ConnectionDb.connect()) {
                 try (PreparedStatement stmt = conn.prepareStatement(query)) {
                     stmt.setString(1, userId);
                     ResultSet rs = stmt.executeQuery();

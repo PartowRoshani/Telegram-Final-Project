@@ -217,6 +217,80 @@ public class MessageDatabase {
         return result;
     }
 
+    public static List<Message> privateChatHistory(UUID user1, UUID user2) {
+        List<Message> result = new ArrayList<>();
+        String sql = """
+        SELECT * FROM messages 
+        WHERE receiver_type = 'private'
+        AND (
+            (sender_id = ? AND receiver_id = ?)
+            OR (sender_id = ? AND receiver_id = ?)
+        )
+        ORDER BY send_at
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, user1);
+            stmt.setObject(2, user2);
+            stmt.setObject(3, user2);
+            stmt.setObject(4, user1);
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                result.add(extractMessage(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+
+
+    public static List<Message> groupChatHistory(UUID groupId) {
+        List<Message> result = new ArrayList<>();
+        String sql = """
+        SELECT * FROM messages 
+        WHERE receiver_type = 'group' AND receiver_id = ?
+        ORDER BY send_at
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, groupId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                result.add(extractMessage(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+
+    public static List<Message> channelChatHistory(UUID channelId) {
+        List<Message> result = new ArrayList<>();
+        String sql = """
+        SELECT * FROM messages 
+        WHERE receiver_type = 'channel' AND receiver_id = ?
+        ORDER BY send_at
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, channelId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                result.add(extractMessage(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
 
     public static List<Message> searchMessagesInGroups(List<UUID> groupIds, String keyword) {
         List<Message> result = new ArrayList<>();
