@@ -912,6 +912,36 @@ public class ClientHandler implements Runnable {
 
 
 
+                    case "transfer_group_ownership": {
+                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+                        UUID newOwnerUserId = UUID.fromString(requestJson.getString("new_owner_user_id"));
+
+                        User newOwner = userDatabase.findByInternalUUID(newOwnerUserId);
+                        if (newOwner == null) {
+                            response = new ResponseModel("error", "New owner not found.");
+                            break;
+                        }
+
+                        if (!GroupDatabase.isOwner(groupId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "Only current owner can transfer ownership.");
+                            break;
+                        }
+
+                        if (!GroupDatabase.isAdmin(groupId, newOwner.getInternal_uuid())) {
+                            response = new ResponseModel("error", "Selected user is not an admin.");
+                            break;
+                        }
+
+                        boolean success = GroupDatabase.transferOwnership(groupId, newOwner.getInternal_uuid());
+
+                        response = success
+                                ? new ResponseModel("success", "Ownership transferred.")
+                                : new ResponseModel("error", "Failed to transfer ownership.");
+
+                        break;
+                    }
+
+
                     case "view_group_members" : {
                         UUID groupId = UUID.fromString(requestJson.getString("group_id"));
 
@@ -948,7 +978,47 @@ public class ClientHandler implements Runnable {
                     }
 
 
+                    case "leave_chat": {
+                        String chatType = requestJson.getString("chat_type");
+                        UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
+                         userId = UUID.fromString(requestJson.getString("user_id"));
 
+                        boolean success = false;
+
+                        switch (chatType) {
+                            case "group" -> success = GroupDatabase.removeMemberFromGroup(chatId, userId);
+                            case "channel" -> success = ChannelDatabase.removeSubscriberFromChannel(chatId, userId);
+                            default -> {
+                                response = new ResponseModel("error", "Unsupported chat type.");
+                                break;
+                            }
+                        }
+
+                        if (response == null) {
+                            response = success
+                                    ? new ResponseModel("success", "Left the " + chatType + " successfully.")
+                                    : new ResponseModel("error", "Failed to leave the " + chatType + ".");
+                        }
+
+                        break;
+                    }
+
+
+                    case "delete_group": {
+                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+
+                        if (!GroupDatabase.isOwner(groupId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "Only the group owner can delete the group.");
+                            break;
+                        }
+
+                        boolean success = GroupDatabase.deleteGroup(groupId);
+
+                        response = success
+                                ? new ResponseModel("success", "Group deleted successfully.")
+                                : new ResponseModel("error", "Failed to delete group.");
+                        break;
+                    }
 
 
 

@@ -713,8 +713,11 @@ public class ActionHandler {
         }
         if (isOwner) {
             System.out.println("8. Delete Group");
+            System.out.println("9. Leave Group (Transfer ownership required)");
+        } else {
+            System.out.println("9. Leave Group");
         }
-        System.out.println("9. Leave Group");
+
         System.out.println("0. Back to Chat List");
 
         String input = scanner.nextLine();
@@ -747,9 +750,16 @@ public class ActionHandler {
                 return false;
             }
             case "9" -> {
-                leaveChat(chat.getId(), "group");
+                if (isOwner) {
+                    transferOwnershipAndLeave(chat.getId());
+                    refreshChatList();
+                } else {
+                    leaveChat(chat.getId(), "group");
+                    refreshChatList();
+                }
                 return false;
             }
+
             case "0" -> {
                 return false;
             }
@@ -809,6 +819,57 @@ public class ActionHandler {
 
 
 
+
+
+    private void transferOwnershipAndLeave(UUID groupId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "view_group_admins");
+        req.put("group_id", groupId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch admins.");
+            return;
+        }
+
+        JSONArray admins = res.getJSONObject("data").getJSONArray("admins");
+
+        if (admins.length() == 0) {
+            System.out.println("⚠️ No other admins available. You cannot leave without promoting someone to owner.");
+            return;
+        }
+
+        System.out.println("--- Admins List ---");
+        for (int i = 0; i < admins.length(); i++) {
+            JSONObject admin = admins.getJSONObject(i);
+            System.out.printf("%d. %s (%s)\n", i + 1, admin.getString("profile_name"), admin.getString("user_id"));
+        }
+
+        System.out.print("Select a new owner by number: ");
+        int choice = Integer.parseInt(scanner.nextLine()) - 1;
+
+        if (choice < 0 || choice >= admins.length()) {
+            System.out.println("Invalid selection.");
+            return;
+        }
+
+        JSONObject selected = admins.getJSONObject(choice);
+        String newOwnerId = selected.getString("user_id");
+
+        JSONObject promoteReq = new JSONObject();
+        promoteReq.put("action", "transfer_group_ownership");
+        promoteReq.put("group_id", groupId.toString());
+        promoteReq.put("new_owner_user_id", newOwnerId);
+
+        JSONObject promoteRes = sendWithResponse(promoteReq);
+        if (promoteRes == null || !promoteRes.getString("status").equals("success")) {
+            System.out.println("❌ Failed to transfer ownership.");
+            return;
+        }
+
+        System.out.println("✅ Ownership transferred successfully.");
+        leaveChat(groupId, "group");
+    }
 
 
     private void removeMemberFromGroup(UUID groupId) {
@@ -1046,12 +1107,16 @@ public class ActionHandler {
         JSONObject res = sendWithResponse(req);
         if (res == null) return;
 
-        if (res.getBoolean("success")) {
+        String status = res.getString("status");
+        String message = res.getString("message");
+
+        if (status.equals("success")) {
             System.out.println("✅ You left the chat.");
         } else {
-            System.out.println("❌ " + res.getString("message"));
+            System.out.println("❌ " + message);
         }
     }
+
 
     private void sendMessageTo(UUID id, String type) {
         System.out.print("Enter message: ");
@@ -1120,8 +1185,8 @@ public class ActionHandler {
 
         String currentId = data.getString("id");
         String currentName = data.getString("name");
-        String currentDesc = data.optString("description", "None");
-        String currentImage = data.optString("image_url", "None");
+        String currentDesc = data.optString("description", null);
+        String currentImage = data.optString("image_url", null);
 
         System.out.println("\n--- Current Group Info ---");
         System.out.println("1. Group ID: " + currentId);

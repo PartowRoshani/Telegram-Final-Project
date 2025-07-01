@@ -435,5 +435,22 @@ public class ChannelDatabase {
     }
 
 
+    public static boolean removeSubscriberFromChannel(UUID channelId, UUID userId) {
+        String sql = "DELETE FROM channel_subscribers WHERE channel_id = ? AND user_id = ?";
+
+        try (Connection conn =ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, channelId);
+            stmt.setObject(2, userId);
+
+            int affectedRows = stmt.executeUpdate();
+            return affectedRows > 0;
+
+        } catch (SQLException e) {
+            System.err.println("Error removing subscriber from channel: " + e.getMessage());
+            return false;
+        }
+    }
 
 }

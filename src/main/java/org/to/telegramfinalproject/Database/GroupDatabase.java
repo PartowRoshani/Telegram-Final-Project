@@ -404,22 +404,32 @@ public class GroupDatabase {
 
 
     public static List<JSONObject> getGroupAdminsAndOwner(UUID groupId) {
-        String sql = "SELECT user_id, role, permissions FROM group_members WHERE group_id = ? AND role IN ('owner', 'admin')";
         List<JSONObject> admins = new ArrayList<>();
+
+        String sql = "SELECT gm.user_id, gm.role, gm.permissions, u.profile_name " +
+                "FROM group_members gm " +
+                "JOIN users u ON gm.user_id = u.internal_uuid " +
+                "WHERE gm.group_id = ? AND gm.role IN ('owner', 'admin')";
+
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+
             stmt.setObject(1, groupId);
             ResultSet rs = stmt.executeQuery();
+
             while (rs.next()) {
                 JSONObject obj = new JSONObject();
                 obj.put("user_id", rs.getObject("user_id").toString());
                 obj.put("role", rs.getString("role"));
                 obj.put("permissions", new JSONObject(rs.getString("permissions")));
+                obj.put("profile_name", rs.getString("profile_name"));
                 admins.add(obj);
             }
-        } catch (Exception e) {
+
+        } catch (SQLException e) {
             e.printStackTrace();
         }
+
         return admins;
     }
 
@@ -537,6 +547,52 @@ public class GroupDatabase {
             stmt.setObject(1, groupId);
             stmt.setObject(2, userId);
             return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static boolean transferOwnership(UUID groupId, UUID newOwnerId) {
+        String demoteOldOwner = "UPDATE group_members SET role = 'admin' WHERE group_id = ? AND role = 'owner'";
+        String promoteNewOwner = "UPDATE group_members SET role = 'owner' WHERE group_id = ? AND user_id = ?";
+
+        try (Connection conn = ConnectionDb.connect()) {
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement demoteStmt = conn.prepareStatement(demoteOldOwner);
+                 PreparedStatement promoteStmt = conn.prepareStatement(promoteNewOwner)) {
+
+                demoteStmt.setObject(1, groupId);
+                demoteStmt.executeUpdate();
+
+                promoteStmt.setObject(1, groupId);
+                promoteStmt.setObject(2, newOwnerId);
+                promoteStmt.executeUpdate();
+
+                conn.commit();
+                return true;
+            } catch (SQLException e) {
+                conn.rollback();
+                e.printStackTrace();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+
+    public static boolean deleteGroup(UUID groupId) {
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement("DELETE FROM groups WHERE internal_uuid = ?")) {
+
+            stmt.setObject(1, groupId);
+            int affectedRows = stmt.executeUpdate();
+
+            return affectedRows > 0;
+
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
