@@ -797,14 +797,14 @@ public class ActionHandler {
             }
             case "5" -> {
                 leaveChat(chat.getId(), "channel");
-                return false; // خروج کامل از چت
+                return false;
             }
             case "0" -> {
-                return false; // بازگشت به لیست چت‌ها
+                return false;
             }
             default -> System.out.println("Invalid choice.");
         }
-        return true; // همچنان در منو باقی بمان
+        return true;
     }
 
 
@@ -1105,22 +1105,79 @@ public class ActionHandler {
 
 
     private void editGroupInfo(UUID groupId) {
-        System.out.print("Enter new group name: ");
-        String newName = scanner.nextLine().trim();
-
-        System.out.print("Enter new group description: ");
-        String newDesc = scanner.nextLine().trim();
-
         JSONObject req = new JSONObject();
-        req.put("action", "edit_group_info");
-        req.put("group_id", groupId.toString());
-        req.put("name", newName);
-        req.put("description", newDesc);
+        req.put("action", "get_chat_info");
+        req.put("receiver_id", groupId.toString());
+        req.put("receiver_type", "group");
 
         JSONObject res = sendWithResponse(req);
-        if (res != null)
-            System.out.println(res.getString("message"));
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch group info.");
+            return;
+        }
+
+        JSONObject data = res.getJSONObject("data");
+
+        String currentId = data.getString("id");
+        String currentName = data.getString("name");
+        String currentDesc = data.optString("description", "None");
+        String currentImage = data.optString("image_url", "None");
+
+        System.out.println("\n--- Current Group Info ---");
+        System.out.println("1. Group ID: " + currentId);
+        System.out.println("2. Name: " + currentName);
+        System.out.println("3. Description: " + currentDesc);
+        System.out.println("4. Image URL: " + currentImage);
+        System.out.println("0. Cancel");
+
+        System.out.print("Select the field you want to edit (0-4): ");
+        String choice = scanner.nextLine().trim();
+
+        String newGroupId = currentId;
+        String newName = currentName;
+        String newDesc = currentDesc;
+        String newImage = currentImage;
+
+        switch (choice) {
+            case "1" -> {
+                System.out.print("Enter new Group ID: ");
+                newGroupId = scanner.nextLine().trim();
+            }
+            case "2" -> {
+                System.out.print("Enter new Group Name: ");
+                newName = scanner.nextLine().trim();
+            }
+            case "3" -> {
+                System.out.print("Enter new Description: ");
+                newDesc = scanner.nextLine().trim();
+            }
+            case "4" -> {
+                System.out.print("Enter new Image URL: ");
+                newImage = scanner.nextLine().trim();
+            }
+            case "0" -> {
+                System.out.println("Cancelled.");
+                return;
+            }
+            default -> {
+                System.out.println("Invalid choice.");
+                return;
+            }
+        }
+
+        JSONObject editReq = new JSONObject();
+        editReq.put("action", "edit_group_info");
+        editReq.put("group_id", groupId.toString()); // internal_uuid
+        editReq.put("new_group_id", newGroupId);
+        editReq.put("name", newName);
+        editReq.put("description", newDesc);
+        editReq.put("image_url", newImage);
+
+        JSONObject editRes = sendWithResponse(editReq);
+        if (editRes != null)
+            System.out.println(editRes.getString("message"));
     }
+
 
 
     private void viewChannelSubscribers(UUID channelId) {

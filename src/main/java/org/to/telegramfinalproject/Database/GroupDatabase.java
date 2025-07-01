@@ -4,10 +4,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.Group;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -140,6 +137,48 @@ public class GroupDatabase {
         }
         return false;
     }
+
+
+    public static boolean updateGroupInfo(UUID internalUUID, String newGroupId, String name, String description, String imageUrl) {
+        String sql = "UPDATE groups SET group_id = ?, group_name = ?, description = ?, image_url = ? WHERE internal_uuid = ?";
+
+        try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, newGroupId);
+            stmt.setString(2, name);
+            stmt.setString(3, description);
+            if (imageUrl == null) {
+                stmt.setNull(4, Types.VARCHAR);
+            } else {
+                stmt.setString(4, imageUrl);
+            }
+            stmt.setObject(5, internalUUID);
+
+            int affectedRows = stmt.executeUpdate();
+            return affectedRows > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static boolean isGroupIdUnique(String groupId, UUID excludeUUID) {
+        String sql = "SELECT COUNT(*) FROM groups WHERE group_id = ? AND internal_uuid != ?";
+
+        try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, groupId);
+            stmt.setObject(2, excludeUUID);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) == 0;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
 
 
     public static void addMember(UUID groupInternalId, UUID userId) {

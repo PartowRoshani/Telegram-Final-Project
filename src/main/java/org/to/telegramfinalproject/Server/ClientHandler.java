@@ -393,10 +393,10 @@ public class ClientHandler implements Runnable {
                                         data.put("internal_id", group.getInternal_uuid().toString());
                                         data.put("name", group.getGroup_name());
                                         data.put("image_url", group.getImage_url());
+                                        data.put("description", group.getDescription() != null ? group.getDescription() : "");
                                         data.put("type", "group");
                                         data.put("id", group.getGroup_id());
 
-                                        // اضافه کردن owner و admin بودن
                                         boolean isOwner = GroupDatabase.isOwner(group.getInternal_uuid(), currentUser.getInternal_uuid());
                                         boolean isAdmin = GroupDatabase.isAdmin(group.getInternal_uuid(), currentUser.getInternal_uuid());
 
@@ -407,6 +407,7 @@ public class ClientHandler implements Runnable {
                                         break;
                                     }
                                 }
+
 
 
                                 case "channel" -> {
@@ -625,6 +626,44 @@ public class ClientHandler implements Runnable {
                                 : new ResponseModel("error", "Failed to update permissions.");
                         break;
                     }
+
+
+                    case "edit_group_info": {
+                        try {
+                            UUID groupUUID = UUID.fromString(requestJson.getString("group_id")); // internal_uuid
+                            String newGroupId = requestJson.getString("new_group_id").trim(); // شناسه نمایشی جدید
+                            String name = requestJson.optString("name");
+                            String description = requestJson.optString("description", null);
+                            String imageUrl = requestJson.has("image_url") && !requestJson.isNull("image_url")
+                                    ? requestJson.getString("image_url") : null;
+
+                            boolean isOwner = GroupDatabase.isOwner(groupUUID, currentUser.getInternal_uuid());
+                            if (!isOwner && !GroupPermissionUtil.canEditGroup(groupUUID, currentUser.getInternal_uuid())) {
+                                response = new ResponseModel("error", "You don't have permission to edit this group.");
+                                break;
+                            }
+
+                            if (isOwner && !GroupDatabase.isGroupIdUnique(newGroupId, groupUUID)) {
+                                response = new ResponseModel("error", "Group ID is already taken by another group.");
+                                break;
+                            }
+
+                            boolean updated = GroupDatabase.updateGroupInfo(groupUUID, newGroupId, name, description, imageUrl);
+                            response = updated
+                                    ? new ResponseModel("success", "Group info updated successfully.")
+                                    : new ResponseModel("error", "Failed to update group info.");
+
+                            //if (updated) {
+                            //RealTimeEventDispatcher.sendGroupOrChannelUpdate(groupUUID, "group", name);
+                            //}
+
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error updating group: " + e.getMessage());
+                        }
+                        break;
+                    }
+
+
 
 
                     case "view_channel_admins": {
