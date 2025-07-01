@@ -193,6 +193,41 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+
+
+                    case "searchEligibleUsers": {
+                        String keyword = requestJson.optString("keyword");
+                        UUID entityId = UUID.fromString(requestJson.getString("entity_id"));
+                        String entityType = requestJson.getString("entity_type");  // group یا channel
+
+                        String user_Id = requestJson.getString("user_id");
+                        User currentUser = new userDatabase().findByUserId(user_Id);
+
+                        List<JSONObject> results = new ArrayList<>();
+                        for (User u : new userDatabase().searchUsers(keyword, currentUser.getInternal_uuid())) {
+
+                            boolean isMember = switch (entityType) {
+                                case "group" -> GroupDatabase.isUserInGroup(u.getInternal_uuid(), entityId);
+                                case "channel" -> ChannelDatabase.isUserInChannel(u.getInternal_uuid(), entityId);
+                                default -> true;
+                            };
+
+                            if (isMember || u.getInternal_uuid().equals(currentUser.getInternal_uuid())) continue;
+
+                            JSONObject obj = new JSONObject();
+                            obj.put("id", u.getUser_id());
+                            obj.put("uuid", u.getInternal_uuid().toString());
+                            obj.put("name", u.getProfile_name());
+                            results.add(obj);
+                        }
+
+
+                        JSONObject data = new JSONObject();
+                        data.put("results", new JSONArray(results));
+                        response = new ResponseModel("success", "Eligible users found", data);
+                        break;
+                    }
+
                     case "search": {
                         String keyword = requestJson.optString("keyword");
                         List<JSONObject> results = new ArrayList<>();
@@ -479,6 +514,9 @@ public class ClientHandler implements Runnable {
                         response = new ResponseModel("success", "Chat list updated.", data);
                         break;
                     }
+
+
+
                     case "create_group": {
                         try {
                             String groupId = requestJson.getString("group_id");
@@ -644,11 +682,14 @@ public class ClientHandler implements Runnable {
                     }
 
 
+
+
+
                     case "remove_admin_from_group": {
                         UUID groupId = UUID.fromString(requestJson.getString("group_id"));
                         String targetUserIdStr = requestJson.getString("user_id");
 
-                        // تبدیل user_id نمایشی به internal_uuid واقعی
+
                         User targetUser = new userDatabase().findByUserId(targetUserIdStr);
                         if (targetUser == null) {
                             response = new ResponseModel("error", "User not found.");
@@ -713,8 +754,13 @@ public class ClientHandler implements Runnable {
                         }
 
                         String targetRole = GroupDatabase.getGroupRole(groupId, targetUserId);
-                        if (targetRole.equals("owner") || targetRole.equals("admin")) {
-                            response = new ResponseModel("error", "You cannot remove admins or owner this way.");
+                        if (targetRole == null) {
+                            response = new ResponseModel("error", "User is not a member of the group.");
+                            break;
+                        }
+
+                        if (targetRole.equals("owner")) {
+                            response = new ResponseModel("error", "You cannot remove the owner.");
                             break;
                         }
 
@@ -724,6 +770,7 @@ public class ClientHandler implements Runnable {
                                 : new ResponseModel("error", "Failed to remove member.");
                         break;
                     }
+
 
 
                     case "view_group_admins": {
@@ -752,7 +799,6 @@ public class ClientHandler implements Runnable {
 
                             switch (receiverType) {
                                 case "private" -> {
-                                    // تبدیل user_id به internal_uuid
                                     User otherUser = new userDatabase().findByInternalUUID(UUID.fromString(receiverId));
                                     if (otherUser == null) {
                                         response = new ResponseModel("error", "User not found.");

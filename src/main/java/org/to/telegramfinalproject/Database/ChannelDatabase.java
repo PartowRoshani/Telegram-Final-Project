@@ -419,5 +419,21 @@ public class ChannelDatabase {
     }
 
 
+    public static boolean isUserInChannel(UUID userId, UUID channelId) {
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT 1 FROM channel_subscribers WHERE channel_id = ? AND user_id = ?")) {
+            stmt.setObject(1, channelId);
+            stmt.setObject(2, userId);
+
+            ResultSet rs = stmt.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
 
 }

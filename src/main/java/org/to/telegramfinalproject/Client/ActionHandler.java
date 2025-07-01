@@ -10,6 +10,8 @@ import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.util.*;
 
+import static org.to.telegramfinalproject.Database.ChannelDatabase.addSubscriberToChannel;
+
 public class ActionHandler {
     private final PrintWriter out;
     private final BufferedReader in;
@@ -87,6 +89,67 @@ public class ActionHandler {
         send(model.toJson());
 
     }
+
+
+    public void searchEligibleUsers(String entityType, UUID entityId) {
+        System.out.print("Enter keyword to search: ");
+        String keyword = scanner.nextLine().trim();
+
+        if (Session.currentUser == null || !Session.currentUser.has("user_id")) {
+            System.out.println("You must be logged in to search.");
+            return;
+        }
+
+        JSONObject req = new JSONObject();
+        req.put("action", "searchEligibleUsers");
+        req.put("keyword", keyword);
+        req.put("user_id", Session.currentUser.getString("user_id"));
+        req.put("entity_id", entityId.toString());
+        req.put("entity_type", entityType);  // group یا channel
+
+        JSONObject res = sendWithResponse(req);
+
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ " + (res != null ? res.getString("message") : "No response received."));
+            return;
+        }
+
+        JSONArray results = res.getJSONObject("data").getJSONArray("results");
+        if (results.isEmpty()) {
+            System.out.println("⚠️ No eligible users found.");
+            return;
+        }
+
+        System.out.println("\nEligible Users:");
+        for (int i = 0; i < results.length(); i++) {
+            JSONObject user = results.getJSONObject(i);
+            System.out.println((i + 1) + ". " + user.getString("name") + " (ID: " + user.getString("id") + ")");
+        }
+
+        System.out.print("Select a user to add (or 0 to cancel): ");
+        int choice;
+        try {
+            choice = Integer.parseInt(scanner.nextLine()) - 1;
+        } catch (Exception e) {
+            System.out.println("❌ Invalid input.");
+            return;
+        }
+
+        if (choice < 0 || choice >= results.length()) {
+            System.out.println("Cancelled.");
+            return;
+        }
+
+        JSONObject selected = results.getJSONObject(choice);
+        UUID targetUUID = UUID.fromString(selected.getString("uuid"));
+
+        if (entityType.equals("group")) {
+            addMemberToGroup(entityId, targetUUID);
+        } else if (entityType.equals("channel")) {
+            addSubscriberToChannel(entityId, targetUUID);
+        }
+    }
+
 
     private void addContact(UUID contactId) {
         JSONObject req = new JSONObject();
@@ -554,6 +617,8 @@ public class ActionHandler {
         openChat(selected);
     }
 
+
+
     private void openChat(ChatEntry chat) {
         JSONObject req = new JSONObject();
         req.put("action", "get_messages");
@@ -615,7 +680,7 @@ public class ActionHandler {
 
         JSONObject res = sendWithResponse(req);
         if (res == null || !res.getString("status").equals("success")) {
-            return new JSONObject(); // پیش‌فرض خالی یعنی هیچ پرمیشنی
+            return new JSONObject();
         }
         return res.getJSONObject("data");
     }
@@ -643,10 +708,13 @@ public class ActionHandler {
         if (isOwner || (isAdmin && perms.optBoolean("can_remove_admins", false))) {
             System.out.println("6. Remove Admin");
         }
-        if (isOwner) {
-            System.out.println("7. Delete Group");
+        if (isOwner || (isAdmin && perms.optBoolean("can_remove_members", false))) {
+            System.out.println("7. Remove member");
         }
-        System.out.println("8. Leave Group");
+        if (isOwner) {
+            System.out.println("8. Delete Group");
+        }
+        System.out.println("9. Leave Group");
         System.out.println("0. Back to Chat List");
 
         String input = scanner.nextLine();
@@ -654,7 +722,8 @@ public class ActionHandler {
             case "1" -> sendMessageTo(chat.getId(), "group");
             case "2" -> viewGroupMembers(chat.getId());
             case "3" -> {
-                if (isOwner || (isAdmin && perms.optBoolean("can_add_members", false))) addMemberToGroup(chat.getId());
+                if (isOwner || (isAdmin && perms.optBoolean("can_add_members", false)))
+                    searchEligibleUsers("group", chat.getId());
                 else System.out.println("❌ You don't have permission.");
             }
             case "4" -> {
@@ -669,12 +738,15 @@ public class ActionHandler {
                 if (isOwner || (isAdmin && perms.optBoolean("can_remove_admins", false))) removeAdminFromGroup(chat.getId());
                 else System.out.println("❌ You don't have permission.");
             }
-            case "7" -> {
+            case "7" ->{
+                if(isOwner || (isAdmin && perms.optBoolean("can_remove_members",false))) removeMemberFromGroup(chat.getId());
+            }
+            case "8" -> {
                 if (isOwner) deleteGroup(chat.getId());
                 else System.out.println("❌ You don't have permission.");
                 return false;
             }
-            case "8" -> {
+            case "9" -> {
                 leaveChat(chat.getId(), "group");
                 return false;
             }
@@ -739,6 +811,65 @@ public class ActionHandler {
 
 
 
+    private void removeMemberFromGroup(UUID groupId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "view_group_members");
+        req.put("group_id", groupId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch members.");
+            return;
+        }
+
+        JSONArray members = res.getJSONObject("data").getJSONArray("members");
+        List<JSONObject> eligible = new ArrayList<>();
+
+        System.out.println("\n--- Members List ---");
+        for (int i = 0; i < members.length(); i++) {
+            JSONObject m = members.getJSONObject(i);
+            String role = m.getString("role");
+            String profileName = m.getString("profile_name");
+            String userId = m.getString("user_id");
+
+            // فقط اونر غیرقابل حذف
+            if (role.equals("owner")) continue;
+
+            eligible.add(m);
+            System.out.println((eligible.size()) + ". " + profileName + " (" + userId + ") [" + role + "]");
+        }
+
+        if (eligible.isEmpty()) {
+            System.out.println("⚠️ No removable members.");
+            return;
+        }
+
+        System.out.print("Select a member to remove: ");
+        int choice;
+        try {
+            choice = Integer.parseInt(scanner.nextLine()) - 1;
+        } catch (Exception e) {
+            System.out.println("❌ Invalid input.");
+            return;
+        }
+
+        if (choice < 0 || choice >= eligible.size()) {
+            System.out.println("❌ Invalid selection.");
+            return;
+        }
+
+        JSONObject selected = eligible.get(choice);
+        String targetInternalUUID = selected.getString("internal_uuid");
+
+        JSONObject removeReq = new JSONObject();
+        removeReq.put("action", "remove_member_from_group");
+        removeReq.put("group_id", groupId.toString());
+        removeReq.put("user_id", targetInternalUUID);
+
+        JSONObject removeRes = sendWithResponse(removeReq);
+        if (removeRes != null)
+            System.out.println(removeRes.getString("message"));
+    }
 
 
 
@@ -948,19 +1079,30 @@ public class ActionHandler {
         }
     }
 
-    private void addMemberToGroup(UUID groupId) {
-        System.out.print("Enter user_id to add: ");
-        String userId = scanner.nextLine().trim();
-
+    private void addMemberToGroup(UUID groupId, UUID userId) {
         JSONObject req = new JSONObject();
         req.put("action", "add_member_to_group");
         req.put("group_id", groupId.toString());
-        req.put("user_id", userId);
+        req.put("user_id", userId.toString());
 
         JSONObject res = sendWithResponse(req);
-        if (res != null)
+        if (res != null) {
             System.out.println(res.getString("message"));
+        }
     }
+
+    private void addSubscriberToChannel(UUID channelId, UUID userId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "add_subscriber_to_channel");
+        req.put("channel_id", channelId.toString());
+        req.put("user_id", userId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res != null) {
+            System.out.println(res.getString("message"));
+        }
+    }
+
 
     private void editGroupInfo(UUID groupId) {
         System.out.print("Enter new group name: ");
