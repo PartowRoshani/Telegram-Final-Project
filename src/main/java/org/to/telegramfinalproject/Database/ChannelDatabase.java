@@ -1,5 +1,6 @@
 package org.to.telegramfinalproject.Database;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.Channel;
 import org.to.telegramfinalproject.Models.Group;
@@ -364,22 +365,36 @@ public class ChannelDatabase {
 
 
     public static List<JSONObject> getChannelAdminsAndOwner(UUID channelId) {
-        String sql = "SELECT user_id, role, permissions FROM channel_subscribers WHERE channel_id = ? AND role IN ('owner', 'admin')";
         List<JSONObject> admins = new ArrayList<>();
+
+        String sql = """
+        SELECT u.internal_uuid, u.profile_name, u.user_id, cs.role, cs.permissions
+        FROM channel_subscribers cs
+        JOIN users u ON cs.user_id = u.internal_uuid
+        WHERE cs.channel_id = ? AND (cs.role = 'owner' OR cs.role = 'admin')
+    """;
+
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+
             stmt.setObject(1, channelId);
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                JSONObject obj = new JSONObject();
-                obj.put("user_id", rs.getObject("user_id").toString());
-                obj.put("role", rs.getString("role"));
-                obj.put("permissions", new JSONObject(rs.getString("permissions")));
-                admins.add(obj);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    JSONObject obj = new JSONObject();
+                    obj.put("internal_uuid", rs.getObject("internal_uuid").toString());
+                    obj.put("profile_name", rs.getString("profile_name"));
+                    obj.put("user_id", rs.getString("user_id"));
+                    obj.put("role", rs.getString("role"));
+                    obj.put("permissions", new JSONObject(rs.getString("permissions")));
+                    admins.add(obj);
+                }
             }
-        } catch (Exception e) {
+
+        } catch (SQLException e) {
             e.printStackTrace();
         }
+
         return admins;
     }
 
@@ -449,6 +464,139 @@ public class ChannelDatabase {
 
         } catch (SQLException e) {
             System.err.println("Error removing subscriber from channel: " + e.getMessage());
+            return false;
+        }
+    }
+    public static JSONArray getChannelSubscribers(UUID channelId) {
+        JSONArray subscribers = new JSONArray();
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT u.internal_uuid, u.user_id, u.profile_name, " +
+                             "CASE WHEN cs.role = 'owner' THEN 'owner' " +
+                             "     WHEN cs.role = 'admin' THEN 'admin' " +
+                             "     ELSE 'subscriber' END AS role " +
+                             "FROM channel_subscribers cs " +
+                             "JOIN users u ON cs.user_id = u.internal_uuid " +
+                             "WHERE cs.channel_id = ?")) {
+
+            stmt.setObject(1, channelId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                JSONObject obj = new JSONObject();
+                obj.put("internal_uuid", rs.getObject("internal_uuid").toString());
+                obj.put("user_id", rs.getString("user_id"));
+                obj.put("profile_name", rs.getString("profile_name"));
+                obj.put("role", rs.getString("role"));
+                subscribers.put(obj);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return subscribers;
+    }
+
+
+
+    public static boolean updateChannelInfo(UUID channelId, String newId, String name, String description, String imageUrl) {
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "UPDATE channels SET channel_id = ?, channel_name = ?, description = ?, image_url = ? WHERE internal_uuid = ?")) {
+
+            stmt.setString(1, newId);
+            stmt.setString(2, name);
+            stmt.setString(3, description);
+            stmt.setString(4, imageUrl);
+            stmt.setObject(5, channelId);
+
+            int rows = stmt.executeUpdate();
+            return rows > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static boolean isChannelIdUnique(String channelId, UUID excludeChannelUUID) {
+        String query = "SELECT COUNT(*) FROM channels WHERE channel_id = ? AND internal_uuid != ?";
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setString(1, channelId);
+            stmt.setObject(2, excludeChannelUUID);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                int count = rs.getInt(1);
+                return count == 0;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+
+    public static boolean demoteAdminToSubscriber(UUID channelId, UUID userId) {
+        String sql = "UPDATE channel_subscribers SET role = 'member', permissions = '{}'::jsonb WHERE channel_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, channelId);
+            stmt.setObject(2, userId);
+
+            int affected = stmt.executeUpdate();
+            return affected > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static boolean deleteChannel(UUID channelId) {
+        String sql = "DELETE FROM channels WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, channelId);
+            int affected = stmt.executeUpdate();
+            return affected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static boolean transferOwnership(UUID channelId, UUID newOwnerUUID) {
+        String sql = """
+        UPDATE channel_subscribers
+        SET role = CASE
+            WHEN user_id = ? THEN 'owner'
+            WHEN role = 'owner' THEN 'admin'
+            ELSE role
+        END
+        WHERE channel_id = ?
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, newOwnerUUID);
+            stmt.setObject(2, channelId);
+
+            stmt.executeUpdate();
+            return true;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
             return false;
         }
     }

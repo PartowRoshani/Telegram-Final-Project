@@ -525,6 +525,7 @@ public class ActionHandler {
 
                         refreshChatList();
                     System.out.println("✅ Created and opening chat...");
+                    refreshChatList();
                     openChat(chat);
                 }
 
@@ -772,42 +773,119 @@ public class ActionHandler {
 
 
     private boolean showChannelChatMenu(ChatEntry chat) {
+        chat = fetchChatInfo(chat.getId().toString(), chat.getType());
         boolean isAdmin = chat.isAdmin();
         boolean isOwner = chat.isOwner();
 
+        JSONObject perms = getChannelPermissions(chat.getId());
+
         System.out.println("\n--- Channel Menu ---");
 
-        if (isOwner || isAdmin)
+        if (isOwner || (isAdmin && perms.optBoolean("can_post", false))) {
             System.out.println("1. Send Post");
-
-        System.out.println("2. View Subscribers");
-
-        if (isOwner || isAdmin) {
-            System.out.println("3. Add Admin");
-            System.out.println("4. Edit Channel Info");
         }
 
-        System.out.println("5. Unsubscribe");
+        if (isOwner || isAdmin) {
+            System.out.println("2. View Subscribers");
+        }
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_add_members", false))) {
+            System.out.println("3. Add Subscriber");
+        }
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_remove_members", false))) {
+            System.out.println("4. Remove Subscriber");
+        }
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_edit_channel", false))) {
+            System.out.println("5. Edit Channel Info");
+        }
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_add_admins", false))) {
+            System.out.println("6. Add Admin");
+        }
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_remove_admins", false))) {
+            System.out.println("7. Remove Admin");
+        }
+
+        if (isOwner) {
+            System.out.println("8. Delete Channel");
+            System.out.println("9. Leave Channel (Transfer ownership required)");
+        } else {
+            System.out.println("8. Leave Channel");
+        }
+
         System.out.println("0. Back to Chat List");
 
         String input = scanner.nextLine();
         switch (input) {
             case "1" -> {
-                if (isOwner || isAdmin) sendMessageTo(chat.getId(), "channel");
-                else System.out.println("❌ You are not allowed to post.");
+                if (isOwner || (isAdmin && perms.optBoolean("can_post", false))) {
+                    sendMessageTo(chat.getId(), "channel");
+                } else {
+                    System.out.println("❌ You don't have permission to post.");
+                }
             }
-            case "2" -> viewChannelSubscribers(chat.getId());
+            case "2" -> {
+                if (isOwner || isAdmin) {
+                    viewChannelSubscribers(chat.getId());
+                } else {
+                    System.out.println("❌ You don't have permission to view subscribers.");
+                }
+            }
             case "3" -> {
-                if (isOwner) addAdminToChannel(chat.getId());
-                else System.out.println("❌ Only owner can add admins.");
+                if (isOwner || (isAdmin && perms.optBoolean("can_add_members", false))) {
+                    searchEligibleUsers("channel", chat.getId());
+                } else {
+                    System.out.println("❌ You don't have permission to add subscribers.");
+                }
             }
             case "4" -> {
-                if (isOwner || isAdmin) editChannelInfo(chat.getId());
-                else System.out.println("❌ You don't have permission.");
+                if (isOwner || (isAdmin && perms.optBoolean("can_remove_members", false))) {
+                    removeSubscriberFromChannel(chat.getId());
+                } else {
+                    System.out.println("❌ You don't have permission to remove subscribers.");
+                }
             }
             case "5" -> {
-                leaveChat(chat.getId(), "channel");
-                return false;
+                if (isOwner || (isAdmin && perms.optBoolean("can_edit_channel", false))) {
+                    editChannelInfo(chat.getId());
+                } else {
+                    System.out.println("❌ You don't have permission to edit channel info.");
+                }
+            }
+            case "6" -> {
+                if (isOwner || (isAdmin && perms.optBoolean("can_add_admins", false))) {
+                    addAdminToChannel(chat.getId());
+                } else {
+                    System.out.println("❌ You don't have permission to add admins.");
+                }
+            }
+            case "7" -> {
+                if (isOwner || (isAdmin && perms.optBoolean("can_remove_admins", false))) {
+                    removeAdminFromChannel(chat.getId());
+                } else {
+                    System.out.println("❌ You don't have permission to remove admins.");
+                }
+            }
+            case "8" -> {
+                if (isOwner) {
+                    deleteChannel(chat.getId());
+                    return false;
+                } else {
+                    leaveChat(chat.getId(), "channel");
+                    return false;
+                }
+            }
+            case "9" -> {
+                if (isOwner) {
+                    transferChannelOwnershipAndLeave(chat.getId());
+                    refreshChatList();
+                    return false;
+                } else {
+                    System.out.println("❌ You don't have permission.");
+                }
             }
             case "0" -> {
                 return false;
@@ -816,6 +894,9 @@ public class ActionHandler {
         }
         return true;
     }
+
+
+
 
 
 
@@ -893,7 +974,6 @@ public class ActionHandler {
             String profileName = m.getString("profile_name");
             String userId = m.getString("user_id");
 
-            // فقط اونر غیرقابل حذف
             if (role.equals("owner")) continue;
 
             eligible.add(m);
@@ -930,6 +1010,82 @@ public class ActionHandler {
         JSONObject removeRes = sendWithResponse(removeReq);
         if (removeRes != null)
             System.out.println(removeRes.getString("message"));
+    }
+
+
+
+    private void addAdminToChannel(UUID channelId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "view_channel_subscribers");
+        req.put("channel_id", channelId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch subscribers.");
+            return;
+        }
+
+        JSONArray subscribers = res.getJSONObject("data").getJSONArray("subscribers");
+        List<JSONObject> eligible = new ArrayList<>();
+
+        System.out.println("\n--- Subscribers List ---");
+        for (int i = 0; i < subscribers.length(); i++) {
+            JSONObject s = subscribers.getJSONObject(i);
+            String role = s.getString("role");
+            String profileName = s.getString("profile_name");
+            String userId = s.getString("user_id");
+
+            if (role.equals("subscriber")) {
+                eligible.add(s);
+                System.out.printf("%d. %s (%s)\n", eligible.size(), profileName, userId);
+            }
+        }
+
+        if (eligible.isEmpty()) {
+            System.out.println("⚠️ No eligible subscribers to promote.");
+            return;
+        }
+
+        System.out.print("Select a subscriber to promote to admin: ");
+        int choice;
+        try {
+            choice = Integer.parseInt(scanner.nextLine()) - 1;
+        } catch (Exception e) {
+            System.out.println("❌ Invalid input.");
+            return;
+        }
+
+        if (choice < 0 || choice >= eligible.size()) {
+            System.out.println("❌ Invalid selection.");
+            return;
+        }
+
+        JSONObject selected = eligible.get(choice);
+        String targetInternalUUID = selected.getString("internal_uuid");
+
+        JSONObject permissions = new JSONObject();
+        System.out.print("Can post? (true/false): ");
+        permissions.put("can_post", Boolean.parseBoolean(scanner.nextLine()));
+        System.out.print("Can edit channel info? (true/false): ");
+        permissions.put("can_edit_channel", Boolean.parseBoolean(scanner.nextLine()));
+        System.out.print("Can add members? (true/false): ");
+        permissions.put("can_add_members", Boolean.parseBoolean(scanner.nextLine()));
+        System.out.print("Can remove members? (true/false): ");
+        permissions.put("can_remove_members", Boolean.parseBoolean(scanner.nextLine()));
+        System.out.print("Can add admins? (true/false): ");
+        permissions.put("can_add_admins", Boolean.parseBoolean(scanner.nextLine()));
+        System.out.print("Can remove admins? (true/false): ");
+        permissions.put("can_remove_admins", Boolean.parseBoolean(scanner.nextLine()));
+
+        JSONObject promoteReq = new JSONObject();
+        promoteReq.put("action", "add_admin_to_channel");
+        promoteReq.put("channel_id", channelId.toString());
+        promoteReq.put("target_user_id", targetInternalUUID);
+        promoteReq.put("permissions", permissions);
+
+        JSONObject promoteRes = sendWithResponse(promoteReq);
+        if (promoteRes != null)
+            System.out.println(promoteRes.getString("message"));
     }
 
 
@@ -1038,6 +1194,142 @@ public class ActionHandler {
     }
 
 
+
+    private void removeSubscriberFromChannel(UUID channelId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "view_channel_subscribers");
+        req.put("channel_id", channelId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch subscribers.");
+            return;
+        }
+
+        JSONArray subscribers = res.getJSONObject("data").getJSONArray("subscribers");
+        List<JSONObject> eligible = new ArrayList<>();
+
+        System.out.println("\n--- Subscribers List ---");
+        for (int i = 0; i < subscribers.length(); i++) {
+            JSONObject s = subscribers.getJSONObject(i);
+            String role = s.getString("role");
+            String profileName = s.getString("profile_name");
+            String userId = s.getString("user_id");
+
+            if (role.equals("owner")) continue;
+
+            eligible.add(s);
+            System.out.println((eligible.size()) + ". " + profileName + " (" + userId + ") [" + role + "]");
+        }
+
+        if (eligible.isEmpty()) {
+            System.out.println("⚠️ No removable subscribers.");
+            return;
+        }
+
+        System.out.print("Select a subscriber to remove: ");
+        int choice;
+        try {
+            choice = Integer.parseInt(scanner.nextLine()) - 1;
+        } catch (Exception e) {
+            System.out.println("❌ Invalid input.");
+            return;
+        }
+
+        if (choice < 0 || choice >= eligible.size()) {
+            System.out.println("❌ Invalid selection.");
+            return;
+        }
+
+        JSONObject selected = eligible.get(choice);
+        String targetInternalUUID = selected.getString("internal_uuid");
+
+        JSONObject removeReq = new JSONObject();
+        removeReq.put("action", "remove_subscriber_from_channel");
+        removeReq.put("channel_id", channelId.toString());
+        removeReq.put("user_id", targetInternalUUID);
+
+        JSONObject removeRes = sendWithResponse(removeReq);
+        if (removeRes != null)
+            System.out.println(removeRes.getString("message"));
+    }
+
+
+    private void transferChannelOwnershipAndLeave(UUID channelId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "view_channel_admins");
+        req.put("channel_id", channelId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch admins.");
+            return;
+        }
+
+        JSONArray admins = res.getJSONObject("data").getJSONArray("admins");
+
+        if (admins.length() == 0) {
+            System.out.println("⚠️ No other admins available. You cannot leave without promoting someone to owner.");
+            return;
+        }
+
+        System.out.println("\n--- Admins List ---");
+        for (int i = 0; i < admins.length(); i++) {
+            JSONObject admin = admins.getJSONObject(i);
+            System.out.printf("%d. %s (%s)\n", i + 1, admin.getString("profile_name"), admin.getString("user_id"));
+        }
+
+        System.out.print("Select a new owner by number: ");
+        int choice = Integer.parseInt(scanner.nextLine()) - 1;
+
+        if (choice < 0 || choice >= admins.length()) {
+            System.out.println("Invalid selection.");
+            return;
+        }
+
+        JSONObject selected = admins.getJSONObject(choice);
+        String newOwnerId = selected.getString("user_id");
+
+        JSONObject promoteReq = new JSONObject();
+        promoteReq.put("action", "transfer_channel_ownership");
+        promoteReq.put("channel_id", channelId.toString());
+        promoteReq.put("new_owner_user_id", newOwnerId);
+
+        JSONObject promoteRes = sendWithResponse(promoteReq);
+        if (promoteRes == null || !promoteRes.getString("status").equals("success")) {
+            System.out.println("❌ Failed to transfer ownership.");
+            return;
+        }
+
+        System.out.println("✅ Ownership transferred successfully.");
+        leaveChat(channelId, "channel");
+    }
+
+
+
+    private void deleteChannel(UUID channelId) {
+        System.out.print("Are you sure you want to delete the channel? (yes/no): ");
+        String confirm = scanner.nextLine().trim().toLowerCase();
+
+        if (!confirm.equals("yes")) {
+            System.out.println("❌ Delete cancelled.");
+            return;
+        }
+
+        JSONObject req = new JSONObject();
+        req.put("action", "delete_channel");
+        req.put("channel_id", channelId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res != null && res.getString("status").equals("success")) {
+            System.out.println("✅ Channel deleted successfully.");
+            refreshChatList();
+        } else {
+            System.out.println("❌ Failed to delete channel.");
+        }
+    }
+
+
     private void deleteGroup(UUID groupId) {
         System.out.print("Are you sure you want to delete the group? (yes/no): ");
         String confirm = scanner.nextLine().trim().toLowerCase();
@@ -1118,6 +1410,68 @@ public class ActionHandler {
     }
 
 
+    private void removeAdminFromChannel(UUID channelId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "view_channel_admins");
+        req.put("channel_id", channelId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch admins.");
+            return;
+        }
+
+        JSONArray admins = res.getJSONObject("data").getJSONArray("admins");
+        List<JSONObject> eligible = new ArrayList<>();
+
+        System.out.println("\n--- Admins List ---");
+        for (int i = 0; i < admins.length(); i++) {
+            JSONObject admin = admins.getJSONObject(i);
+            String role = admin.getString("role");
+            String profileName = admin.getString("profile_name");
+            String userId = admin.getString("user_id");
+
+            if (!role.equals("owner")) {
+                eligible.add(admin);
+                System.out.printf("%d. %s (%s)\n", eligible.size(), profileName, userId);
+            }
+        }
+
+        if (eligible.isEmpty()) {
+            System.out.println("⚠️ No removable admins.");
+            return;
+        }
+
+        System.out.print("Select an admin to remove: ");
+        int choice;
+        try {
+            choice = Integer.parseInt(scanner.nextLine()) - 1;
+        } catch (Exception e) {
+            System.out.println("❌ Invalid input.");
+            return;
+        }
+
+        if (choice < 0 || choice >= eligible.size()) {
+            System.out.println("❌ Invalid selection.");
+            return;
+        }
+
+        JSONObject selected = eligible.get(choice);
+        String targetInternalUUID = selected.getString("internal_uuid");
+
+        JSONObject removeReq = new JSONObject();
+        removeReq.put("action", "remove_admin_from_channel");
+        removeReq.put("channel_id", channelId.toString());
+        removeReq.put("target_user_id", targetInternalUUID);
+
+        JSONObject removeRes = sendWithResponse(removeReq);
+        if (removeRes != null)
+            System.out.println(removeRes.getString("message"));
+    }
+
+
+
+
     private void sendMessageTo(UUID id, String type) {
         System.out.print("Enter message: ");
         String text = scanner.nextLine().trim();
@@ -1156,15 +1510,19 @@ public class ActionHandler {
         }
     }
 
-    private void addSubscriberToChannel(UUID channelId, UUID userId) {
+    private void addSubscriberToChannel(UUID channelId, UUID targetUserId) {
         JSONObject req = new JSONObject();
         req.put("action", "add_subscriber_to_channel");
         req.put("channel_id", channelId.toString());
-        req.put("user_id", userId.toString());
+        req.put("user_id", targetUserId.toString());
 
         JSONObject res = sendWithResponse(req);
-        if (res != null) {
-            System.out.println(res.getString("message"));
+        if (res == null) return;
+
+        if (res.getString("status").equals("success")) {
+            System.out.println("✅ Subscriber added successfully.");
+        } else {
+            System.out.println("❌ " + res.getString("message"));
         }
     }
 
@@ -1253,8 +1611,10 @@ public class ActionHandler {
         JSONObject res = sendWithResponse(req);
         if (res == null) return;
 
-        if (res.getBoolean("success")) {
-            JSONArray subs = res.getJSONArray("subscribers");
+        if (res.getString("status").equals("success")) {
+            JSONObject data = res.getJSONObject("data");
+            JSONArray subs = data.getJSONArray("subscribers");
+
             System.out.println("--- Subscribers ---");
             for (int i = 0; i < subs.length(); i++) {
                 JSONObject s = subs.getJSONObject(i);
@@ -1265,36 +1625,81 @@ public class ActionHandler {
         }
     }
 
-    private void addAdminToChannel(UUID channelId) {
-        System.out.print("Enter user_id to promote: ");
-        String userId = scanner.nextLine().trim();
 
+
+
+    private void editChannelInfo(UUID channelInternalId) {
         JSONObject req = new JSONObject();
-        req.put("action", "add_admin_to_channel");
-        req.put("channel_id", channelId.toString());
-        req.put("user_id", userId);
+        req.put("action", "get_chat_info");
+        req.put("receiver_id", channelInternalId.toString());
+        req.put("receiver_type", "channel");
 
         JSONObject res = sendWithResponse(req);
-        if (res != null)
-            System.out.println(res.getString("message"));
-    }
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch channel info.");
+            return;
+        }
 
-    private void editChannelInfo(UUID channelId) {
-        System.out.print("Enter new channel name: ");
-        String name = scanner.nextLine().trim();
+        JSONObject data = res.getJSONObject("data");
 
-        System.out.print("Enter new description: ");
-        String desc = scanner.nextLine().trim();
+        String currentId = data.getString("id");
+        String currentName = data.getString("name");
+        String currentDesc = data.optString("description", null);
+        String currentImage = data.optString("image_url", null);
 
-        JSONObject req = new JSONObject();
-        req.put("action", "edit_channel_info");
-        req.put("channel_id", channelId.toString());
-        req.put("name", name);
-        req.put("description", desc);
+        System.out.println("\n--- Current Channel Info ---");
+        System.out.println("1. Channel ID: " + currentId);
+        System.out.println("2. Name: " + currentName);
+        System.out.println("3. Description: " + currentDesc);
+        System.out.println("4. Image URL: " + currentImage);
+        System.out.println("0. Cancel");
 
-        JSONObject res = sendWithResponse(req);
-        if (res != null)
-            System.out.println(res.getString("message"));
+        System.out.print("Select the field you want to edit (0-4): ");
+        String choice = scanner.nextLine().trim();
+
+        String newChannelId = currentId;
+        String newName = currentName;
+        String newDesc = currentDesc;
+        String newImage = currentImage;
+
+        switch (choice) {
+            case "1" -> {
+                System.out.print("Enter new Channel ID: ");
+                newChannelId = scanner.nextLine().trim();
+            }
+            case "2" -> {
+                System.out.print("Enter new Channel Name: ");
+                newName = scanner.nextLine().trim();
+            }
+            case "3" -> {
+                System.out.print("Enter new Description: ");
+                newDesc = scanner.nextLine().trim();
+            }
+            case "4" -> {
+                System.out.print("Enter new Image URL: ");
+                newImage = scanner.nextLine().trim();
+            }
+            case "0" -> {
+                System.out.println("Cancelled.");
+                return;
+            }
+            default -> {
+                System.out.println("Invalid choice.");
+                return;
+            }
+        }
+
+        JSONObject editReq = new JSONObject();
+        editReq.put("action", "edit_channel_info");
+        editReq.put("channel_id", channelInternalId.toString()); // internal_uuid
+        editReq.put("new_channel_id", newChannelId);
+        editReq.put("name", newName);
+        editReq.put("description", newDesc);
+        editReq.put("image_url", newImage);
+
+        JSONObject editRes = sendWithResponse(editReq);
+        if (editRes != null)
+            System.out.println(editRes.getString("message"));
     }
 
 
@@ -1392,6 +1797,74 @@ public class ActionHandler {
         send(req);
         JSONObject res = getResponse();
         System.out.println(res.getString("message"));
+    }
+
+
+    private void editChannelAdminPermissions(UUID channelId) {
+        System.out.print("Enter user_id of the admin to edit: ");
+        String userId = scanner.nextLine().trim();
+
+        JSONObject permissions = new JSONObject();
+        System.out.print("Can post? (true/false): ");
+        permissions.put("can_post", Boolean.parseBoolean(scanner.nextLine()));
+        System.out.print("Can edit channel info? (true/false): ");
+        permissions.put("can_edit_channel", Boolean.parseBoolean(scanner.nextLine()));
+        System.out.print("Can add members? (true/false): ");
+        permissions.put("can_add_members", Boolean.parseBoolean(scanner.nextLine()));
+        System.out.print("Can remove members? (true/false): ");
+        permissions.put("can_remove_members", Boolean.parseBoolean(scanner.nextLine()));
+        System.out.print("Can add admins? (true/false): ");
+        permissions.put("can_add_admins", Boolean.parseBoolean(scanner.nextLine()));
+        System.out.print("Can remove admins? (true/false): ");
+        permissions.put("can_remove_admins", Boolean.parseBoolean(scanner.nextLine()));
+
+        JSONObject req = new JSONObject();
+        req.put("action", "edit_channel_admin_permissions");
+        req.put("channel_id", channelId.toString());
+        req.put("user_id", userId);
+        req.put("permissions", permissions);
+
+        JSONObject res = sendWithResponse(req);
+        if (res != null)
+            System.out.println(res.getString("message"));
+    }
+
+
+    private void viewChannelAdmins(UUID channelId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "view_channel_admins");
+        req.put("channel_id", channelId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null) return;
+
+        if (res.getString("status").equals("success")) {
+            JSONArray admins = res.getJSONObject("data").getJSONArray("admins");
+
+            System.out.println("\n--- Channel Admins ---");
+            for (int i = 0; i < admins.length(); i++) {
+                JSONObject a = admins.getJSONObject(i);
+                System.out.printf("- %s (%s) [%s]\n",
+                        a.getString("profile_name"),
+                        a.getString("user_id"),
+                        a.getString("role"));
+            }
+        } else {
+            System.out.println("❌ Failed to fetch admins.");
+        }
+    }
+
+
+    private JSONObject getChannelPermissions(UUID channelId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "get_channel_permissions");
+        req.put("channel_id", channelId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            return new JSONObject();
+        }
+        return res.getJSONObject("data");
     }
 
 

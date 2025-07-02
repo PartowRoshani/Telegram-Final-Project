@@ -4,6 +4,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.*;
 import org.to.telegramfinalproject.Models.*;
+import org.to.telegramfinalproject.Utils.ChannelPermissionUtil;
 import org.to.telegramfinalproject.Utils.GroupPermissionUtil;
 
 import java.io.*;
@@ -411,18 +412,26 @@ public class ClientHandler implements Runnable {
 
 
                                 case "channel" -> {
-                                    Channel channel = ChannelDatabase.findByChannelId(id);
+                                    Channel channel = ChannelDatabase.findByInternalUUID(UUID.fromString(id));
                                     if (channel != null) {
                                         data.put("internal_id", channel.getInternal_uuid().toString());
                                         data.put("name", channel.getChannel_name());
                                         data.put("image_url", channel.getImage_url());
+                                        data.put("description", channel.getDescription() != null ? channel.getDescription() : "");
                                         data.put("type", "channel");
                                         data.put("id", channel.getChannel_id());
+
+                                        boolean isOwner = ChannelDatabase.isOwner(channel.getInternal_uuid(), currentUser.getInternal_uuid());
+                                        boolean isAdmin = ChannelDatabase.isAdmin(channel.getInternal_uuid(), currentUser.getInternal_uuid());
+
+                                        data.put("is_owner", isOwner);
+                                        data.put("is_admin", isAdmin);
                                     } else {
                                         response = new ResponseModel("error", "Channel not found.");
                                         break;
                                     }
                                 }
+
 
                                 default -> {
                                     response = new ResponseModel("error", "Unknown type.");
@@ -588,26 +597,37 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
-
                     case "add_admin_to_channel": {
-                        UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
-                        UUID targetUserId = UUID.fromString(requestJson.getString("target_user_id"));
-                        JSONObject permissions = requestJson.optJSONObject("permissions");
+                        try {
+                            UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+                            UUID targetUserId = UUID.fromString(requestJson.getString("target_user_id"));
+                            JSONObject permissions = requestJson.optJSONObject("permissions");
 
-                        //if (!ChannelPermissionUtil.canAddAdmins(channelId, currentUser.getInternal_uuid())) {
-                            //response = new ResponseModel("error", "You are not allowed to add admins to the channel.");
-                            //break;
-                        //}
+                            if (!ChannelPermissionUtil.canAddAdmins(channelId, currentUser.getInternal_uuid())) {
+                                response = new ResponseModel("error", "You are not allowed to add admins to the channel.");
+                                break;
+                            }
 
+                            String targetRole = ChannelDatabase.getChannelRole(channelId, targetUserId);
+                            if (targetRole == null) {
+                                response = new ResponseModel("error", "User is not a subscriber of the channel.");
+                                break;
+                            }
 
-                        boolean success = ChannelDatabase.addAdminToChannel(channelId, targetUserId, permissions);
-                        response = success
-                                ? new ResponseModel("success", "Admin added to channel.")
-                                : new ResponseModel("error", "Failed to add admin.");
+                            if (targetRole.equals("owner") || targetRole.equals("admin")) {
+                                response = new ResponseModel("error", "User is already an admin or owner.");
+                                break;
+                            }
+
+                            boolean success = ChannelDatabase.addAdminToChannel(channelId, targetUserId, permissions);
+                            response = success
+                                    ? new ResponseModel("success", "Admin added to channel.")
+                                    : new ResponseModel("error", "Failed to add admin.");
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error adding admin to channel: " + e.getMessage());
+                        }
                         break;
                     }
-
-
 
                     case "edit_channel_admin_permissions": {
                         UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
@@ -724,25 +744,16 @@ public class ClientHandler implements Runnable {
 
 
 
-                    case "remove_admin_from_group": {
-                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
-                        String targetUserIdStr = requestJson.getString("user_id");
+                    case "remove_admin_from_channel": {
+                        UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+                        UUID targetUserUUID = UUID.fromString(requestJson.getString("target_user_id"));
 
-
-                        User targetUser = new userDatabase().findByUserId(targetUserIdStr);
-                        if (targetUser == null) {
-                            response = new ResponseModel("error", "User not found.");
-                            break;
-                        }
-
-                        UUID targetUserUUID = targetUser.getInternal_uuid();
-
-                        if (!GroupPermissionUtil.canRemoveAdmins(groupId, currentUser.getInternal_uuid())) {
+                        if (!ChannelPermissionUtil.canRemoveAdmins(channelId, currentUser.getInternal_uuid())) {
                             response = new ResponseModel("error", "You are not allowed to remove admins.");
                             break;
                         }
 
-                        String targetRole = GroupDatabase.getGroupRole(groupId, targetUserUUID);
+                        String targetRole = ChannelDatabase.getChannelRole(channelId, targetUserUUID);
                         if (targetRole.equals("owner")) {
                             response = new ResponseModel("error", "You cannot remove the owner.");
                             break;
@@ -752,13 +763,12 @@ public class ClientHandler implements Runnable {
                             break;
                         }
 
-                        boolean success = GroupDatabase.demoteAdminToMember(groupId, targetUserUUID);
+                        boolean success = ChannelDatabase.demoteAdminToSubscriber(channelId, targetUserUUID);
                         response = success
                                 ? new ResponseModel("success", "Admin removed successfully.")
                                 : new ResponseModel("error", "Failed to remove admin.");
                         break;
                     }
-
 
 
                     case "add_member_to_group": {
@@ -856,7 +866,7 @@ public class ClientHandler implements Runnable {
 
 
                                 case "channel" -> {
-                                    Channel channel = ChannelDatabase.findByChannelId(receiverId);
+                                    Channel channel = ChannelDatabase.findByInternalUUID(UUID.fromString(receiverId));
                                     if (channel == null) {
                                         response = new ResponseModel("error", "Channel not found.");
                                         break;
@@ -1020,6 +1030,164 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+
+                    case "get_channel_permissions": {
+                        try {
+                            UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+                             userId = currentUser.getInternal_uuid();
+
+                            JSONObject permissions = ChannelDatabase.getChannelPermissions(channelId, userId);
+
+                            response = new ResponseModel("success", "Permissions fetched.", permissions);
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error fetching channel permissions: " + e.getMessage());
+                        }
+                        break;
+                    }
+
+
+                    case "view_channel_subscribers": {
+                        UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+
+                        boolean isOwner = ChannelDatabase.isOwner(channelId, currentUser.getInternal_uuid());
+                        boolean isAdmin = ChannelDatabase.isAdmin(channelId, currentUser.getInternal_uuid());
+
+                        if (!isOwner && !isAdmin) {
+                            response = new ResponseModel("error", "You are not authorized to view subscribers.");
+                            break;
+                        }
+
+                        JSONArray subscribers = ChannelDatabase.getChannelSubscribers(channelId);
+
+                        if (subscribers != null) {
+                            JSONObject data = new JSONObject();
+                            data.put("subscribers", subscribers);
+                            response = new ResponseModel("success", "Subscribers fetched successfully.", data);
+                        } else {
+                            response = new ResponseModel("error", "Failed to fetch subscribers.");
+                        }
+                        break;
+                    }
+
+
+                    case "add_subscriber_to_channel": {
+                        UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+                        UUID targetUserId = UUID.fromString(requestJson.getString("user_id"));
+
+                        if (!ChannelPermissionUtil.canAddSubscribers(channelId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "You are not allowed to add subscribers.");
+                            break;
+                        }
+
+                        if (ChannelDatabase.isUserInChannel(targetUserId, channelId)) {
+                            response = new ResponseModel("error", "User is already a subscriber.");
+                            break;
+                        }
+
+                        boolean success = ChannelDatabase.addSubscriberToChannel(targetUserId, channelId);
+                        response = success
+                                ? new ResponseModel("success", "Subscriber added to channel.")
+                                : new ResponseModel("error", "Failed to add subscriber.");
+                        break;
+                    }
+
+                    case "remove_subscriber_from_channel": {
+                        UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+                        UUID targetUserId = UUID.fromString(requestJson.getString("user_id"));
+
+                        if (!ChannelPermissionUtil.canRemoveSubscribers(channelId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "You are not allowed to remove subscribers.");
+                            break;
+                        }
+
+                        String targetRole = ChannelDatabase.getChannelRole(channelId, targetUserId);
+                        if (targetRole == null) {
+                            response = new ResponseModel("error", "User is not a subscriber of the channel.");
+                            break;
+                        }
+
+                        if (targetRole.equals("owner")) {
+                            response = new ResponseModel("error", "You cannot remove the owner.");
+                            break;
+                        }
+
+                        boolean success = ChannelDatabase.removeSubscriberFromChannel(channelId, targetUserId);
+                        response = success
+                                ? new ResponseModel("success", "Subscriber removed from channel.")
+                                : new ResponseModel("error", "Failed to remove subscriber.");
+                        break;
+                    }
+
+
+                    case "edit_channel_info": {
+                        try {
+                            UUID channelUUID = UUID.fromString(requestJson.getString("channel_id")); // internal_uuid
+                            String newChannelId = requestJson.getString("new_channel_id").trim();
+                            String name = requestJson.optString("name");
+                            String description = requestJson.optString("description", null);
+                            String imageUrl = requestJson.has("image_url") && !requestJson.isNull("image_url")
+                                    ? requestJson.getString("image_url") : null;
+
+                            boolean isOwner = ChannelDatabase.isOwner(channelUUID, currentUser.getInternal_uuid());
+                            if (!isOwner && !ChannelPermissionUtil.canEditChannel(channelUUID, currentUser.getInternal_uuid())) {
+                                response = new ResponseModel("error", "You don't have permission to edit this channel.");
+                                break;
+                            }
+
+                            if (isOwner && !ChannelDatabase.isChannelIdUnique(newChannelId, channelUUID)) {
+                                response = new ResponseModel("error", "Channel ID is already taken by another channel.");
+                                break;
+                            }
+
+                            boolean updated = ChannelDatabase.updateChannelInfo(channelUUID, newChannelId, name, description, imageUrl);
+                            response = updated
+                                    ? new ResponseModel("success", "Channel info updated successfully.")
+                                    : new ResponseModel("error", "Failed to update channel info.");
+
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error updating channel: " + e.getMessage());
+                        }
+                        break;
+                    }
+
+
+                    case "delete_channel": {
+                        UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+
+                        if (!ChannelDatabase.isOwner(channelId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "Only the owner can delete the channel.");
+                            break;
+                        }
+
+                        boolean success = ChannelDatabase.deleteChannel(channelId);
+                        response = success
+                                ? new ResponseModel("success", "Channel deleted successfully.")
+                                : new ResponseModel("error", "Failed to delete channel.");
+
+                        break;
+                    }
+
+                    case "transfer_channel_ownership": {
+                        UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+                        String newOwnerUserIdStr = requestJson.getString("new_owner_user_id");
+
+                        User newOwner = new userDatabase().findByUserId(newOwnerUserIdStr);
+                        if (newOwner == null) {
+                            response = new ResponseModel("error", "User not found.");
+                            break;
+                        }
+
+                        if (!ChannelDatabase.isOwner(channelId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "Only the owner can transfer ownership.");
+                            break;
+                        }
+
+                        boolean success = ChannelDatabase.transferOwnership(channelId, newOwner.getInternal_uuid());
+                        response = success
+                                ? new ResponseModel("success", "Ownership transferred successfully.")
+                                : new ResponseModel("error", "Failed to transfer ownership.");
+                        break;
+                    }
 
 
 

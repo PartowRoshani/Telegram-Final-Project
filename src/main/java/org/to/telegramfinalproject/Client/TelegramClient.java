@@ -34,7 +34,6 @@ public class TelegramClient {
             System.out.println("✅ Connected to Telegram Server");
             this.handler = new ActionHandler(this.out, this.in, this.scanner);
 
-            // 👂 فقط این ترد مجاز به خواندن از in است
             Thread listenerThread = new Thread(new IncomingMessageListener(in));
             listenerThread.setDaemon(true);
             listenerThread.start();
