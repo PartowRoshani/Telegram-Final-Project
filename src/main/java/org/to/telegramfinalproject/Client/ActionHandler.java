@@ -1179,20 +1179,6 @@ public class ActionHandler {
 
 
 
-    private void removeAdminFromGroup(UUID groupId) {
-        System.out.print("Enter user_id to remove from admin: ");
-        String userId = scanner.nextLine().trim();
-
-        JSONObject req = new JSONObject();
-        req.put("action", "remove_admin_from_group");
-        req.put("group_id", groupId.toString());
-        req.put("user_id", userId);
-
-        JSONObject res = sendWithResponse(req);
-        if (res != null)
-            System.out.println(res.getString("message"));
-    }
-
 
 
     private void removeSubscriberFromChannel(UUID channelId) {
@@ -1407,6 +1393,66 @@ public class ActionHandler {
         } else {
             System.out.println("❌ " + message);
         }
+    }
+
+
+    private void removeAdminFromGroup(UUID groupId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "view_group_admins");
+        req.put("group_id", groupId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch admins.");
+            return;
+        }
+
+        JSONArray admins = res.getJSONObject("data").getJSONArray("admins");
+        List<JSONObject> eligible = new ArrayList<>();
+
+        System.out.println("\n--- Admins List ---");
+        for (int i = 0; i < admins.length(); i++) {
+            JSONObject admin = admins.getJSONObject(i);
+            String role = admin.getString("role");
+            String profileName = admin.getString("profile_name");
+            String userId = admin.getString("user_id");
+
+            if (!role.equals("owner")) {
+                eligible.add(admin);
+                System.out.printf("%d. %s (%s)\n", eligible.size(), profileName, userId);
+            }
+        }
+
+        if (eligible.isEmpty()) {
+            System.out.println("⚠️ No removable admins.");
+            return;
+        }
+
+        System.out.print("Select an admin to remove: ");
+        int choice;
+        try {
+            choice = Integer.parseInt(scanner.nextLine()) - 1;
+        } catch (Exception e) {
+            System.out.println("❌ Invalid input.");
+            return;
+        }
+
+        if (choice < 0 || choice >= eligible.size()) {
+            System.out.println("❌ Invalid selection.");
+            return;
+        }
+
+        JSONObject selected = eligible.get(choice);
+        String targetInternalUUID = selected.getString("internal_uuid");
+
+        JSONObject removeReq = new JSONObject();
+        removeReq.put("action", "remove_admin_from_group");
+        removeReq.put("group_id", groupId.toString());
+        removeReq.put("target_user_id", targetInternalUUID);
+
+        JSONObject removeRes = sendWithResponse(removeReq);
+        if (removeRes != null)
+            System.out.println(removeRes.getString("message"));
     }
 
 

@@ -377,7 +377,7 @@ public class GroupDatabase {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return "member"; // پیش‌فرض
+        return "member";
     }
 
 
@@ -406,10 +406,12 @@ public class GroupDatabase {
     public static List<JSONObject> getGroupAdminsAndOwner(UUID groupId) {
         List<JSONObject> admins = new ArrayList<>();
 
-        String sql = "SELECT gm.user_id, gm.role, gm.permissions, u.profile_name " +
-                "FROM group_members gm " +
-                "JOIN users u ON gm.user_id = u.internal_uuid " +
-                "WHERE gm.group_id = ? AND gm.role IN ('owner', 'admin')";
+        String sql = """
+        SELECT u.internal_uuid, u.user_id, gm.role, gm.permissions, u.profile_name
+        FROM group_members gm
+        JOIN users u ON gm.user_id = u.internal_uuid
+        WHERE gm.group_id = ? AND gm.role IN ('owner', 'admin')
+    """;
 
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -419,7 +421,8 @@ public class GroupDatabase {
 
             while (rs.next()) {
                 JSONObject obj = new JSONObject();
-                obj.put("user_id", rs.getObject("user_id").toString());
+                obj.put("internal_uuid", rs.getObject("internal_uuid").toString());  // این قسمت اضافه شد
+                obj.put("user_id", rs.getString("user_id"));
                 obj.put("role", rs.getString("role"));
                 obj.put("permissions", new JSONObject(rs.getString("permissions")));
                 obj.put("profile_name", rs.getString("profile_name"));
