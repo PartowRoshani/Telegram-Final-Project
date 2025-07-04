@@ -81,20 +81,14 @@ public class RegisterForm {
                 alert.show();
             }
             else {
-                Alert alert = new Alert(Alert.AlertType.ERROR, "Password doesn't Strong enough");
+                Alert alert = new Alert(Alert.AlertType.ERROR, "Password isn't Strong enough");
                 alert.show();
             }
-
-
-
-
         });
 
         backButton.setOnAction(e -> {
             switchScene("login_view.fxml");
         });
-
-
     }
 
     private void switchScene(String fxmlFile) {

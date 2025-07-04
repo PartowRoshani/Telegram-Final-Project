@@ -25,7 +25,7 @@ public class login_view {
         });
 
         registerButton.setOnAction(e -> {
-            switchScene("RegisterForm.fxml");
+            switchScene("register_view.fxml");
         });
     }
 
