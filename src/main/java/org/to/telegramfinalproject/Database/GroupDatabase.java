@@ -600,4 +600,19 @@ public class GroupDatabase {
     }
 
 
+    public static List<UUID> getGroupMemberUUIDs(UUID groupId) {
+        List<UUID> memberIds = new ArrayList<>();
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement("SELECT user_id FROM group_members WHERE group_id = ?")) {
+            stmt.setObject(1, groupId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                memberIds.add(UUID.fromString(rs.getString("user_id")));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return memberIds;
+    }
+
 }

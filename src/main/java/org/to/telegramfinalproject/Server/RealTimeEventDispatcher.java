@@ -176,7 +176,7 @@ public class RealTimeEventDispatcher {
 
     public static void notifyAddedToChat(String type, UUID chatId, String chatName, String imageUrl, UUID userId) {
         JSONObject data = new JSONObject();
-        data.put("chat_type", type); // group یا channel
+        data.put("chat_type", type);
         data.put("chat_id", chatId.toString());
         data.put("chat_name", chatName);
         data.put("image_url", imageUrl);
@@ -246,5 +246,49 @@ public class RealTimeEventDispatcher {
         broadcastToUsers(contacts, event);
     }
 
+    public static void sendGroupOrChannelUpdate(String type, UUID chatId, String name, String imageUrl, String description, List<UUID> affectedUsers) {
+        JSONObject data = new JSONObject();
+        data.put("chat_type", type);
+        data.put("chat_id", chatId.toString());
+        data.put("name", name);
+        data.put("image_url", imageUrl);
+        data.put("description", description != null ? description : "");
+
+        JSONObject event = new JSONObject();
+        event.put("action", "chat_updated");
+        event.put("data", data);
+
+        broadcastToUsers(affectedUsers, event);
+    }
+
+
+    public static void notifyBecameAdmin(String type, UUID chatId, String chatName, String imageUrl, UUID userId) {
+        JSONObject data = new JSONObject();
+        data.put("chat_type", type); // group یا channel
+        data.put("chat_id", chatId.toString());
+        data.put("chat_name", chatName);
+        data.put("image_url", imageUrl);
+
+        JSONObject event = new JSONObject();
+        event.put("action", "became_admin");
+        event.put("data", data);
+
+        sendToUser(userId, event);
+    }
+
+
+    public static void notifyRemovedAdminFromChat(String type, UUID chatId, String chatName, String imageUrl, UUID userId) {
+        JSONObject data = new JSONObject();
+        data.put("chat_type", type);
+        data.put("chat_id", chatId.toString());
+        data.put("chat_name", chatName);
+        data.put("image_url", imageUrl);
+
+        JSONObject event = new JSONObject();
+        event.put("action", "removed_admin");
+        event.put("data", data);
+
+        sendToUser(userId, event);
+    }
 
 }

@@ -79,6 +79,10 @@ public class ClientHandler implements Runnable {
 
                             SessionManager.addUser(user.getInternal_uuid(), this.socket);
                             userDatabase.updateUserStatus(user.getInternal_uuid(), "online");
+                            //RealTime
+                            List<UUID> contactIds = ContactDatabase.getContactUUIDs(user.getInternal_uuid());
+                            RealTimeEventDispatcher.notifyUserStatusChanged(user.getInternal_uuid(), "online", contactIds);
+
                             List<Contact> contacts = ContactDatabase.getContacts(user.getInternal_uuid());
                             List<Group> groups = GroupDatabase.getGroupsByUser(user.getInternal_uuid());
                             List<Channel> channels = ChannelDatabase.getChannelsByUser(user.getInternal_uuid());
@@ -158,10 +162,17 @@ public class ClientHandler implements Runnable {
                         String user_Id = requestJson.optString("user_id");
                         if (user_Id != null && !user_Id.isEmpty()) {
                             try {
-                                UUID uuid = UUID.fromString(user_Id);
-                                userDatabase.updateUserStatus(uuid, "offline");
-                                userDatabase.updateLastSeen(uuid);
-                                SessionManager.removeUser(uuid);
+                                userId = UUID.fromString(user_Id);
+
+                                userDatabase.updateUserStatus(userId, "offline");
+
+                                // Real-Time
+                                List<UUID> contacts = ContactDatabase.getContactUUIDs(userId);
+                                RealTimeEventDispatcher.notifyUserStatusChanged(userId, "offline", contacts);
+
+                                userDatabase.updateLastSeen(userId);
+                                SessionManager.removeUser(userId);
+
                                 response = new ResponseModel("success", "Logged out.");
                             } catch (IllegalArgumentException e) {
                                 response = new ResponseModel("error", "Invalid UUID format.");
@@ -320,6 +331,18 @@ public class ClientHandler implements Runnable {
                         UUID contactUUID = UUID.fromString(requestJson.getString("contact_id"));
 
                         boolean success = ContactDatabase.addContact(userUUID, contactUUID);
+
+                        //RealTime
+                        if (success) {
+                            RealTimeEventDispatcher.notifyAddedToChat(
+                                    "private",
+                                    userUUID,
+                                    currentUser.getProfile_name(),
+                                    currentUser.getImage_url(),
+                                    contactUUID
+                            );
+                        }
+
                         response = success
                                 ? new ResponseModel("success", "Contact added successfully.")
                                 : new ResponseModel("error", "Failed to add contact. Maybe already exists.");
@@ -336,6 +359,13 @@ public class ClientHandler implements Runnable {
 
 
                         boolean joined = GroupDatabase.addMemberToGroup(userUUID, group.getInternal_uuid());
+
+                        //RealTime
+                        if (joined) {
+                            List<UUID> members = GroupDatabase.getMemberUUIDs(group.getInternal_uuid());
+                            RealTimeEventDispatcher.sendGroupOrChannelUpdate("group", group.getInternal_uuid(), group.getGroup_name(), group.getImage_url(), group.getDescription(), members);
+                        }
+
                         response = joined
                                 ? new ResponseModel("success", "Joined group.")
                                 : new ResponseModel("error", "Failed to join group.");
@@ -352,6 +382,13 @@ public class ClientHandler implements Runnable {
 
 
                         boolean joined = ChannelDatabase.addSubscriberToChannel(userUUID, channel.getInternal_uuid());
+
+                        //RealTime
+                        if (joined) {
+                            List<UUID> members = ChannelDatabase.getChannelSubscriberUUIDs(channel.getInternal_uuid());
+                            RealTimeEventDispatcher.sendGroupOrChannelUpdate("channel", channel.getInternal_uuid(), channel.getChannel_name(), channel.getImage_url(), channel.getDescription(), members);
+                        }
+
                         response = joined
                                 ? new ResponseModel("success", "Joined channel.")
                                 : new ResponseModel("error", "Failed to join channel.");
@@ -620,6 +657,20 @@ public class ClientHandler implements Runnable {
                             }
 
                             boolean success = ChannelDatabase.addAdminToChannel(channelId, targetUserId, permissions);
+
+                            //RealTime
+                            if (success) {
+                                Channel channel = ChannelDatabase.findByInternalUUID(channelId);
+                                if (channel != null) {
+                                    RealTimeEventDispatcher.notifyBecameAdmin(
+                                            "channel",
+                                            channel.getInternal_uuid(),
+                                            channel.getChannel_name(),
+                                            channel.getImage_url(),
+                                            targetUserId
+                                    );
+                                }
+                            }
                             response = success
                                     ? new ResponseModel("success", "Admin added to channel.")
                                     : new ResponseModel("error", "Failed to add admin.");
@@ -673,9 +724,11 @@ public class ClientHandler implements Runnable {
                                     ? new ResponseModel("success", "Group info updated successfully.")
                                     : new ResponseModel("error", "Failed to update group info.");
 
-                            //if (updated) {
-                            //RealTimeEventDispatcher.sendGroupOrChannelUpdate(groupUUID, "group", name);
-                            //}
+                            //RealTime
+                            if (updated) {
+                                List<UUID> members = GroupDatabase.getMemberUUIDs(groupUUID);
+                                RealTimeEventDispatcher.sendGroupOrChannelUpdate("group", groupUUID, name, imageUrl, description, members);
+                            }
 
                         } catch (Exception e) {
                             response = new ResponseModel("error", "Error updating group: " + e.getMessage());
@@ -689,10 +742,6 @@ public class ClientHandler implements Runnable {
                     case "view_channel_admins": {
                         UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
 
-                        //if (!ChannelPermissionUtil.canAddAdmins(channelId, currentUser.getInternal_uuid())) {
-                           // response = new ResponseModel("error", "You are not allowed to add admins to the channel.");
-                            //break;
-                        //}
 
 
                         List<JSONObject> admins = ChannelDatabase.getChannelAdminsAndOwner(channelId);
@@ -716,6 +765,20 @@ public class ClientHandler implements Runnable {
 
 
                         boolean success = GroupDatabase.addAdminToGroup(groupId, targetUserId, permissions);
+
+                        //RealTime
+                        if (success) {
+                            Group group = GroupDatabase.findByInternalUUID(groupId);
+                            if (group != null) {
+                                RealTimeEventDispatcher.notifyBecameAdmin(
+                                        "group",
+                                        group.getInternal_uuid(),
+                                        group.getGroup_name(),
+                                        group.getImage_url(),
+                                        targetUserId
+                                );
+                            }
+                        }
                         response = success
                                 ? new ResponseModel("success", "Admin added to group.")
                                 : new ResponseModel("error", "Failed to add admin.");
@@ -764,6 +827,21 @@ public class ClientHandler implements Runnable {
                         }
 
                         boolean success = ChannelDatabase.demoteAdminToSubscriber(channelId, targetUserUUID);
+
+                        //RealTime
+                        if (success) {
+                            Channel channel = ChannelDatabase.findByInternalUUID(channelId);
+                            if (channel != null) {
+                                RealTimeEventDispatcher.notifyRemovedAdminFromChat(
+                                        "channel",
+                                        channel.getInternal_uuid(),
+                                        channel.getChannel_name(),
+                                        channel.getImage_url(),
+                                        targetUserUUID
+                                );
+                            }
+                        }
+
                         response = success
                                 ? new ResponseModel("success", "Admin removed successfully.")
                                 : new ResponseModel("error", "Failed to remove admin.");
@@ -786,10 +864,25 @@ public class ClientHandler implements Runnable {
                         }
 
                         boolean success = GroupDatabase.addMemberToGroup(targetUserId, groupId);
+
+                        Group group = GroupDatabase.findByInternalUUID(groupId);
+
+                        //RealTime
+                        if (success && group != null) {
+                            RealTimeEventDispatcher.notifyAddedToChat(
+                                    "group",
+                                    group.getInternal_uuid(),
+                                    group.getGroup_name(),
+                                    group.getImage_url(),
+                                    targetUserId
+                            );
+                        }
+
                         response = success
                                 ? new ResponseModel("success", "Member added to group.")
                                 : new ResponseModel("error", "Failed to add member.");
                         break;
+
                     }
 
 
@@ -813,7 +906,18 @@ public class ClientHandler implements Runnable {
                             break;
                         }
 
+                        //RealTime
                         boolean success = GroupDatabase.removeMemberFromGroup(groupId, targetUserId);
+                        if (success) {
+                            Group group = GroupDatabase.findByInternalUUID(groupId);
+                            if (group != null) {
+                                RealTimeEventDispatcher.notifyRemovedFromChat(
+                                        "group",
+                                        group.getInternal_uuid(),
+                                        targetUserId
+                                );
+                            }
+                        }
                         response = success
                                 ? new ResponseModel("success", "Member removed from group.")
                                 : new ResponseModel("error", "Failed to remove member.");
@@ -911,6 +1015,14 @@ public class ClientHandler implements Runnable {
 
                             boolean isBlocked = ContactDatabase.toggleBlock(userUUID, targetUUID);
 
+                            //RealTime
+                            if (isBlocked) {
+                                RealTimeEventDispatcher.notifyBlocked(userUUID, targetUUID);
+                            } else {
+                                RealTimeEventDispatcher.notifyUnblocked(userUUID, targetUUID);
+                            }
+
+
                             String message = isBlocked ? "🔒 User blocked successfully." : "🔓 User unblocked successfully.";
                             response = new ResponseModel("success", message);
 
@@ -944,6 +1056,13 @@ public class ClientHandler implements Runnable {
 
                         boolean success = GroupDatabase.transferOwnership(groupId, newOwner.getInternal_uuid());
 
+                        //RealTime
+                        if (success) {
+                            List<UUID> members = GroupDatabase.getMemberUUIDs(groupId);
+                            RealTimeEventDispatcher.sendGroupOrChannelUpdate("group", groupId, groupId.toString(), "", "", members);
+                        }
+
+
                         response = success
                                 ? new ResponseModel("success", "Ownership transferred.")
                                 : new ResponseModel("error", "Failed to transfer ownership.");
@@ -972,6 +1091,14 @@ public class ClientHandler implements Runnable {
                     case "delete_private_chat" : {
                         UUID targetId = UUID.fromString(requestJson.getString("target_id"));
                         boolean both = requestJson.getBoolean("both");
+
+                        //RealTime
+                        if (both) {
+                            RealTimeEventDispatcher.notifyChatDeleted("private", targetId, List.of(currentUser.getInternal_uuid()));
+                            RealTimeEventDispatcher.notifyChatDeleted("private", currentUser.getInternal_uuid(), List.of(targetId));
+                        } else {
+                            RealTimeEventDispatcher.notifyChatDeleted("private", targetId, List.of(currentUser.getInternal_uuid()));
+                        }
                         response = PrivateChatService.deletePrivateChat(currentUser.getInternal_uuid(), targetId, both);
                         break;
                     }
@@ -995,12 +1122,24 @@ public class ClientHandler implements Runnable {
 
                         boolean success = false;
 
+
+
+
                         switch (chatType) {
                             case "group" -> success = GroupDatabase.removeMemberFromGroup(chatId, userId);
                             case "channel" -> success = ChannelDatabase.removeSubscriberFromChannel(chatId, userId);
                             default -> {
                                 response = new ResponseModel("error", "Unsupported chat type.");
                                 break;
+                            }
+                        }
+
+                        //RealTime
+                        if (success) {
+                            if (chatType.equals("group")) {
+                                RealTimeEventDispatcher.notifyRemovedFromChat("group", chatId, userId);
+                            } else if (chatType.equals("channel")) {
+                                RealTimeEventDispatcher.notifyRemovedFromChat("channel", chatId, userId);
                             }
                         }
 
@@ -1022,11 +1161,17 @@ public class ClientHandler implements Runnable {
                             break;
                         }
 
+                        List<UUID> memberIds = GroupDatabase.getGroupMemberUUIDs(groupId);
+
                         boolean success = GroupDatabase.deleteGroup(groupId);
 
-                        response = success
-                                ? new ResponseModel("success", "Group deleted successfully.")
-                                : new ResponseModel("error", "Failed to delete group.");
+                        //RealTime
+                        if (success) {
+                            RealTimeEventDispatcher.notifyChatDeleted("group", groupId, memberIds);
+                            response = new ResponseModel("success", "Group deleted successfully.");
+                        } else {
+                            response = new ResponseModel("error", "Failed to delete group.");
+                        }
                         break;
                     }
 
@@ -1085,6 +1230,20 @@ public class ClientHandler implements Runnable {
                         }
 
                         boolean success = ChannelDatabase.addSubscriberToChannel(targetUserId, channelId);
+
+                        //RealTime
+                        if (success) {
+                            Channel channel = ChannelDatabase.findByInternalUUID(channelId);
+                            if (channel != null) {
+                                RealTimeEventDispatcher.notifyAddedToChat(
+                                        "channel",
+                                        channel.getInternal_uuid(),
+                                        channel.getChannel_name(),
+                                        channel.getImage_url(),
+                                        targetUserId
+                                );
+                            }
+                        }
                         response = success
                                 ? new ResponseModel("success", "Subscriber added to channel.")
                                 : new ResponseModel("error", "Failed to add subscriber.");
@@ -1112,6 +1271,18 @@ public class ClientHandler implements Runnable {
                         }
 
                         boolean success = ChannelDatabase.removeSubscriberFromChannel(channelId, targetUserId);
+
+                        //RealTime
+                        if (success) {
+                            Channel channel = ChannelDatabase.findByInternalUUID(channelId);
+                            if (channel != null) {
+                                RealTimeEventDispatcher.notifyRemovedFromChat(
+                                        "channel",
+                                        channel.getInternal_uuid(),
+                                        targetUserId
+                                );
+                            }
+                        }
                         response = success
                                 ? new ResponseModel("success", "Subscriber removed from channel.")
                                 : new ResponseModel("error", "Failed to remove subscriber.");
@@ -1140,6 +1311,13 @@ public class ClientHandler implements Runnable {
                             }
 
                             boolean updated = ChannelDatabase.updateChannelInfo(channelUUID, newChannelId, name, description, imageUrl);
+
+                            //RealTime
+                            if (updated) {
+                                List<UUID> subscribers = ChannelDatabase.getChannelSubscriberUUIDs(channelUUID);
+                                RealTimeEventDispatcher.sendGroupOrChannelUpdate("channel", channelUUID, name, imageUrl, description, subscribers);
+                            }
+
                             response = updated
                                     ? new ResponseModel("success", "Channel info updated successfully.")
                                     : new ResponseModel("error", "Failed to update channel info.");
@@ -1159,13 +1337,69 @@ public class ClientHandler implements Runnable {
                             break;
                         }
 
+                        List<UUID> subscriberIds = ChannelDatabase.getChannelSubscriberUUIDs(channelId);
+
                         boolean success = ChannelDatabase.deleteChannel(channelId);
-                        response = success
-                                ? new ResponseModel("success", "Channel deleted successfully.")
-                                : new ResponseModel("error", "Failed to delete channel.");
+
+                        //RealTime
+                        if (success) {
+                            RealTimeEventDispatcher.notifyChatDeleted("channel", channelId, subscriberIds);
+                            response = new ResponseModel("success", "Channel deleted successfully.");
+                        } else {
+                            response = new ResponseModel("error", "Failed to delete channel.");
+                        }
 
                         break;
                     }
+
+                    case "remove_admin_from_group": {
+                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+                        UUID targetUserId = UUID.fromString(requestJson.getString("target_user_id"));
+
+                        if (!GroupPermissionUtil.canRemoveAdmins(groupId, currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "You are not allowed to remove admins.");
+                            break;
+                        }
+
+                        String targetRole = GroupDatabase.getGroupRole(groupId, targetUserId);
+                        if (targetRole == null) {
+                            response = new ResponseModel("error", "User is not a member of the group.");
+                            break;
+                        }
+
+                        if (targetRole.equals("owner")) {
+                            response = new ResponseModel("error", "You cannot remove the owner.");
+                            break;
+                        }
+
+                        if (!targetRole.equals("admin")) {
+                            response = new ResponseModel("error", "Target user is not an admin.");
+                            break;
+                        }
+
+                        boolean success = GroupDatabase.demoteAdminToMember(groupId, targetUserId);
+
+                        // RealTime
+                        if (success) {
+                            Group group = GroupDatabase.findByInternalUUID(groupId);
+                            if (group != null) {
+                                RealTimeEventDispatcher.notifyRemovedAdminFromChat(
+                                        "group",
+                                        group.getInternal_uuid(),
+                                        group.getGroup_name(),
+                                        group.getImage_url(),
+                                        targetUserId
+                                );
+                            }
+                        }
+
+                        response = success
+                                ? new ResponseModel("success", "Admin removed successfully.")
+                                : new ResponseModel("error", "Failed to remove admin.");
+
+                        break;
+                    }
+
 
                     case "transfer_channel_ownership": {
                         UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
@@ -1183,7 +1417,15 @@ public class ClientHandler implements Runnable {
                         }
 
                         boolean success = ChannelDatabase.transferOwnership(channelId, newOwner.getInternal_uuid());
+
+                        //RealTime
+                        if (success) {
+                            List<UUID> subscribers = ChannelDatabase.getChannelSubscriberUUIDs(channelId);
+                            RealTimeEventDispatcher.sendGroupOrChannelUpdate("channel", channelId, channelId.toString(), "", "", subscribers);
+                        }
+
                         response = success
+
                                 ? new ResponseModel("success", "Ownership transferred successfully.")
                                 : new ResponseModel("error", "Failed to transfer ownership.");
                         break;
@@ -1212,12 +1454,17 @@ public class ClientHandler implements Runnable {
         }   finally {
             try {
                 if (currentUser != null) {
+                    //RealTime
                     userId = currentUser.getInternal_uuid();
+                    List<UUID> contacts = ContactDatabase.getContactUUIDs(userId);
+                    RealTimeEventDispatcher.notifyUserStatusChanged(userId, "offline", contacts);
+
                     System.out.println("🔚 Client disconnected. Cleaning up user " + userId);
                     userDatabase.updateUserStatus(userId, "offline");
                     userDatabase.updateLastSeen(userId);
                     SessionManager.removeUser(userId);
-                } else {
+                }
+                else {
                     System.out.println("❗ currentUser is null, couldn't set offline.");
                 }
                 socket.close();

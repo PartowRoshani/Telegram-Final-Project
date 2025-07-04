@@ -601,4 +601,19 @@ public class ChannelDatabase {
         }
     }
 
+    public static List<UUID> getChannelSubscriberUUIDs(UUID channelId) {
+        List<UUID> subscriberIds = new ArrayList<>();
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement("SELECT user_id FROM channel_subscribers WHERE channel_id = ?")) {
+            stmt.setObject(1, channelId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                subscriberIds.add(UUID.fromString(rs.getString("user_id")));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return subscriberIds;
+    }
+
 }

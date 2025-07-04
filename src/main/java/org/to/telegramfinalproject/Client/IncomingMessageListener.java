@@ -1,6 +1,5 @@
 package org.to.telegramfinalproject.Client;
 
-
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -46,7 +45,9 @@ public class IncomingMessageListener implements Runnable {
             case "new_message", "message_edited", "message_deleted",
                  "user_status_changed", "added_to_group", "added_to_channel",
                  "update_group_or_channel", "chat_deleted",
-                 "blocked_by_user", "unblocked_by_user", "message_seen" -> true;
+                 "blocked_by_user", "unblocked_by_user", "message_seen",
+                 "removed_from_group", "removed_from_channel",
+                 "became_admin", "removed_admin" -> true;
             default -> false;
         };
     }
@@ -109,6 +110,22 @@ public class IncomingMessageListener implements Runnable {
                 System.out.println("\n👁️ Your message was seen:");
                 System.out.println("Message ID: " + msg.getString("message_id"));
                 System.out.println("Seen at: " + msg.getString("seen_at"));
+            }
+
+            case "removed_from_group" -> {
+                System.out.println("\n🚫 You were removed from group: " + msg.getString("chat_id"));
+            }
+
+            case "removed_from_channel" -> {
+                System.out.println("\n🚫 You were removed from channel: " + msg.getString("chat_id"));
+            }
+
+            case "became_admin" -> {
+                System.out.println("\n⭐ You are now an admin in: " + msg.getString("chat_name"));
+            }
+
+            case "removed_admin" -> {
+                System.out.println("\n⚠️ You are no longer an admin in: " + msg.getString("chat_name"));
             }
 
             default -> {
