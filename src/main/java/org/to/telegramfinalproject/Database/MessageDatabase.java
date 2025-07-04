@@ -12,6 +12,41 @@ import java.util.stream.Collectors;
 public class MessageDatabase {
 
 
+    public static void save(Message message) {
+        String sql = """
+        INSERT INTO messages (
+            message_id, sender_id, receiver_type, receiver_id, content,
+            message_type, file_url, send_at, status,
+            reply_to_id, is_edited, original_message_id, forwarded_by, forwarded_from
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, message.getMessage_id());
+            stmt.setObject(2, message.getSender_id());
+            stmt.setString(3, message.getReceiver_type());
+            stmt.setObject(4, message.getReceiver_id());
+            stmt.setString(5, message.getContent());
+            stmt.setString(6, message.getMessage_type());
+            stmt.setString(7, message.getFile_url());
+            stmt.setObject(8, message.getSend_at());
+            stmt.setString(9, message.getStatus());
+            stmt.setObject(10, message.getReply_to_id());
+            stmt.setBoolean(11, message.isIs_edited());
+            stmt.setObject(12, message.getOriginal_message_id());
+            stmt.setObject(13, message.getForwarded_by());
+            stmt.setObject(14, message.getForwarded_from());
+
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error saving message: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     public void markMessageAsRead(UUID messageId, UUID userId) {
         String sql = "INSERT INTO message_receipts (message_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
         try (Connection conn = ConnectionDb.connect();
@@ -179,6 +214,80 @@ public class MessageDatabase {
             e.printStackTrace();
         }
 
+        return result;
+    }
+
+    public static List<Message> privateChatHistory(UUID user1, UUID user2) {
+        List<Message> result = new ArrayList<>();
+        String sql = """
+        SELECT * FROM messages 
+        WHERE receiver_type = 'private'
+        AND (
+            (sender_id = ? AND receiver_id = ?)
+            OR (sender_id = ? AND receiver_id = ?)
+        )
+        ORDER BY send_at
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, user1);
+            stmt.setObject(2, user2);
+            stmt.setObject(3, user2);
+            stmt.setObject(4, user1);
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                result.add(extractMessage(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+
+
+    public static List<Message> groupChatHistory(UUID groupId) {
+        List<Message> result = new ArrayList<>();
+        String sql = """
+        SELECT * FROM messages 
+        WHERE receiver_type = 'group' AND receiver_id = ?
+        ORDER BY send_at
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, groupId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                result.add(extractMessage(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+
+    public static List<Message> channelChatHistory(UUID channelId) {
+        List<Message> result = new ArrayList<>();
+        String sql = """
+        SELECT * FROM messages 
+        WHERE receiver_type = 'channel' AND receiver_id = ?
+        ORDER BY send_at
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, channelId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                result.add(extractMessage(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
         return result;
     }
 

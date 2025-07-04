@@ -13,4 +13,6 @@ module org.to.telegramfinalproject {
     requires java.sql;
     opens org.to.telegramfinalproject to javafx.fxml;
     exports org.to.telegramfinalproject;
+    exports org.to.telegramfinalproject.Client;
+    opens org.to.telegramfinalproject.Client to javafx.fxml;
 }

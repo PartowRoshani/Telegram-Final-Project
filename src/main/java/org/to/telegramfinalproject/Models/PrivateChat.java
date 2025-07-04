@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public class PrivateChat {
-    private UUID chat_id;
+    private final UUID chat_id;
     private UUID user1_id;
     private UUID user2_id;
     private LocalDateTime created_at;

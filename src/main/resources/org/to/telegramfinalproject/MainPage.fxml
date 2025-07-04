@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.image.*?>
+<?import javafx.scene.text.*?>
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane prefHeight="983.0" prefWidth="859.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.to.telegramfinalproject.MainPage">
+   <content>
+      <AnchorPane prefHeight="977.0" prefWidth="845.0">
+         <children>
+            <AnchorPane layoutX="7.0" layoutY="-8.0" prefHeight="977.0" prefWidth="845.0">
+               <children>
+                  <Label layoutX="-7.0" layoutY="-6.0" prefHeight="78.0" prefWidth="859.0" style="-fx-background-color: #1882da;" text="          Telegram" textFill="WHITE">
+                     <font>
+                        <Font name="Arial Bold" size="36.0" />
+                     </font>
+                  </Label>
+                  <Button contentDisplay="GRAPHIC_ONLY" layoutX="6.0" layoutY="10.0" mnemonicParsing="false" style="-fx-background-color: #1882da;">
+                     <graphic>
+                        <ImageView fitHeight="39.0" fitWidth="63.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@../../../Icons/menu.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                  </Button>
+                  <Button contentDisplay="GRAPHIC_ONLY" layoutX="703.0" layoutY="9.0" mnemonicParsing="false" prefHeight="54.0" prefWidth="135.0" style="-fx-background-color: #1882da;" text="" textFill="#d6d6d6">
+                     <graphic>
+                        <ImageView fitHeight="47.0" fitWidth="54.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@../../../Icons/search.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                  </Button>
+                  <Button contentDisplay="GRAPHIC_ONLY" layoutX="547.0" mnemonicParsing="false" prefHeight="66.0" prefWidth="114.0" style="-fx-background-color: #1882da;" text="" />
+                  <ImageView fitHeight="50.0" fitWidth="110.0" layoutX="586.0" layoutY="14.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@../../../Icons/time.png" />
+                     </image>
+                  </ImageView>
+                  <ListView fx:id="contactListView" layoutX="1.0" layoutY="73.0" prefHeight="907.0" prefWidth="851.0" />
+               </children>
+            </AnchorPane>
+         </children>
+      </AnchorPane>
+   </content>
+</ScrollPane>

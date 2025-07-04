@@ -28,7 +28,7 @@ public class JsonUtil {
 
     public static JSONObject userToJson(User user) {
         JSONObject obj = new JSONObject();
-        obj.put("internalUUID", user.getInternal_uuid().toString());
+        obj.put("internal_uuid", user.getInternal_uuid().toString());
         obj.put("user_id", user.getUser_id() != null ?user.getUser_id().toString() :JSONObject.NULL);
         obj.put("username", user.getUsername());
         obj.put("profile_name", user.getProfile_name());
@@ -109,9 +109,13 @@ public class JsonUtil {
 
 
 
-
     public static JSONArray groupMemberListToJson(List<GroupMember> members) {
         JSONArray array = new JSONArray();
+
+        if (members == null) {
+            return array;
+        }
+
         for (GroupMember m : members) {
             JSONObject obj = new JSONObject();
             obj.put("group_id", m.getGroup_id().toString());
@@ -120,20 +124,29 @@ public class JsonUtil {
             obj.put("role", m.getRole());
             array.put(obj);
         }
+
         return array;
     }
 
-    public static JSONArray channelSubscribeToJson(List<ChannelSubscribe> subscribes){
+
+    public static JSONArray channelSubscribeToJson(List<ChannelSubscribe> subscribes) {
         JSONArray array = new JSONArray();
-        for(ChannelSubscribe s :subscribes ){
+
+        if (subscribes == null) {
+            return array;
+        }
+
+        for (ChannelSubscribe s : subscribes) {
             JSONObject obj = new JSONObject();
-            obj.put("channel_id",s.getChannel_id().toString());
+            obj.put("channel_id", s.getChannel_id().toString());
             obj.put("user_id", s.getUser_id().toString());
             obj.put("Subscribed_at", s.getJoin_at().toString());
+            array.put(obj);
         }
 
         return array;
     }
+
 
 
     public static JSONArray chatListToJson(List<ChatEntry> chatList) {
@@ -141,17 +154,33 @@ public class JsonUtil {
 
         for (ChatEntry entry : chatList) {
             JSONObject obj = new JSONObject();
-            obj.put("id", entry.getId() != null ?entry.getId() :JSONObject.NULL);
+            obj.put("internal_id", entry.getId().toString());
+            obj.put("id", entry.getDisplayId());
             obj.put("name", entry.getName());
-            obj.put("image_url", entry.getImageUrl() != null ?entry.getImageUrl() :JSONObject.NULL);
+            obj.put("image_url", entry.getImageUrl());
             obj.put("type", entry.getType());
-            obj.put("last_message_time", entry.getLastMessageTime() != null ? entry.getLastMessageTime().toString() : JSONObject.NULL);
+            obj.put("last_message_time", entry.getLastMessageTime() == null ? JSONObject.NULL : entry.getLastMessageTime().toString());
+            obj.put("is_owner", entry.isOwner());
+            obj.put("is_admin", entry.isAdmin());
+
 
             jsonArray.put(obj);
         }
 
         return jsonArray;
     }
+
+
+    public static JSONObject chatToJson(ChatEntry chat) {
+        JSONObject obj = new JSONObject();
+        obj.put("id", chat.getId());
+        obj.put("name", chat.getName());
+        obj.put("image_url", chat.getImageUrl() != null ? chat.getImageUrl() : JSONObject.NULL);
+        obj.put("type", chat.getType());
+        obj.put("last_message_time", chat.getLastMessageTime() != null ? chat.getLastMessageTime().toString() : JSONObject.NULL);
+        return obj;
+    }
+
 
 
 }
