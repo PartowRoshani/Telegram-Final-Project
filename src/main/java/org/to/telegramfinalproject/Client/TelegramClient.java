@@ -15,24 +15,32 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class TelegramClient {
     private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 8000;
-    private Socket socket;
+    private static Socket socket;
     private BufferedReader in;
     private PrintWriter out;
     private final Scanner scanner;
-    ActionHandler handler = null;
+    private ActionHandler handler;
     public static BlockingQueue<JSONObject> responseQueue = new LinkedBlockingQueue<>();
+    public static UUID loggedInUserId = null;
+
+    private static TelegramClient instance;
 
     public TelegramClient() {
         this.scanner = new Scanner(System.in);
+        instance = this;
+    }
+
+    public static TelegramClient getInstance() {
+        return instance;
     }
 
     public void start() {
         try {
-            this.socket = new Socket(SERVER_HOST, SERVER_PORT);
-            this.in = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-            this.out = new PrintWriter(this.socket.getOutputStream(), true);
+            socket = new Socket(SERVER_HOST, SERVER_PORT);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out = new PrintWriter(socket.getOutputStream(), true);
             System.out.println("✅ Connected to Telegram Server");
-            this.handler = new ActionHandler(this.out, this.in, this.scanner);
+            handler = new ActionHandler(out, in, scanner);
 
             Thread listenerThread = new Thread(new IncomingMessageListener(in));
             listenerThread.setDaemon(true);
@@ -60,7 +68,10 @@ public class TelegramClient {
                     handler.loginHandler();
                     if (Session.currentUser != null) {
                         System.out.println("✅ Login successful.");
+
                         UUID internalId = UUID.fromString(Session.currentUser.getString("internal_uuid"));
+                        loggedInUserId = internalId;
+
                         handler.userMenu(internalId);
                     } else {
                         System.out.println("❌ Login failed.");
@@ -73,6 +84,21 @@ public class TelegramClient {
                 default -> System.out.println("Invalid choice.");
             }
         }
+    }
+
+    public static void send(JSONObject req) {
+        try {
+            responseQueue.clear();  // optional: clear old responses
+            getInstance().out.println(req.toString());
+            System.out.println("📤 [SEND] " + req.toString(2));
+
+        } catch (Exception e) {
+            System.err.println("❌ Error sending request: " + e.getMessage());
+        }
+    }
+
+    public static Socket getSocket() {
+        return socket;
     }
 
     public static void main(String[] args) {

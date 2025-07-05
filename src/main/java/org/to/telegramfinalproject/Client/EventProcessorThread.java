@@ -8,13 +8,13 @@ public class EventProcessorThread extends Thread {
         setDaemon(true);
     }
 
-    @Override
-    public void run() {
-        while (true) {
-            try {
-                Thread.sleep(2000);
-                handler.processIncomingEvents();
-            } catch (InterruptedException ignored) {}
-        }
-    }
+//    @Override
+//    public void run() {
+//        while (true) {
+//            try {
+//                Thread.sleep(2000);
+//                handler.processIncomingEvents();
+//            } catch (InterruptedException ignored) {}
+//        }
+//    }
 }

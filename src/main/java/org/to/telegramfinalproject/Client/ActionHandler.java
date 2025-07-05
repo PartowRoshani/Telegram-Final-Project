@@ -6,16 +6,19 @@ import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Models.SearchRequestModel;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.util.*;
 
-import static org.to.telegramfinalproject.Database.ChannelDatabase.addSubscriberToChannel;
 
 public class ActionHandler {
     private final PrintWriter out;
     private final BufferedReader in;
     private final Scanner scanner;
+    public static volatile boolean forceExitChat = false;
+
+
 
     public ActionHandler(PrintWriter out, BufferedReader in, Scanner scanner) {
         this.out = out;
@@ -353,6 +356,7 @@ public class ActionHandler {
 
 
                         chatList.add(entry);
+
                     }
 
 
@@ -625,11 +629,36 @@ public class ActionHandler {
         req.put("action", "get_messages");
         req.put("receiver_id", chat.getId());
         req.put("receiver_type", chat.getType());
-        send(req);
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch messages.");
+            return;
+        }
+
+        JSONArray messages = res.getJSONObject("data").getJSONArray("messages");
+        System.out.println("\n🔓 Messages fetched:");
+        System.out.println("─────────────────────────────────────────────");
+        for (int i = 0; i < messages.length(); i++) {
+            JSONObject m = messages.getJSONObject(i);
+            String senderId = m.getString("sender_id");
+            String content = m.getString("content");
+            String time = m.getString("send_at");
+
+            String label = senderId.equals(Session.currentUser.getString("internal_uuid")) ? "You" : "Other";
+            System.out.println("[" + time + "] " + label + ": " + content);
+        }
+        System.out.println("─────────────────────────────────────────────");
 
         boolean stayInChat = true;
 
         while (stayInChat) {
+            if (forceExitChat) {
+                System.out.println("⚠️ You have been removed from this chat or chat was deleted. Returning to chat list...");
+                forceExitChat = false;
+                break;
+            }
+
             switch (chat.getType().trim().toLowerCase()) {
                 case "private" -> stayInChat = showPrivateChatMenu(chat);
                 case "group" -> stayInChat = showGroupChatMenu(chat);
@@ -1752,6 +1781,7 @@ public class ActionHandler {
     private JSONObject getResponse() {
         try {
             return TelegramClient.responseQueue.take();
+
         } catch (InterruptedException e) {
             throw new RuntimeException("Failed to get server response");
         }
@@ -1774,54 +1804,54 @@ public class ActionHandler {
 
 
 
-    public void processIncomingEvents() {
-        try {
-            while (in.ready()) {
-                String line = in.readLine();
-                if (line == null) continue;
-
-                JSONObject response = new JSONObject(line);
-                if (!response.has("action")) continue;
-
-                String action = response.getString("action");
-
-                switch (action) {
-                    case "new_message" -> {
-                        JSONObject msg = response.getJSONObject("data");
-                        System.out.println("\n🔔 New Message:");
-                        System.out.println("From: " + msg.getString("sender"));
-                        System.out.println("Time: " + msg.getString("time"));
-                        System.out.println("Content: " + msg.getString("content"));
-                        System.out.print(">> ");
-                    }
-
-                    case "user_status_changed" -> {
-                        JSONObject msg = response.getJSONObject("data");
-                        System.out.println("\n🔄 User Status Changed:");
-                        System.out.println("User: " + msg.getString("user_id"));
-                        System.out.println("Status: " + msg.getString("status"));
-                        System.out.print(">> ");
-                    }
-
-                    case "update_group_or_channel" -> {
-                        JSONObject data = response.getJSONObject("data");
-                        System.out.println("\n📢 " + data.getString("chat_type") + " updated: " + data.getString("new_name"));
-                        System.out.print(">> ");
-                    }
-
-
-                    default -> {
-                        if (!action.equals("search")) {
-                            System.out.println("\n❓ Unknown action received: " + action);
-                            System.out.print(">> ");
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.out.println("🔴 Failed to process event: " + e.getMessage());
-        }
-    }
+//    public void processIncomingEvents() {
+//        try {
+//            while (in.ready()) {
+//                String line = in.readLine();
+//                if (line == null) continue;
+//
+//                JSONObject response = new JSONObject(line);
+//                if (!response.has("action")) continue;
+//
+//                String action = response.getString("action");
+//
+//                switch (action) {
+//                    case "new_message" -> {
+//                        JSONObject msg = response.getJSONObject("data");
+//                        System.out.println("\n🔔 New Message:");
+//                        System.out.println("From: " + msg.getString("sender"));
+//                        System.out.println("Time: " + msg.getString("time"));
+//                        System.out.println("Content: " + msg.getString("content"));
+//                        System.out.print(">> ");
+//                    }
+//
+//                    case "user_status_changed" -> {
+//                        JSONObject msg = response.getJSONObject("data");
+//                        System.out.println("\n🔄 User Status Changed:");
+//                        System.out.println("User: " + msg.getString("user_id"));
+//                        System.out.println("Status: " + msg.getString("status"));
+//                        System.out.print(">> ");
+//                    }
+//
+//                    case "update_group_or_channel" -> {
+//                        JSONObject data = response.getJSONObject("data");
+//                        System.out.println("\n📢 " + data.getString("chat_type") + " updated: " + data.getString("new_name"));
+//                        System.out.print(">> ");
+//                    }
+//
+//
+//                    default -> {
+//                        if (!action.equals("search")) {
+//                            System.out.println("\n❓ Unknown action received: " + action);
+//                            System.out.print(">> ");
+//                        }
+//                    }
+//                }
+//            }
+//        } catch (Exception e) {
+//            System.out.println("🔴 Failed to process event: " + e.getMessage());
+//        }
+//    }
 
 
     public void addAdminToEntity(String type, UUID entityId) {
@@ -1986,6 +2016,56 @@ public class ActionHandler {
             return null;
         }
     }
+
+    public static void requestChatList() throws IOException {
+        System.out.println("🟢 [requestChatList] Sending chat list request...");
+
+        JSONObject req = new JSONObject();
+        req.put("action", "get_chat_list");
+        req.put("user_id", TelegramClient.loggedInUserId.toString());
+
+        System.out.println("📤 [SEND] " + req.toString(2));
+
+        TelegramClient.send(req);
+    }
+
+    public static void requestChatInfo(String chatId, String chatType) throws IOException {
+        JSONObject req = new JSONObject();
+        req.put("action", "get_chat_info");
+        req.put("receiver_id", chatId);
+        req.put("receiver_type", chatType);
+        TelegramClient.send(req);
+    }
+
+
+//    public static void handleChatListResponse(JSONObject response) {
+//        if (response.getString("status").equals("success")) {
+//            JSONArray chats = response.getJSONArray("data");
+//
+//            TelegramClient.chatList.clear();
+//
+//            for (int i = 0; i < chats.length(); i++) {
+//                JSONObject chatJson = chats.getJSONObject(i);
+//
+//                UUID internalId = UUID.fromString(chatJson.getString("internal_id"));
+//                String displayId = chatJson.getString("id");
+//                String name = chatJson.getString("name");
+//                String imageUrl = chatJson.optString("image_url", "");
+//                String type = chatJson.getString("type");
+//                LocalDateTime lastMessageTime = LocalDateTime.parse(chatJson.getString("last_message_time"));
+//
+//                ChatEntry chat = new ChatEntry(internalId, displayId, name, imageUrl, type, lastMessageTime);
+//                TelegramClient.chatList.add(chat);
+//            }
+//
+//            System.out.println("\n✅ Updated Chat List:");
+//            displayChatList();
+//        } else {
+//            System.out.println("⚠️ Failed to fetch chat list: " + response.getString("message"));
+//        }
+//    }
+
+
 
 
 }
