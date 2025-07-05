@@ -2038,32 +2038,45 @@ public class ActionHandler {
     }
 
 
-//    public static void handleChatListResponse(JSONObject response) {
-//        if (response.getString("status").equals("success")) {
-//            JSONArray chats = response.getJSONArray("data");
-//
-//            TelegramClient.chatList.clear();
-//
-//            for (int i = 0; i < chats.length(); i++) {
-//                JSONObject chatJson = chats.getJSONObject(i);
-//
-//                UUID internalId = UUID.fromString(chatJson.getString("internal_id"));
-//                String displayId = chatJson.getString("id");
-//                String name = chatJson.getString("name");
-//                String imageUrl = chatJson.optString("image_url", "");
-//                String type = chatJson.getString("type");
-//                LocalDateTime lastMessageTime = LocalDateTime.parse(chatJson.getString("last_message_time"));
-//
-//                ChatEntry chat = new ChatEntry(internalId, displayId, name, imageUrl, type, lastMessageTime);
-//                TelegramClient.chatList.add(chat);
-//            }
-//
-//            System.out.println("\n✅ Updated Chat List:");
-//            displayChatList();
-//        } else {
-//            System.out.println("⚠️ Failed to fetch chat list: " + response.getString("message"));
-//        }
-//    }
+    public static void handleChatListResponse(JSONObject response) {
+        if (response.getString("status").equals("success")) {
+            JSONArray chats = response.getJSONArray("data");
+
+            Session.chatList.clear();
+
+            for (int i = 0; i < chats.length(); i++) {
+                JSONObject chatJson = chats.getJSONObject(i);
+
+                UUID internalId = UUID.fromString(chatJson.getString("internal_id"));
+                String displayId = chatJson.getString("id");
+                String name = chatJson.getString("name");
+                String imageUrl = chatJson.optString("image_url", "");
+                String type = chatJson.getString("type");
+                LocalDateTime lastMessageTime = LocalDateTime.parse(chatJson.getString("last_message_time"));
+
+                ChatEntry chat = new ChatEntry(internalId, displayId, name, imageUrl, type, lastMessageTime);
+                Session.chatList.add(chat);
+            }
+
+            System.out.println("\n✅ Updated Chat List:");
+            displayChatList();
+        } else {
+            System.out.println("⚠️ Failed to fetch chat list: " + response.getString("message"));
+        }
+    }
+
+    public static void displayChatList() {
+        if (Session.chatList == null || Session.chatList.isEmpty()) {
+            System.out.println("\n📭 No chats available.");
+            return;
+        }
+
+        System.out.println("\n💬 Your Chats:");
+        int index = 1;
+        for (ChatEntry chat : Session.chatList) {
+            System.out.printf("%d. [%s] %s (%s)\n", index++, chat.getType(), chat.getName(), chat.getDisplayId());
+        }
+    }
 
 
 
