@@ -12,9 +12,9 @@ import java.io.IOException;
 public class TelegramApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("login_view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 320, 240);
-        stage.setTitle("Hello!");
+        FXMLLoader fxmlLoader = new FXMLLoader(TelegramApplication.class.getResource("/org/to/telegramfinalproject/Intro.fxml"));
+        Scene scene = new Scene(fxmlLoader.load(), 1480, 820);
+        stage.setTitle("Telegram");
         stage.setScene(scene);
         stage.show();
     }
@@ -23,4 +23,3 @@ public class TelegramApplication extends Application {
     }
 
 }
-
