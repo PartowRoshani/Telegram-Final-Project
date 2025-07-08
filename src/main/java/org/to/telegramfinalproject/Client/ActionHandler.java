@@ -261,8 +261,16 @@ public class ActionHandler {
     public void createGroup() {
         System.out.print("Enter group ID: ");
         String groupId = scanner.nextLine();
-        System.out.print("Enter group name: ");
-        String groupName = scanner.nextLine();
+        String groupName = null;
+        while (groupName == null) {
+            System.out.print("Enter group name: ");
+            String input = scanner.nextLine();
+            if (!input.trim().isEmpty()) {
+                groupName = input;
+            } else {
+                System.out.println("Group name can't be empty.");
+            }
+        }
         System.out.print("Enter image URL (optional): ");
         String imageUrl = scanner.nextLine();
 
@@ -281,8 +289,16 @@ public class ActionHandler {
     public void createChannel() {
         System.out.print("Enter channel ID: ");
         String channelId = scanner.nextLine();
-        System.out.print("Enter channel name: ");
-        String channelName = scanner.nextLine();
+        String channelName = null;
+        while (channelName == null) {
+            System.out.print("Enter channel name: ");
+            String input = scanner.nextLine();
+            if (!input.trim().isEmpty()) {
+                channelName = input;
+            } else {
+                System.out.println("Channel name can't be empty.");
+            }
+        }
         System.out.print("Enter image URL (optional): ");
         String imageUrl = scanner.nextLine();
 

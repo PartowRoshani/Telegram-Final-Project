@@ -559,7 +559,7 @@ public class GroupDatabase {
 
     public static boolean transferOwnership(UUID groupId, UUID newOwnerId) {
         String demoteOldOwner = "UPDATE group_members SET role = 'admin' WHERE group_id = ? AND role = 'owner'";
-        String promoteNewOwner = "UPDATE group_members SET role = 'owner' WHERE group_id = ? AND user_id = ?";
+        String promoteNewOwner = "UPDATE group_members SET role = 'owner', permissions = '{}'::jsonb WHERE group_id = ? AND user_id = ?";
 
         try (Connection conn = ConnectionDb.connect()) {
             conn.setAutoCommit(false);

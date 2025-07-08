@@ -576,7 +576,7 @@ public class ChannelDatabase {
 
 
     public static boolean transferOwnership(UUID channelId, UUID newOwnerUUID) {
-        String sql = """
+        String updateRoles = """
         UPDATE channel_subscribers
         SET role = CASE
             WHEN user_id = ? THEN 'owner'
@@ -586,20 +586,40 @@ public class ChannelDatabase {
         WHERE channel_id = ?
     """;
 
-        try (Connection conn = ConnectionDb.connect();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        String clearPermissions = """
+        UPDATE channel_subscribers
+        SET permissions = '{}'::jsonb
+        WHERE channel_id = ? AND user_id = ?
+    """;
 
-            stmt.setObject(1, newOwnerUUID);
-            stmt.setObject(2, channelId);
+        try (Connection conn = ConnectionDb.connect()) {
+            conn.setAutoCommit(false);
 
-            stmt.executeUpdate();
-            return true;
+            try (PreparedStatement roleStmt = conn.prepareStatement(updateRoles);
+                 PreparedStatement clearPermsStmt = conn.prepareStatement(clearPermissions)) {
 
+                roleStmt.setObject(1, newOwnerUUID);
+                roleStmt.setObject(2, channelId);
+                roleStmt.executeUpdate();
+
+                clearPermsStmt.setObject(1, channelId);
+                clearPermsStmt.setObject(2, newOwnerUUID);
+                clearPermsStmt.executeUpdate();
+
+                conn.commit();
+                return true;
+
+            } catch (SQLException e) {
+                conn.rollback();
+                e.printStackTrace();
+            }
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
         }
+
+        return false;
     }
+
 
     public static List<UUID> getChannelSubscriberUUIDs(UUID channelId) {
         List<UUID> subscriberIds = new ArrayList<>();
