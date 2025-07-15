@@ -7,9 +7,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class TelegramClient {
@@ -22,6 +24,8 @@ public class TelegramClient {
     private ActionHandler handler;
     public static BlockingQueue<JSONObject> responseQueue = new LinkedBlockingQueue<>();
     public static UUID loggedInUserId = null;
+    public static final Map<String, BlockingQueue<JSONObject>> pendingResponses = new ConcurrentHashMap<>();
+
 
     private static TelegramClient instance;
 
@@ -53,7 +57,7 @@ public class TelegramClient {
         }
     }
 
-    private void showMainMenu() {
+    private void showMainMenu() throws IOException {
         while (true) {
             System.out.println("Main Menu:");
             System.out.println("1. Register");
@@ -104,4 +108,9 @@ public class TelegramClient {
     public static void main(String[] args) {
         new TelegramClient().start();
     }
+
+    public PrintWriter getOut() {
+        return out;
+    }
+
 }

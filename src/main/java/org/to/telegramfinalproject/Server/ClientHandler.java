@@ -189,6 +189,10 @@ public class ClientHandler implements Runnable {
                         List<JSONObject> results = new ArrayList<>();
                         String user_Id = requestJson.getString("user_id");
                         User currentUser = new userDatabase().findByUserId(user_Id);
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "User not found or not logged in.");
+                            break;
+                        }
                         UUID currentUserUUID = currentUser.getInternal_uuid();
 
                         for (User u : new userDatabase().searchUsers(keyword, currentUserUUID)) {
@@ -241,10 +245,12 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "search": {
+
                         String keyword = requestJson.optString("keyword");
                         List<JSONObject> results = new ArrayList<>();
                         String user_Id = requestJson.getString("user_id");
                         User currentUser = new userDatabase().findByUserId(user_Id);
+
                         UUID currentUserUUID = currentUser.getInternal_uuid();
 
                         for (User u : new userDatabase().searchUsers(keyword, currentUserUUID)) {
@@ -410,6 +416,8 @@ public class ClientHandler implements Runnable {
 
 
                     case "get_chat_info": {
+
+
                         try {
                             String id = requestJson.getString("receiver_id");
                             String type = requestJson.getString("receiver_type");
@@ -1114,7 +1122,6 @@ public class ClientHandler implements Runnable {
                         }
                         UUID groupId = UUID.fromString(requestJson.getString("group_id"));
                         UUID newOwnerUserId = UUID.fromString(requestJson.getString("new_owner_user_id"));
-
                         User newOwner = userDatabase.findByInternalUUID(newOwnerUserId);
                         if (newOwner == null) {
                             response = new ResponseModel("error", "New owner not found.");
@@ -1570,6 +1577,15 @@ public class ClientHandler implements Runnable {
                 responseJson.put("status", response.getStatus());
                 responseJson.put("message", response.getMessage());
                 responseJson.put("data", response.getData() != null ? response.getData() : JSONObject.NULL);
+                if (requestJson.has("request_id")) {
+                    response.setRequestId(requestJson.getString("request_id"));
+                }
+
+                if (requestJson.has("request_id")) {
+                    String requestId = requestJson.getString("request_id");
+                    response.setRequestId(requestId);
+                    responseJson.put("request_id", requestId);
+                }
                 out.println(responseJson.toString());
 
 

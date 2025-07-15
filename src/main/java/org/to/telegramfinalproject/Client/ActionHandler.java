@@ -10,6 +10,10 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 
 public class ActionHandler {
@@ -581,8 +585,17 @@ public class ActionHandler {
     }
 
 
-    public void userMenu(UUID internal_uuid) {
+    public void userMenu(UUID internal_uuid) throws IOException {
         while (true) {
+
+            if (Session.forceRefreshChatList) {
+                System.out.println("🔁 Refresh triggered by real-time event.");
+                requestChatList(); // با sendWithResponse جواب می‌گیری
+                Session.forceRefreshChatList = false;
+            }
+
+
+
             System.out.println("\nUser Menu:");
             System.out.println("1. Show chat list");
             System.out.println("2. Search");
@@ -607,35 +620,29 @@ public class ActionHandler {
     }
 
     public void showChatListAndSelect() {
-        if (Session.chatList == null || Session.chatList.isEmpty()) {
-            System.out.println("No chats available.");
+
+
+        List<ChatEntry> chatList = Session.getChatList();
+        if (chatList.isEmpty()) {
+            System.out.println("📭 You have no chats.");
             return;
         }
 
         System.out.println("\nYour Chats:");
-        for (int i = 0; i < Session.chatList.size(); i++) {
-            ChatEntry entry = Session.chatList.get(i);
-            String time = (entry.getLastMessageTime() == null)
-                    ? "No messages yet"
-                    : entry.getLastMessageTime().toString();
-            System.out.println((i + 1) + ". [" + entry.getType() + "] " +
-                    entry.getName() + " - Last: " + time);
+        for (int i = 0; i < chatList.size(); i++) {
+            ChatEntry entry = chatList.get(i);
+            String last = entry.getLastMessageTime() == null ? "No messages yet" : entry.getLastMessageTime().toString();
+            System.out.printf("%d. [%s] %s - Last: %s\n", i + 1, entry.getType(), entry.getName(), last);
         }
 
         System.out.print("Select a chat by number: ");
-        int choice = Integer.parseInt(scanner.nextLine()) - 1;
-
-        if(choice == -1){
-            System.out.println("Exit...");
-            return;
-        }
-        if (choice < -1 || choice >= Session.chatList.size()) {
-            System.out.println("Invalid selection.");
+        int choice = Integer.parseInt(scanner.nextLine());
+        if (choice < 1 || choice > chatList.size()) {
+            System.out.println("❌ Invalid choice.");
             return;
         }
 
-        ChatEntry selected = Session.chatList.get(choice);
-        openChat(selected);
+        openChat(chatList.get(choice - 1));
     }
 
 
@@ -692,6 +699,12 @@ public class ActionHandler {
 
 
     private boolean showPrivateChatMenu(ChatEntry chat) {
+
+        if (forceExitChat) {
+            forceExitChat = false;
+            System.out.println("🚪 Exiting chat due to real-time update.");
+            return false;
+        }
         System.out.println("1. Send message");
         System.out.println("2. Block/Unblock");
         System.out.println("3. Delete chat (one-sided)");
@@ -734,6 +747,12 @@ public class ActionHandler {
 
 
     private boolean showGroupChatMenu(ChatEntry chat) {
+        if (forceExitChat) {
+            forceExitChat = false;
+            System.out.println("🚪 Exiting chat due to real-time update.");
+            return false;
+        }
+
         boolean isAdmin = chat.isAdmin();
         boolean isOwner = chat.isOwner();
         JSONObject perms = getGroupPermissions(chat.getId());
@@ -818,6 +837,12 @@ public class ActionHandler {
 
 
     private boolean showChannelChatMenu(ChatEntry chat) {
+        if (forceExitChat) {
+            forceExitChat = false;
+            System.out.println("🚪 Exiting chat due to real-time update.");
+            return false;
+        }
+
         chat = fetchChatInfo(chat.getId().toString(), chat.getType());
         boolean isAdmin = chat.isAdmin();
         boolean isOwner = chat.isOwner();
@@ -996,7 +1021,6 @@ public class ActionHandler {
         System.out.println("✅ Ownership transferred successfully.");
         leaveChat(groupId, "group");
     }
-
 
     private void removeMemberFromGroup(UUID groupId) {
         JSONObject req = new JSONObject();
@@ -1319,7 +1343,7 @@ public class ActionHandler {
         }
 
         JSONObject selected = admins.getJSONObject(choice);
-        String newOwnerId = selected.getString("user_id");
+        String newOwnerId = selected.getString("internal_id");  // ✅ اصلاح شده
 
         JSONObject promoteReq = new JSONObject();
         promoteReq.put("action", "transfer_channel_ownership");
@@ -2002,21 +2026,25 @@ public class ActionHandler {
     }
 
 
-
-
-
-
-    private JSONObject sendWithResponse(JSONObject request) {
+    private static JSONObject sendWithResponse(JSONObject request) {
         try {
             if (!request.has("action") || request.isNull("action")) {
                 System.err.println("❌ Invalid request: missing action.");
                 return null;
             }
 
-            String action = request.getString("action");
-            this.out.println(request.toString());
+            String requestId = UUID.randomUUID().toString();
+            request.put("request_id", requestId);
 
-            JSONObject response = TelegramClient.responseQueue.take();
+            BlockingQueue<JSONObject> queue = new LinkedBlockingQueue<>();
+            TelegramClient.pendingResponses.put(requestId, queue);
+
+            TelegramClient.getInstance().getOut().println(request.toString());
+
+            // Wait for response
+            JSONObject response = queue.take();
+
+            TelegramClient.pendingResponses.remove(requestId);
 
             if (response == null) {
                 System.out.println("⚠️ No response received.");
@@ -2033,17 +2061,22 @@ public class ActionHandler {
         }
     }
 
-    public static void requestChatList() throws IOException {
-        System.out.println("🟢 [requestChatList] Sending chat list request...");
 
+    public void requestChatList() {
         JSONObject req = new JSONObject();
         req.put("action", "get_chat_list");
-        req.put("user_id", TelegramClient.loggedInUserId.toString());
+        req.put("user_id", Session.getUserUUID());
 
-        System.out.println("📤 [SEND] " + req.toString(2));
-
-        TelegramClient.send(req);
+        JSONObject res = sendWithResponse(req);
+        if (res.getString("status").equals("success")) {
+            JSONArray chats = res.getJSONObject("data").getJSONArray("chat_list");
+            Session.updateChatList(chats);
+            System.out.println("✅ Chat list updated.");
+        } else {
+            System.out.println("❌ Failed to update chat list.");
+        }
     }
+
 
     public static void requestChatInfo(String chatId, String chatType) throws IOException {
         JSONObject req = new JSONObject();
@@ -2054,32 +2087,32 @@ public class ActionHandler {
     }
 
 
-    public static void handleChatListResponse(JSONObject response) {
-        if (response.getString("status").equals("success")) {
-            JSONArray chats = response.getJSONArray("data");
-
-            Session.chatList.clear();
-
-            for (int i = 0; i < chats.length(); i++) {
-                JSONObject chatJson = chats.getJSONObject(i);
-
-                UUID internalId = UUID.fromString(chatJson.getString("internal_id"));
-                String displayId = chatJson.getString("id");
-                String name = chatJson.getString("name");
-                String imageUrl = chatJson.optString("image_url", "");
-                String type = chatJson.getString("type");
-                LocalDateTime lastMessageTime = LocalDateTime.parse(chatJson.getString("last_message_time"));
-
-                ChatEntry chat = new ChatEntry(internalId, displayId, name, imageUrl, type, lastMessageTime);
-                Session.chatList.add(chat);
-            }
-
-            System.out.println("\n✅ Updated Chat List:");
-            displayChatList();
-        } else {
-            System.out.println("⚠️ Failed to fetch chat list: " + response.getString("message"));
-        }
-    }
+//    public static void handleChatListResponse(JSONObject response) {
+//        if (response.getString("status").equals("success")) {
+//            JSONArray chats = response.getJSONArray("data");
+//
+//            Session.chatList.clear();
+//
+//            for (int i = 0; i < chats.length(); i++) {
+//                JSONObject chatJson = chats.getJSONObject(i);
+//
+//                UUID internalId = UUID.fromString(chatJson.getString("internal_id"));
+//                String displayId = chatJson.getString("id");
+//                String name = chatJson.getString("name");
+//                String imageUrl = chatJson.optString("image_url", "");
+//                String type = chatJson.getString("type");
+//                LocalDateTime lastMessageTime = LocalDateTime.parse(chatJson.getString("last_message_time"));
+//
+//                ChatEntry chat = new ChatEntry(internalId, displayId, name, imageUrl, type, lastMessageTime);
+//                Session.chatList.add(chat);
+//            }
+//
+//            System.out.println("\n✅ Updated Chat List:");
+//            displayChatList();
+//        } else {
+//            System.out.println("⚠️ Failed to fetch chat list: " + response.getString("message"));
+//        }
+//    }
 
     public static void displayChatList() {
         if (Session.chatList == null || Session.chatList.isEmpty()) {

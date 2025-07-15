@@ -406,12 +406,10 @@ public class GroupDatabase {
     public static List<JSONObject> getGroupAdminsAndOwner(UUID groupId) {
         List<JSONObject> admins = new ArrayList<>();
 
-        String sql = """
-        SELECT u.internal_uuid, u.user_id, gm.role, gm.permissions, u.profile_name
-        FROM group_members gm
-        JOIN users u ON gm.user_id = u.internal_uuid
-        WHERE gm.group_id = ? AND gm.role IN ('owner', 'admin')
-    """;
+        String sql = "SELECT gm.user_id, gm.role, gm.permissions, u.profile_name " +
+                "FROM group_members gm " +
+                "JOIN users u ON gm.user_id = u.internal_uuid " +
+                "WHERE gm.group_id = ? AND gm.role IN ('owner', 'admin')";
 
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -421,8 +419,7 @@ public class GroupDatabase {
 
             while (rs.next()) {
                 JSONObject obj = new JSONObject();
-                obj.put("internal_uuid", rs.getObject("internal_uuid").toString());  // این قسمت اضافه شد
-                obj.put("user_id", rs.getString("user_id"));
+                obj.put("user_id", rs.getObject("user_id").toString());
                 obj.put("role", rs.getString("role"));
                 obj.put("permissions", new JSONObject(rs.getString("permissions")));
                 obj.put("profile_name", rs.getString("profile_name"));
@@ -447,7 +444,7 @@ public class GroupDatabase {
             stmt.setObject(2, userId);
 
             ResultSet rs = stmt.executeQuery();
-            return rs.next();  // اگر رکوردی پیدا شد یعنی owner است
+            return rs.next();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -463,7 +460,7 @@ public class GroupDatabase {
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
                 String role = rs.getString("role");
-                return "admin".equals(role) || "owner".equals(role); // owner هم admin هست
+                return "admin".equals(role) || "owner".equals(role);
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -511,7 +508,7 @@ public class GroupDatabase {
             while (rs.next()) {
                 JSONObject member = new JSONObject();
                 member.put("profile_name", rs.getString("profile_name"));
-                member.put("user_id", rs.getString("user_id"));  // آیدی قابل نمایش
+                member.put("user_id", rs.getString("user_id"));
                 member.put("internal_uuid", rs.getObject("internal_uuid").toString());
                 member.put("role", rs.getString("role"));
 

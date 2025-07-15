@@ -4,6 +4,7 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.concurrent.BlockingQueue;
 
 public class IncomingMessageListener implements Runnable {
     private final BufferedReader in;
@@ -22,10 +23,20 @@ public class IncomingMessageListener implements Runnable {
                 JSONObject response = new JSONObject(line);
                 System.out.println("📥 Received raw line: " + line);
 
-                if (response.has("action")) {
-                    System.out.println("🎯 [Listener] Action received: " + response.toString(2));
+               //if it has reqID answer
+                if (response.has("request_id")) {
+                    String requestId = response.getString("request_id");
+                    BlockingQueue<JSONObject> queue = TelegramClient.pendingResponses.get(requestId);
+                    if (queue != null) {
+                        queue.put(response); // send it to the correct line
+                        continue;
+                    }
+                }
 
+                //if it has action check it
+                if (response.has("action")) {
                     String action = response.getString("action");
+                    System.out.println("🎯 [Listener] Action received: " + response.toString(2));
                     System.out.println("🎯 Received action: " + action);
 
                     if (isRealTimeEvent(action)) {
@@ -33,10 +44,11 @@ public class IncomingMessageListener implements Runnable {
                     } else {
                         TelegramClient.responseQueue.put(response);
                     }
+
                 } else if (response.has("status") && response.has("message")) {
-                    TelegramClient.responseQueue.put(response);
+                    TelegramClient.responseQueue.put(response); // general answer
                 } else {
-                    TelegramClient.responseQueue.put(response);
+                    TelegramClient.responseQueue.put(response); // fallback
                 }
             }
 
@@ -65,8 +77,13 @@ public class IncomingMessageListener implements Runnable {
         switch (action) {
             case "added_to_group", "added_to_channel",
                  "removed_from_group", "removed_from_channel", "chat_deleted" -> {
-                System.out.println("\n🔄 Chat list changed. Updating...");
-                ActionHandler.requestChatList();
+                System.out.println("🔄 Chat list changed. Updating...");
+                Session.forceRefreshChatList = true;
+                System.out.println("🧪 Calling requestChatList() after being added");
+
+                String chatId = msg.getString("chat_id");
+                String chatType = msg.getString("chat_type");
+                ActionHandler.requestChatInfo(chatId, chatType);
 
                 if (action.equals("removed_from_group") || action.equals("removed_from_channel") || action.equals("chat_deleted")) {
                     System.out.println("🚫 You were removed from the chat or chat was deleted. Exiting...");
@@ -93,7 +110,6 @@ public class IncomingMessageListener implements Runnable {
 
         System.out.print(">> ");
     }
-
 
     private void displayRealTimeMessage(String action, JSONObject msg) {
         switch (action) {
