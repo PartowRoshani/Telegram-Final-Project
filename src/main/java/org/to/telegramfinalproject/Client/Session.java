@@ -14,6 +14,10 @@ public class Session {
     public static JSONObject currentUser;
     public static List<ChatEntry> chatList = new ArrayList<>();
     public static volatile boolean forceRefreshChatList = false;
+    public static volatile boolean backToChatList = false;
+    public static boolean inChatListMenu = false;
+
+
 
 
     public static String getUserUUID() {

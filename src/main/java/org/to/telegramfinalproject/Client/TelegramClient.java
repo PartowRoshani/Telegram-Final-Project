@@ -72,6 +72,7 @@ public class TelegramClient {
                     handler.loginHandler();
                     if (Session.currentUser != null) {
                         System.out.println("✅ Login successful.");
+                        new Thread(new ActionHandler.ChatStateMonitor(out)).start();
 
                         UUID internalId = UUID.fromString(Session.currentUser.getString("internal_uuid"));
                         loggedInUserId = internalId;

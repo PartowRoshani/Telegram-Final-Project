@@ -588,11 +588,17 @@ public class ActionHandler {
     public void userMenu(UUID internal_uuid) throws IOException {
         while (true) {
 
-            if (Session.forceRefreshChatList) {
-                System.out.println("🔁 Refresh triggered by real-time event.");
-                requestChatList(); // با sendWithResponse جواب می‌گیری
-                Session.forceRefreshChatList = false;
+
+            if (Session.backToChatList) {
+                Session.backToChatList = false;
+                return;
             }
+
+//            if (Session.forceRefreshChatList) {
+//                System.out.println("🔁 Refresh triggered by real-time event.");
+//                requestChatList(); // با sendWithResponse جواب می‌گیری
+//                Session.forceRefreshChatList = false;
+//            }
 
 
 
@@ -606,7 +612,11 @@ public class ActionHandler {
             String choice = scanner.nextLine();
 
             switch (choice) {
-                case "1" -> showChatListAndSelect();
+                case "1" -> {
+                    Session.inChatListMenu = true;
+                    showChatListAndSelect();
+                    Session.inChatListMenu = false;
+                }
                 case "2" -> search();
                 case "3" -> createChannel();
                 case "4" -> createGroup();
@@ -2062,7 +2072,7 @@ public class ActionHandler {
     }
 
 
-    public void requestChatList() {
+    public static void requestChatList() {
         JSONObject req = new JSONObject();
         req.put("action", "get_chat_list");
         req.put("user_id", Session.getUserUUID());
@@ -2127,7 +2137,43 @@ public class ActionHandler {
         }
     }
 
+    public static class ChatStateMonitor implements Runnable {
+        private final PrintWriter out;
 
+        public ChatStateMonitor(PrintWriter out) {
+            this.out = out;
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    if (forceExitChat) {
+                        System.out.println("🚪 You were removed from the chat. Returning to chat list...");
+                        forceExitChat = false;
+                        Session.backToChatList = true;
+                    }
+
+                    if (Session.forceRefreshChatList) {
+                        Session.forceRefreshChatList = false;
+                        System.out.println("🔁 Refresh triggered by real-time event.");
+                        ActionHandler.requestChatList();
+                        if (Session.inChatListMenu) {
+                            System.out.println("\n📬 Updated Chat List:");
+                            ActionHandler.displayChatList();  // این متدی باشه که چت‌ها رو نمایش بده
+                            System.out.print("Select a chat by number: ");
+                        }
+                    }
+
+                    Thread.sleep(300); // جلوگیری از مصرف بی‌مورد CPU
+                } catch (Exception e) {
+                    System.out.println("❌ ChatStateMonitor crashed: " + e.getMessage());
+                }
+            }
+        }
+    }
 
 
 }
+
+
