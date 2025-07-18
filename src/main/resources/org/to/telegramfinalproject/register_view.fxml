@@ -16,7 +16,7 @@
                style="-fx-font-size: 24px; -fx-font-weight: bold;" />
 
         <TextField fx:id="userIdField"
-                   promptText="User ID (optional)"
+                   promptText="User ID"
                    prefWidth="320" prefHeight="30"
                    maxWidth="320"/>
 

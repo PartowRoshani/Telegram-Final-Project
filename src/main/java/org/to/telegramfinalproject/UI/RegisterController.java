@@ -43,7 +43,7 @@ public class RegisterController {
         visibleConfirmPasswordField.textProperty().bindBidirectional(confirmPasswordField.textProperty());
 
         try {
-            connection = new ClientConnection("localhost", 12345);
+            connection = new ClientConnection("localhost", 8000);
         } catch (Exception e) {
             System.out.println("Could not connect to server: " + e.getMessage());
         }
@@ -81,7 +81,7 @@ public class RegisterController {
         String passwordRegex = "\\b(?=[^\\s]*[A-Z])(?=[^\\s]*[a-z])(?=[^\\s]*\\d)(?=[^\\s]*[!@#$%^&*])[^\\s]{8,}\\b";
 
         // 1. Empty fields
-        if (username.isEmpty() || profileName.isEmpty() || password.isEmpty() || confirmPass.isEmpty()) {
+        if (userID.isEmpty() || username.isEmpty() || profileName.isEmpty() || password.isEmpty() || confirmPass.isEmpty()) {
             showError("Please fill in all required fields.");
             return;
         }
@@ -92,8 +92,8 @@ public class RegisterController {
             return;
         }
 
-        // 3. User ID exists (if entered)
-        if (!userID.isEmpty() && userDb.existsByUserId(userID)) {
+        // 3. User ID exists
+        if (userDb.existsByUserId(userID)) {
             showError("This user ID is already taken.");
             return;
         }
@@ -114,12 +114,13 @@ public class RegisterController {
         try {
             JSONObject request = new JSONObject();
             request.put("action", "register");
-            request.put("user_id", userID.isEmpty() ? JSONObject.NULL : userID);
+            request.put("user_id", userID);
             request.put("username", username);
             request.put("password", password);
             request.put("profile_name", profileName);
             connection.send(request.toString());
 
+            // Simulate successful registration (since main.fxml isn’t ready)
             Alert alert = new Alert(Alert.AlertType.INFORMATION, "Registration successful!");
             alert.show();
 
@@ -137,7 +138,7 @@ public class RegisterController {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/" + fxmlFile));
             Parent root = loader.load();
-            Stage stage = (Stage) usernameField.getScene().getWindow(); // Or any node from your current scene
+            Stage stage = (Stage) usernameField.getScene().getWindow();
             stage.setScene(new Scene(root, 500, 700));
             stage.show();
         } catch (IOException e) {

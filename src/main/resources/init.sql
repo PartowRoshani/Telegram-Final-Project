@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users(
-    user_id VARCHAR(70) UNIQUE,
+    user_id VARCHAR(70) UNIQUE NOT NULL,
     internal_uuid UUID PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password TEXT NOT NULL,

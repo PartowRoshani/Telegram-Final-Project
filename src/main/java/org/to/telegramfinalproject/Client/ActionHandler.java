@@ -500,9 +500,6 @@ public class ActionHandler {
                         }
                     }
 
-
-
-
                 break;
 
 
@@ -895,13 +892,6 @@ public class ActionHandler {
         return true;
     }
 
-
-
-
-
-
-
-
     private void transferOwnershipAndLeave(UUID groupId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_group_admins");
@@ -1088,9 +1078,6 @@ public class ActionHandler {
             System.out.println(promoteRes.getString("message"));
     }
 
-
-
-
     private void addAdminToGroup(UUID groupId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_group_members");
@@ -1152,7 +1139,6 @@ public class ActionHandler {
             System.out.println(promoteRes.getString("message"));
     }
 
-
     private void viewGroupMembers(UUID groupId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_group_members");
@@ -1176,8 +1162,6 @@ public class ActionHandler {
             System.out.println("❌ Failed to fetch members.");
         }
     }
-
-
 
     private void removeAdminFromGroup(UUID groupId) {
         System.out.print("Enter user_id to remove from admin: ");
@@ -1910,10 +1894,6 @@ public class ActionHandler {
     }
 
 
-
-
-
-
     private JSONObject sendWithResponse(JSONObject request) {
         try {
             if (!request.has("action") || request.isNull("action")) {
@@ -1940,6 +1920,4 @@ public class ActionHandler {
             return null;
         }
     }
-
-
 }
