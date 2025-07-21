@@ -231,9 +231,17 @@ public class ActionHandler {
 
         try {
             JSONObject response = TelegramClient.responseQueue.take();
+
             if (response != null && response.getString("status").equals("success")) {
                 if (response.has("data") && !response.isNull("data")) {
                     JSONObject data = response.getJSONObject("data");
+
+                    // ❗ چک کن که chat_list وجود داره
+                    if (!data.has("chat_list") || data.isNull("chat_list")) {
+                        System.out.println("❌ chat_list not found in response data.");
+                        return;
+                    }
+
                     JSONArray chatListJson = data.getJSONArray("chat_list");
                     List<ChatEntry> chatList = new ArrayList<>();
 
@@ -255,9 +263,9 @@ public class ActionHandler {
                     }
 
                     Session.chatList = chatList;
-                    System.out.println("✅ Chat list updated.");
+                    System.out.println("✅ Chat list updated. Total: " + chatList.size());
                 } else {
-                    System.out.println("⚠️ Response has no chat list data.");
+                    System.out.println("⚠️ Response has no data object.");
                 }
             } else {
                 if (response.has("message") && !response.isNull("message")) {
@@ -271,7 +279,6 @@ public class ActionHandler {
             e.printStackTrace();
         }
     }
-
 
 
     public void createGroup() {
@@ -622,11 +629,6 @@ public class ActionHandler {
                 return;
             }
 
-//            if (Session.forceRefreshChatList) {
-//                System.out.println("🔁 Refresh triggered by real-time event.");
-//                requestChatList(); // با sendWithResponse جواب می‌گیری
-//                Session.forceRefreshChatList = false;
-//            }
 
 
 
@@ -869,7 +871,6 @@ public class ActionHandler {
             case "9" -> {
                 if (isOwner) {
                     transferOwnershipAndLeave(chat.getId());
-                    refreshChatList();
                 } else {
                     leaveChat(chat.getId(), "group");
                     refreshChatList();
@@ -1003,7 +1004,6 @@ public class ActionHandler {
             case "9" -> {
                 if (isOwner) {
                     transferChannelOwnershipAndLeave(chat.getId());
-                    refreshChatList();
                     return false;
                 } else {
                     System.out.println("❌ You don't have permission.");
@@ -2139,32 +2139,7 @@ public class ActionHandler {
     }
 
 
-//    public static void handleChatListResponse(JSONObject response) {
-//        if (response.getString("status").equals("success")) {
-//            JSONArray chats = response.getJSONArray("data");
-//
-//            Session.chatList.clear();
-//
-//            for (int i = 0; i < chats.length(); i++) {
-//                JSONObject chatJson = chats.getJSONObject(i);
-//
-//                UUID internalId = UUID.fromString(chatJson.getString("internal_id"));
-//                String displayId = chatJson.getString("id");
-//                String name = chatJson.getString("name");
-//                String imageUrl = chatJson.optString("image_url", "");
-//                String type = chatJson.getString("type");
-//                LocalDateTime lastMessageTime = LocalDateTime.parse(chatJson.getString("last_message_time"));
-//
-//                ChatEntry chat = new ChatEntry(internalId, displayId, name, imageUrl, type, lastMessageTime);
-//                Session.chatList.add(chat);
-//            }
-//
-//            System.out.println("\n✅ Updated Chat List:");
-//            displayChatList();
-//        } else {
-//            System.out.println("⚠️ Failed to fetch chat list: " + response.getString("message"));
-//        }
-//    }
+
 
     public static void displayChatList() {
         if (Session.chatList == null || Session.chatList.isEmpty()) {

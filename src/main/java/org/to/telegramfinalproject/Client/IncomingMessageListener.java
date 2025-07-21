@@ -40,7 +40,6 @@ public class IncomingMessageListener implements Runnable {
                         TelegramClient.responseQueue.put(response);
                     }
 
-                    // ⚠️ بسیار مهم: دیگر بررسی action انجام نده
                     continue;
                 }
 
@@ -112,11 +111,11 @@ public class IncomingMessageListener implements Runnable {
                 ActionHandler.requestChatInfo(chatId, chatType);
             }
 
-            case "became_admin", "removed_admin" -> {
-                System.out.println("🧩 Detected admin role change. Calling handler...");
+            case "became_admin", "removed_admin", "ownership_transferred" -> {
+                System.out.println("🧩 Detected admin/owner role change. Calling handler...");
                 new Thread(() -> {
                     try {
-                        handleAdminRoleChanged(msg);  // ✅ صدا زدن در ترد جداگانه
+                        handleAdminRoleChanged(msg); //new thread
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -124,27 +123,7 @@ public class IncomingMessageListener implements Runnable {
             }
 
 
-//            case "get_chat_info" -> {
-//                JSONObject chatData = msg.getJSONObject("data");
-//                UUID chatUUID = UUID.fromString(chatData.getString("internal_id"));
 //
-//                Optional<ChatEntry> entry = Session.chatList.stream()
-//                        .filter(e -> e.getId().equals(chatUUID))
-//                        .findFirst();
-//
-//                entry.ifPresent(chat -> {
-//                    chat.setAdmin(chatData.optBoolean("is_admin", false));
-//                    chat.setOwner(chatData.optBoolean("is_owner", false));
-//
-//                    if (Session.currentChatId != null && Session.currentChatId.equals(chat.getId())) {
-//                        Session.currentChatEntry = chat;
-//                        Session.refreshCurrentChatMenu = true;
-//
-//                    }
-//
-//                    System.out.println("✅ Chat info updated → admin: " + chat.isAdmin() + ", owner: " + chat.isOwner());
-//                });
-//            }
 
 
 
@@ -166,7 +145,7 @@ public class IncomingMessageListener implements Runnable {
         System.out.println("\n🔄 Your admin status changed. Updating chat info...");
 
         try {
-            // 1. دریافت chat info
+            // 1. get chat info
             JSONObject chatInfoReq = new JSONObject();
             chatInfoReq.put("action", "get_chat_info");
             chatInfoReq.put("receiver_id", chatId);
@@ -196,7 +175,7 @@ public class IncomingMessageListener implements Runnable {
                 Session.currentChatEntry = chat;
             });
 
-            // 2. گرفتن permission
+            // 2. get permission
             JSONObject permissionReq = new JSONObject();
             if (chatType.equalsIgnoreCase("group")) {
                 permissionReq.put("action", "get_group_permissions");
@@ -210,10 +189,9 @@ public class IncomingMessageListener implements Runnable {
             JSONObject perm = permissionResp.getJSONObject("data");
             entry.ifPresent(chat -> chat.setPermissions(perm));
 
-            // 3. ست کردن currentChatId
+            // 3. set currentChatId
             Session.currentChatId = chatUUID.toString(); // ❗ باید قبل از بررسی شرط‌ها باشه
 
-            // 🔄 بررسی شرایط و آپدیت منو
             System.out.println("🧪 Checking refresh conditions...");
             System.out.println("🔹 inChatMenu: " + Session.inChatMenu);
             System.out.println("🔹 currentChatId: " + Session.currentChatId);

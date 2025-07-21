@@ -1143,8 +1143,14 @@ public class ClientHandler implements Runnable {
                         //RealTime
                         if (success) {
                             List<UUID> members = GroupDatabase.getMemberUUIDs(groupId);
+
+                            // 1. ارسال ownership_transferred فقط به owner جدید
+                            RealTimeEventDispatcher.sendOwnershipTransferred("group", groupId, groupId.toString(), List.of(newOwner.getInternal_uuid()));
+
+                            // 2. ارسال update_group_or_channel برای همه اعضا
                             RealTimeEventDispatcher.sendGroupOrChannelUpdate("group", groupId, groupId.toString(), "", "", members);
                         }
+
 
 
                         response = success
@@ -1558,8 +1564,14 @@ public class ClientHandler implements Runnable {
                         //RealTime
                         if (success) {
                             List<UUID> subscribers = ChannelDatabase.getChannelSubscriberUUIDs(channelId);
+
+                            // 1. ارسال ownership_transferred فقط به owner جدید
+                            RealTimeEventDispatcher.sendOwnershipTransferred("channel", channelId, channelId.toString(), List.of(newOwner.getInternal_uuid()));
+
+                            // 2. ارسال update_group_or_channel برای بروزرسانی UI تمام افراد
                             RealTimeEventDispatcher.sendGroupOrChannelUpdate("channel", channelId, channelId.toString(), "", "", subscribers);
                         }
+
 
                         response = success
 
@@ -1586,7 +1598,7 @@ public class ClientHandler implements Runnable {
                 if (requestJson.has("request_id")) {
                     String requestId = requestJson.getString("request_id");
                     response.setRequestId(requestId);
-                    responseJson.put("request_id", requestId);  // ✅ بدون این، کلاینت قفل میشه
+                    responseJson.put("request_id", requestId);
                 }
 
                 out.println(responseJson.toString());

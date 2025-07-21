@@ -264,7 +264,7 @@ public class RealTimeEventDispatcher {
 
     public static void notifyBecameAdmin(String type, UUID chatId, String chatName, String imageUrl, UUID userId) {
         JSONObject data = new JSONObject();
-        data.put("chat_type", type); // group یا channel
+        data.put("chat_type", type); // group or channel
         data.put("chat_id", chatId.toString());
         data.put("chat_name", chatName);
         data.put("image_url", imageUrl);
@@ -289,6 +289,20 @@ public class RealTimeEventDispatcher {
         event.put("data", data);
 
         sendToUser(userId, event);
+    }
+
+
+    public static void sendOwnershipTransferred(String type, UUID chatId, String chatName, List<UUID> affectedUsers) {
+        JSONObject data = new JSONObject();
+        data.put("chat_type", type);         // "group" or "channel"
+        data.put("chat_id", chatId.toString());
+        data.put("chat_name", chatName);
+
+        JSONObject event = new JSONObject();
+        event.put("action", "ownership_transferred");
+        event.put("data", data);
+
+        broadcastToUsers(affectedUsers, event);
     }
 
 }
