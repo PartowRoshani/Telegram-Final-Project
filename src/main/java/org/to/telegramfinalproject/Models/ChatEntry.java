@@ -37,6 +37,10 @@ public class ChatEntry {
 
     }
 
+    public ChatEntry() {
+
+    }
+
     // 🟩 گتر و ستر جدید
     public boolean isOwner() {
         return isOwner;
@@ -54,7 +58,6 @@ public class ChatEntry {
         isAdmin = admin;
     }
 
-    // سایر گترها
     public UUID getId() {
         return internalId;
     }
@@ -87,4 +90,22 @@ public class ChatEntry {
     public void setPermissions(JSONObject permissions) {
         this.permissions = permissions;
     }
+
+    public void setName(String name) {this.name = name;
+    }
+
+    public void setDisplayId(String id) {this.displayId = id;
+    }
+
+    public void setImageUrl(String image_url) {this.imageUrl = image_url;
+    }
+
+    public void setType(String type) {this.type =type;
+    }
+
+    public void setId(String internalId) {this.internalId = UUID.fromString(internalId);
+    }
+
+
+
 }

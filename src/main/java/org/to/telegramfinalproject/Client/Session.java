@@ -16,6 +16,12 @@ public class Session {
     public static volatile boolean forceRefreshChatList = false;
     public static volatile boolean backToChatList = false;
     public static boolean inChatListMenu = false;
+    public static String currentChatType = null;
+    public static volatile boolean inChatMenu = false;
+    public static volatile boolean refreshCurrentChatMenu = false;
+    public static String currentChatId = null;
+    public static ChatEntry currentChatEntry = null;
+
 
 
 

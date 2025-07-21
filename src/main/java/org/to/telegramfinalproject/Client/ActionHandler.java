@@ -21,13 +21,19 @@ public class ActionHandler {
     private final BufferedReader in;
     private final Scanner scanner;
     public static volatile boolean forceExitChat = false;
+    public static ActionHandler instance;
 
 
-
+    private void handleRealTime(JSONObject json) throws IOException {
+        IncomingMessageListener listener = new IncomingMessageListener(this.in);
+        listener.handleRealTimeEvent (json);
+    }
     public ActionHandler(PrintWriter out, BufferedReader in, Scanner scanner) {
         this.out = out;
         this.in = in;
         this.scanner = scanner;
+        ActionHandler.instance = this;
+
     }
 
     public void loginHandler() {
@@ -225,9 +231,10 @@ public class ActionHandler {
 
         try {
             JSONObject response = TelegramClient.responseQueue.take();
-            if (response != null) {
-                if (response.getString("status").equals("success")) {
-                    JSONArray chatListJson = response.getJSONObject("data").getJSONArray("chat_list");
+            if (response != null && response.getString("status").equals("success")) {
+                if (response.has("data") && !response.isNull("data")) {
+                    JSONObject data = response.getJSONObject("data");
+                    JSONArray chatListJson = data.getJSONArray("chat_list");
                     List<ChatEntry> chatList = new ArrayList<>();
 
                     for (Object obj : chatListJson) {
@@ -250,7 +257,13 @@ public class ActionHandler {
                     Session.chatList = chatList;
                     System.out.println("✅ Chat list updated.");
                 } else {
+                    System.out.println("⚠️ Response has no chat list data.");
+                }
+            } else {
+                if (response.has("message") && !response.isNull("message")) {
                     System.out.println("❌ Failed to refresh chat list: " + response.getString("message"));
+                } else {
+                    System.out.println("❌ Failed to refresh chat list.");
                 }
             }
         } catch (Exception e) {
@@ -258,7 +271,6 @@ public class ActionHandler {
             e.printStackTrace();
         }
     }
-
 
 
 
@@ -338,18 +350,34 @@ public class ActionHandler {
             String action = request.getString("action");
             this.out.println(request.toString());
 
-            JSONObject response = TelegramClient.responseQueue.take();
+            JSONObject response = null;
+
+            // منتظر بمون تا پاسخ واقعی (یعنی status داشته باشه) بیاد
+            while (true) {
+                JSONObject incoming = TelegramClient.responseQueue.take();
+
+                if (incoming.has("status")) {
+                    response = incoming;
+                    break;
+                } else {
+                    // این یک پیام Real-Time است
+                    handleRealTime(incoming); // ✅
+                }
+            }
 
             if (response == null) {
-                System.out.println("⚠️ No response received.");
+                System.out.println("⚠️ No usable response received.");
                 return;
             }
 
-            System.out.println("✅ Server Response: " + response.getString("message"));
+            if (response.has("message") && !response.isNull("message")) {
+                System.out.println("✅ Server Response: " + response.getString("message"));
+            }
 
-            String status = response.getString("status");
+            String status = response.optString("status", "error");
             if (!"success".equals(status) || !response.has("data") || response.isNull("data"))
                 return;
+
 
             switch (action) {
                 case "login":
@@ -685,6 +713,14 @@ public class ActionHandler {
 
         boolean stayInChat = true;
 
+
+        Session.currentChatId = chat.getId().toString();
+        Session.currentChatEntry = chat;
+        Session.currentChatType = chat.getType().toLowerCase();
+        Session.inChatMenu = true;
+        startMenuRefresherThread();
+
+
         while (stayInChat) {
             if (forceExitChat) {
                 System.out.println("⚠️ You have been removed from this chat or chat was deleted. Returning to chat list...");
@@ -702,6 +738,12 @@ public class ActionHandler {
                 }
             }
         }
+
+        Session.inChatMenu = false;
+        Session.currentChatId = null;
+        Session.currentChatEntry = null;
+        Session.currentChatType = null;
+
     }
 
 
@@ -1522,7 +1564,7 @@ public class ActionHandler {
         }
 
         JSONObject selected = eligible.get(choice);
-        String targetInternalUUID = selected.getString("internal_uuid");
+        String targetInternalUUID = selected.getString("user_id");
 
         JSONObject removeReq = new JSONObject();
         removeReq.put("action", "remove_admin_from_group");
@@ -2036,7 +2078,7 @@ public class ActionHandler {
     }
 
 
-    private static JSONObject sendWithResponse(JSONObject request) {
+    public static JSONObject sendWithResponse(JSONObject request) {
         try {
             if (!request.has("action") || request.isNull("action")) {
                 System.err.println("❌ Invalid request: missing action.");
@@ -2172,6 +2214,187 @@ public class ActionHandler {
             }
         }
     }
+
+
+    public static class CurrentChatMenuRefresher implements Runnable {
+        private final ActionHandler handler;
+
+        public CurrentChatMenuRefresher(ActionHandler handler) {
+            this.handler = handler;
+        }
+
+        @Override
+        public void run() {
+            System.out.println("🔁 Menu refresher thread running...");
+
+            while (true) {
+                try {
+                    if (Session.refreshCurrentChatMenu && Session.inChatMenu && Session.currentChatId != null) {
+                        System.out.println("🔁 [Refresher] Refresh requested. Searching for chat...");
+
+                        // جستجو در لیست چت‌ها با استفاده از currentChatId
+                        ChatEntry chat = Session.chatList.stream()
+                                .filter(e -> e.getId().toString().equals(Session.currentChatId))
+                                .findFirst()
+                                .orElse(null);
+
+                        if (chat != null) {
+                            Session.currentChatEntry = chat;
+                            Session.refreshCurrentChatMenu = false;
+
+                            String type = chat.getType().toLowerCase();
+                            System.out.println("\n🔁 Your permissions have changed. Menu updated:");
+
+                            if (type.equals("group")) {
+                                handler.printGroupMenuOnly(chat);
+                            } else if (type.equals("channel")) {
+                                handler.printChannelMenuOnly(chat);
+                            }
+
+                            System.out.print("Select an option: ");
+                        } else {
+                            System.out.println("⚠️ No matching chat found for ID: " + Session.currentChatId);
+                        }
+                    }
+
+                    Thread.sleep(200);
+                } catch (Exception e) {
+                    System.out.println("❌ CurrentChatMenuRefresher crashed: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+
+
+
+
+    public void printGroupMenuOnly(ChatEntry chat) {
+        boolean isAdmin = chat.isAdmin();
+        boolean isOwner = chat.isOwner();
+        JSONObject perms = getGroupPermissions(chat.getId());
+
+        System.out.println("\n--- Group Chat Menu (Auto-refreshed) ---");
+        System.out.println("1. Send Message");
+        System.out.println("2. View Members");
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_add_members", false))) {
+            System.out.println("3. Add Member");
+        }
+        if (isOwner || (isAdmin && perms.optBoolean("can_edit_group", false))) {
+            System.out.println("4. Edit Group Info");
+        }
+        if (isOwner || (isAdmin && perms.optBoolean("can_add_admins", false))) {
+            System.out.println("5. Add Admin");
+        }
+        if (isOwner || (isAdmin && perms.optBoolean("can_remove_admins", false))) {
+            System.out.println("6. Remove Admin");
+        }
+        if (isOwner || (isAdmin && perms.optBoolean("can_remove_members", false))) {
+            System.out.println("7. Remove member");
+        }
+        if (isOwner) {
+            System.out.println("8. Delete Group");
+            System.out.println("9. Leave Group (Transfer ownership required)");
+        } else {
+            System.out.println("9. Leave Group");
+        }
+
+        System.out.println("0. Back to Chat List");
+    }
+
+
+    public void printChannelMenuOnly(ChatEntry chat) {
+        boolean isAdmin = chat.isAdmin();
+        boolean isOwner = chat.isOwner();
+        JSONObject perms = getChannelPermissions(chat.getId());
+
+        System.out.println("\n--- Channel Menu (Auto-refreshed) ---");
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_post", false))) {
+            System.out.println("1. Send Post");
+        }
+
+        if (isOwner || isAdmin) {
+            System.out.println("2. View Subscribers");
+        }
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_add_members", false))) {
+            System.out.println("3. Add Subscriber");
+        }
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_remove_members", false))) {
+            System.out.println("4. Remove Subscriber");
+        }
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_edit_channel", false))) {
+            System.out.println("5. Edit Channel Info");
+        }
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_add_admins", false))) {
+            System.out.println("6. Add Admin");
+        }
+
+        if (isOwner || (isAdmin && perms.optBoolean("can_remove_admins", false))) {
+            System.out.println("7. Remove Admin");
+        }
+
+        if (isOwner) {
+            System.out.println("8. Delete Channel");
+            System.out.println("9. Leave Channel (Transfer ownership required)");
+        } else {
+            System.out.println("8. Leave Channel");
+        }
+
+        System.out.println("0. Back to Chat List");
+    }
+
+
+
+    public static void requestPermissions(String chatId, String chatType) {
+        JSONObject permissionReq = new JSONObject();
+        permissionReq.put("action", "get_permissions");
+        permissionReq.put("receiver_id", chatId);
+        permissionReq.put("receiver_type", chatType);
+        TelegramClient.send(permissionReq);
+    }
+
+    public void refreshCurrentChat() {
+        switch (Session.currentChatType.toLowerCase()) {
+            case "group" -> showGroupChatMenu(Session.currentChatEntry);
+            case "channel" -> showChannelChatMenu(Session.currentChatEntry);
+        }
+    }
+
+
+    private void startMenuRefresherThread() {
+        Thread refresher = new Thread(() -> {
+            System.out.println("🟡 Refresher tick. refreshCurrentChatMenu = " + Session.refreshCurrentChatMenu);
+
+            while (true) {
+                try {
+                    Thread.sleep(500);
+                    if (Session.refreshCurrentChatMenu) {
+                        Session.refreshCurrentChatMenu = false;
+                        if (Session.currentChatEntry == null) {
+                            System.out.println("⚠️ currentChatEntry is null. Skipping...");
+                            continue;  // ❗ اینجا بجای return باید continue باشه
+                        }
+
+
+                        switch (Session.currentChatEntry.getType()) {
+                            case "group" -> showGroupChatMenu(Session.currentChatEntry);
+                            case "channel" -> showChannelChatMenu(Session.currentChatEntry);
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        });
+        refresher.setDaemon(true);
+        refresher.start();
+    }
+
 
 
 }

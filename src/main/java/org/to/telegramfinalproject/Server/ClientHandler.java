@@ -1533,6 +1533,7 @@ public class ClientHandler implements Runnable {
                     }
 
 
+
                     case "transfer_channel_ownership": {
                         if (currentUser == null) {
                             response = new ResponseModel("error", "Unauthorized. Please login first.");
@@ -1573,21 +1574,23 @@ public class ClientHandler implements Runnable {
                         response = new ResponseModel("error", "Unknown action: " + action);
                 }
 
+                if (response == null) {
+                    response = new ResponseModel("error", "No response generated for action: " + action);
+                }
+
                 JSONObject responseJson = new JSONObject();
                 responseJson.put("status", response.getStatus());
                 responseJson.put("message", response.getMessage());
                 responseJson.put("data", response.getData() != null ? response.getData() : JSONObject.NULL);
-                if (requestJson.has("request_id")) {
-                    response.setRequestId(requestJson.getString("request_id"));
-                }
 
                 if (requestJson.has("request_id")) {
                     String requestId = requestJson.getString("request_id");
                     response.setRequestId(requestId);
-                    responseJson.put("request_id", requestId);
+                    responseJson.put("request_id", requestId);  // ✅ بدون این، کلاینت قفل میشه
                 }
-                out.println(responseJson.toString());
 
+                out.println(responseJson.toString());
+                System.out.println("📤 Sent response: " + responseJson.toString(2));
 
             }
         } catch (IOException e) {

@@ -73,6 +73,8 @@ public class TelegramClient {
                     if (Session.currentUser != null) {
                         System.out.println("✅ Login successful.");
                         new Thread(new ActionHandler.ChatStateMonitor(out)).start();
+//                        new Thread(new ActionHandler.CurrentChatMenuRefresher(this.handler)).start();
+
 
                         UUID internalId = UUID.fromString(Session.currentUser.getString("internal_uuid"));
                         loggedInUserId = internalId;
@@ -101,6 +103,9 @@ public class TelegramClient {
             System.err.println("❌ Error sending request: " + e.getMessage());
         }
     }
+
+
+
 
     public static Socket getSocket() {
         return socket;
