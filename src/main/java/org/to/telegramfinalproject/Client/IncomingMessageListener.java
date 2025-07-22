@@ -23,6 +23,8 @@ public class IncomingMessageListener implements Runnable {
 
             String line;
             while ((line = in.readLine()) != null) {
+
+
                 JSONObject response = new JSONObject(line);
                 System.out.println("📥 Received raw line: " + line);
 
@@ -77,7 +79,7 @@ public class IncomingMessageListener implements Runnable {
                  "update_group_or_channel", "chat_deleted",
                  "blocked_by_user", "unblocked_by_user", "message_seen",
                  "removed_from_group", "removed_from_channel",
-                 "became_admin", "removed_admin" -> true;
+                 "became_admin", "removed_admin", "ownership_transferred" -> true;
             default -> false;
         };
     }
@@ -104,11 +106,15 @@ public class IncomingMessageListener implements Runnable {
                 }
             }
 
-            case "update_group_or_channel" -> {
+            case "chat_updated" -> {
                 System.out.println("\n🔄 Group/Channel info updated.");
-                String chatId = msg.getString("chat_id");
-                String chatType = msg.getString("chat_type");
-                ActionHandler.requestChatInfo(chatId, chatType);
+                new Thread(() -> {
+                    try {
+                        handleAdminRoleChanged(msg);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }).start();
             }
 
             case "became_admin", "removed_admin", "ownership_transferred" -> {
@@ -190,7 +196,7 @@ public class IncomingMessageListener implements Runnable {
             entry.ifPresent(chat -> chat.setPermissions(perm));
 
             // 3. set currentChatId
-            Session.currentChatId = chatUUID.toString(); // ❗ باید قبل از بررسی شرط‌ها باشه
+            Session.currentChatId = chatUUID.toString();
 
             System.out.println("🧪 Checking refresh conditions...");
             System.out.println("🔹 inChatMenu: " + Session.inChatMenu);

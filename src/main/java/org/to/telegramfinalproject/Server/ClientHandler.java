@@ -1143,13 +1143,27 @@ public class ClientHandler implements Runnable {
                         //RealTime
                         if (success) {
                             List<UUID> members = GroupDatabase.getMemberUUIDs(groupId);
+                            Group group = GroupDatabase.findByInternalUUID(groupId);
 
-                            // 1. ارسال ownership_transferred فقط به owner جدید
-                            RealTimeEventDispatcher.sendOwnershipTransferred("group", groupId, groupId.toString(), List.of(newOwner.getInternal_uuid()));
+                            //update for new owner
+                            RealTimeEventDispatcher.sendOwnershipTransferred(
+                                    "group",
+                                    groupId,
+                                    group.getGroup_name(),
+                                    List.of(newOwner.getInternal_uuid())
+                            );
 
-                            // 2. ارسال update_group_or_channel برای همه اعضا
-                            RealTimeEventDispatcher.sendGroupOrChannelUpdate("group", groupId, groupId.toString(), "", "", members);
+                            //Update for everyone
+                            RealTimeEventDispatcher.sendGroupOrChannelUpdate(
+                                    "group",
+                                    groupId,
+                                    group.getGroup_name(),
+                                    group.getImage_url(),
+                                    group.getDescription(),
+                                    members
+                            );
                         }
+
 
 
 
@@ -1564,13 +1578,27 @@ public class ClientHandler implements Runnable {
                         //RealTime
                         if (success) {
                             List<UUID> subscribers = ChannelDatabase.getChannelSubscriberUUIDs(channelId);
+                            Channel channel = ChannelDatabase.findByInternalUUID(channelId);  // 🟢 گرفتن اطلاعات کامل
 
                             // 1. ارسال ownership_transferred فقط به owner جدید
-                            RealTimeEventDispatcher.sendOwnershipTransferred("channel", channelId, channelId.toString(), List.of(newOwner.getInternal_uuid()));
+                            RealTimeEventDispatcher.sendOwnershipTransferred(
+                                    "channel",
+                                    channelId,
+                                    channel.getChannel_name(), // ✅ اسم واقعی کانال
+                                    List.of(newOwner.getInternal_uuid())
+                            );
 
                             // 2. ارسال update_group_or_channel برای بروزرسانی UI تمام افراد
-                            RealTimeEventDispatcher.sendGroupOrChannelUpdate("channel", channelId, channelId.toString(), "", "", subscribers);
+                            RealTimeEventDispatcher.sendGroupOrChannelUpdate(
+                                    "channel",
+                                    channelId,
+                                    channel.getChannel_name(),     // ✅ name واقعی
+                                    channel.getImage_url(),        // ✅ image
+                                    channel.getDescription(),     // ✅ description
+                                    subscribers
+                            );
                         }
+
 
 
                         response = success

@@ -873,7 +873,7 @@ public class ActionHandler {
                     transferOwnershipAndLeave(chat.getId());
                 } else {
                     leaveChat(chat.getId(), "group");
-                    refreshChatList();
+//                    refreshChatList();
                 }
                 return false;
             }
@@ -1395,7 +1395,7 @@ public class ActionHandler {
         }
 
         JSONObject selected = admins.getJSONObject(choice);
-        String newOwnerId = selected.getString("internal_id");  // ✅ اصلاح شده
+        String newOwnerId = selected.getString("internal_id");
 
         JSONObject promoteReq = new JSONObject();
         promoteReq.put("action", "transfer_channel_ownership");
