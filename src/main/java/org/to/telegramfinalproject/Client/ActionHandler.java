@@ -4,6 +4,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Models.SearchRequestModel;
+import org.to.telegramfinalproject.Models.SearchResultModel;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -359,7 +360,6 @@ public class ActionHandler {
 
             JSONObject response = null;
 
-            // منتظر بمون تا پاسخ واقعی (یعنی status داشته باشه) بیاد
             while (true) {
                 JSONObject incoming = TelegramClient.responseQueue.take();
 
@@ -488,24 +488,33 @@ public class ActionHandler {
 
                                 if (existing != null) {
                                     openChat(existing);
-                                } else {
-                                    System.out.println("ℹ Trying to add contact...");
-                                    addContact(uuid);
+                               } else {
+                                    ChatEntry preview = new ChatEntry();
+                                    preview.setId(String.valueOf(uuid));
+                                    preview.setDisplayId(selected.getString("id"));
+                                    preview.setName(selected.getString("name"));
+                                    preview.setType("private");
 
-                                    refreshChatList();
-                                    System.out.println("🔄 Rechecking chat list...");
-
-                                    existing = Session.chatList.stream()
-                                            .filter(c -> c.getId().equals(uuid) && c.getType().equals("private"))
-                                            .findFirst()
-                                            .orElse(null);
-
-                                    if (existing != null) {
-                                        openChat(existing);
-                                    } else {
-                                        System.out.println("❌ Failed to open chat. Try again later.");
-                                    }
+                                    openForeignChat(preview);
                                 }
+//                                else {
+//                                    System.out.println("ℹ Trying to add contact...");
+//                                    addContact(uuid);
+//
+//                                    refreshChatList();
+//                                    System.out.println("🔄 Rechecking chat list...");
+//
+//                                    existing = Session.chatList.stream()
+//                                            .filter(c -> c.getId().equals(uuid) && c.getType().equals("private"))
+//                                            .findFirst()
+//                                            .orElse(null);
+//
+//                                    if (existing != null) {
+//                                        openChat(existing);
+//                                    } else {
+//                                        System.out.println("❌ Failed to open chat. Try again later.");
+//                                    }
+//                                }
                             }
 
                             case "group", "channel" -> {
@@ -521,24 +530,33 @@ public class ActionHandler {
 
                                 if (existing != null) {
                                     openChat(existing);
-                                } else {
-                                    System.out.println("ℹ Trying to join " + type + "...");
-                                    joinGroupOrChannel(type, uuidStr);
+                                }else {
+                                    ChatEntry preview = new ChatEntry();
+                                    preview.setId(String.valueOf(uuid));
+                                    preview.setDisplayId(selected.getString("id"));
+                                    preview.setName(selected.getString("name"));
+                                    preview.setType(type);
 
-                                    refreshChatList();
-                                    System.out.println("🔄 Rechecking chat list...");
-
-                                    existing = Session.chatList.stream()
-                                            .filter(c -> c.getId().equals(uuid) && c.getType().equals(type))
-                                            .findFirst()
-                                            .orElse(null);
-
-                                    if (existing != null) {
-                                        openChat(existing);
-                                    } else {
-                                        System.out.println("❌ Failed to open " + type + ". Try again later.");
-                                    }
+                                    openForeignChat(preview);
                                 }
+//                                else {
+//                                    System.out.println("ℹ Trying to join " + type + "...");
+//                                    joinGroupOrChannel(type, uuidStr);
+//
+//                                    refreshChatList();
+//                                    System.out.println("🔄 Rechecking chat list...");
+//
+//                                    existing = Session.chatList.stream()
+//                                            .filter(c -> c.getId().equals(uuid) && c.getType().equals(type))
+//                                            .findFirst()
+//                                            .orElse(null);
+//
+//                                    if (existing != null) {
+//                                        openChat(existing);
+//                                    } else {
+//                                        System.out.println("❌ Failed to open " + type + ". Try again later.");
+//                                    }
+//                                }
                             }
 
                             case "message" -> {
@@ -927,7 +945,7 @@ public class ActionHandler {
                     transferOwnershipAndLeave(chat.getId());
                 } else {
                     leaveChat(chat.getId(), "group");
-//                    refreshChatList();
+                    //refreshChatList();
                 }
                 return false;
             }
@@ -2393,20 +2411,20 @@ public class ActionHandler {
 
 
 
-    public static void requestPermissions(String chatId, String chatType) {
-        JSONObject permissionReq = new JSONObject();
-        permissionReq.put("action", "get_permissions");
-        permissionReq.put("receiver_id", chatId);
-        permissionReq.put("receiver_type", chatType);
-        TelegramClient.send(permissionReq);
-    }
-
-    public void refreshCurrentChat() {
-        switch (Session.currentChatType.toLowerCase()) {
-            case "group" -> showGroupChatMenu(Session.currentChatEntry);
-            case "channel" -> showChannelChatMenu(Session.currentChatEntry);
-        }
-    }
+//    public static void requestPermissions(String chatId, String chatType) {
+//        JSONObject permissionReq = new JSONObject();
+//        permissionReq.put("action", "get_permissions");
+//        permissionReq.put("receiver_id", chatId);
+//        permissionReq.put("receiver_type", chatType);
+//        TelegramClient.send(permissionReq);
+//    }
+//
+//    public void refreshCurrentChat() {
+//        switch (Session.currentChatType.toLowerCase()) {
+//            case "group" -> showGroupChatMenu(Session.currentChatEntry);
+//            case "channel" -> showChannelChatMenu(Session.currentChatEntry);
+//        }
+//    }
 
 
     private void startMenuRefresherThread() {
@@ -2420,7 +2438,7 @@ public class ActionHandler {
                         Session.refreshCurrentChatMenu = false;
                         if (Session.currentChatEntry == null) {
                             System.out.println("⚠️ currentChatEntry is null. Skipping...");
-                            continue;  // ❗ اینجا بجای return باید continue باشه
+                            continue;
                         }
 
 
@@ -2434,6 +2452,119 @@ public class ActionHandler {
         });
         refresher.setDaemon(true);
         refresher.start();
+    }
+
+
+
+    private void openForeignChat(ChatEntry chat) {
+        System.out.println("🔍 Opening " + chat.getType() + " chat (not in your chat list)");
+
+        JSONObject req = new JSONObject();
+        req.put("action", "get_messages");
+        req.put("receiver_id", chat.getId().toString());
+        req.put("receiver_type", chat.getType());
+        send(req);
+
+        switch (chat.getType().toLowerCase()) {
+            case "private" -> {
+                System.out.println("\n--- Private Chat ---");
+                System.out.println("1. View Profile");
+                System.out.println("2. Add to Contact");
+                System.out.println("0. Back");
+                String input = scanner.nextLine();
+                switch (input) {
+                    case "1" ->{
+                        viewUserProfile(chat.getId());
+                        openForeignChat(chat);
+
+                    }
+                    case "2" -> {
+                        addContact(chat.getId());
+                        refreshChatList();
+                    }
+                    default -> System.out.println("Back...");
+                }
+            }
+
+            case "group", "channel" -> {
+                System.out.println("\n--- " + chat.getType().substring(0, 1).toUpperCase() + chat.getType().substring(1) + " Preview ---");
+                System.out.println("1. View Info");
+                System.out.println("2. Join " + chat.getType());
+                System.out.println("0. Back");
+                String input = scanner.nextLine();
+                switch (input) {
+                    case "1" -> {
+                        viewGroupOrChannelInfo(chat.getId(), chat.getType());
+                        openForeignChat(chat);
+                    }
+
+                    case "2" -> {
+                        joinGroupOrChannel(chat.getType(), chat.getId().toString());
+                        refreshChatList();
+                        ChatEntry joined = Session.chatList.stream()
+                                .filter(c -> c.getId().equals(chat.getId()) && c.getType().equals(chat.getType()))
+                                .findFirst().orElse(null);
+                        if (joined != null) {
+                            openChat(joined);
+                        } else {
+                            System.out.println("❌ Failed to join.");
+                        }
+                    }
+                    default -> System.out.println("Back...");
+                }
+            }
+        }
+    }
+
+
+
+
+
+    private void viewUserProfile(UUID userId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "view_profile");
+        req.put("target_id", userId.toString());
+
+        JSONObject response = sendWithResponse(req);
+
+        if (response.getString("status").equals("success")) {
+            JSONObject profile = response.getJSONObject("data");
+            System.out.println("\n👤 Profile Info:");
+            System.out.println("🔷 Name: " + profile.getString("profile_name"));
+            System.out.println("🔷User ID: "+profile.getString("user_id"));
+            System.out.println("📄 Bio: " + profile.optString("bio", "N/A"));
+            System.out.println("🖼️ Image URL: " + profile.optString("image_url", "N/A"));
+            if (profile.getBoolean("is_online")) {
+                System.out.println("✅ Status: Online");
+            } else {
+                System.out.println("📅 Last seen: " + profile.optString("last_seen", "Unknown"));
+            }
+            System.out.println("────────────────────────────────────────────");
+        } else {
+            System.out.println("❌ Could not load profile.");
+        }
+    }
+
+    private void viewGroupOrChannelInfo(UUID id, String type) {
+        JSONObject req = new JSONObject();
+        req.put("action", "get_chat_info");
+        req.put("receiver_id", id.toString());
+        req.put("receiver_type", type);
+
+        JSONObject response = sendWithResponse(req);
+
+        if (response.getString("status").equals("success")) {
+            JSONObject data = response.getJSONObject("data");
+            System.out.println("\n📢 " + type.substring(0, 1).toUpperCase() + type.substring(1) + " Info:");
+            System.out.println("🔷 Name: " + data.optString("name", "N/A"));
+            System.out.println("🆔 ID: " + data.optString("id", "N/A"));
+            System.out.println("📄 Description: " + data.optString("description", "N/A"));
+            System.out.println("🖼️ Image: " + data.optString("image_url", "N/A"));
+            System.out.println("────────────────────────────────────────────");
+        } else {
+            System.out.println("❌ Failed to fetch " + type + " info.");
+            System.out.println("✅ Server Response: " + response.getString("message"));
+        }
     }
 
 
