@@ -1608,6 +1608,27 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "view_profile": {
+                        UUID targetId = UUID.fromString(requestJson.getString("target_id"));
+                        User user = userDatabase.findByInternalUUID(targetId);
+                        if (user == null) {
+                            response = new ResponseModel("error", "User not found.");
+                            break;
+                        }
+
+                        JSONObject data = new JSONObject();
+                        data.put("profile_name", user.getProfile_name());
+                        data.put("user_id", user.getUser_id());
+                        data.put("bio", user.getBio());
+                        data.put("image_url", user.getImage_url());
+                        data.put("is_online", userDatabase.isUserOnline(user.getInternal_uuid()));
+                        data.put("last_seen", userDatabase.getLastSeen(user.getInternal_uuid()));
+
+                        response = new ResponseModel("success", "Profile data", data);
+                        break;
+                    }
+
+
 
 
                     default:
