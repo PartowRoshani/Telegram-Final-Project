@@ -1121,37 +1121,67 @@ public class ActionHandler {
             return;
         }
 
-        System.out.println("--- Admins List ---");
-        for (int i = 0; i < admins.length(); i++) {
-            JSONObject admin = admins.getJSONObject(i);
-            System.out.printf("%d. %s (%s)\n", i + 1, admin.getString("profile_name"), admin.getString("user_id"));
+        UUID currentUserId = UUID.fromString(Session.getUserUUID());
+        boolean success = false;
+
+        while (!success) {
+            System.out.println("\n--- Admins List ---");
+            for (int i = 0; i < admins.length(); i++) {
+                JSONObject admin = admins.getJSONObject(i);
+                System.out.printf("%d. %s (%s)%s\n", i + 1,
+                        admin.getString("profile_name"),
+                        admin.getString("user_id"),
+                        admin.getString("user_id").equals(currentUserId.toString()) ? " 👑 (You)" : "");
+            }
+            System.out.println("0. Cancel");
+
+            System.out.print("Select a new owner by number: ");
+            String input = scanner.nextLine().trim();
+
+            if (input.equals("0")) {
+                System.out.println("❌ Ownership transfer canceled.");
+                return;
+            }
+
+            int choice;
+            try {
+                choice = Integer.parseInt(input) - 1;
+            } catch (NumberFormatException e) {
+                System.out.println("❗ Invalid input. Please enter a number.");
+                continue;
+            }
+
+            if (choice < 0 || choice >= admins.length()) {
+                System.out.println("❗ Invalid selection. Please try again.");
+                continue;
+            }
+
+            JSONObject selected = admins.getJSONObject(choice);
+            String newOwnerId = selected.getString("user_id");
+
+            if (newOwnerId.equals(currentUserId.toString())) {
+                System.out.println("⚠️ You cannot transfer ownership to yourself. Please select a different admin.");
+                continue;
+            }
+
+            JSONObject promoteReq = new JSONObject();
+            promoteReq.put("action", "transfer_group_ownership");
+            promoteReq.put("group_id", groupId.toString());
+            promoteReq.put("new_owner_user_id", newOwnerId);
+
+            JSONObject promoteRes = sendWithResponse(promoteReq);
+            if (promoteRes == null || !promoteRes.getString("status").equals("success")) {
+                System.out.println("❌ Failed to transfer ownership.");
+                return;
+            }
+
+            System.out.println("✅ Ownership transferred successfully.");
+            success = true;
         }
 
-        System.out.print("Select a new owner by number: ");
-        int choice = Integer.parseInt(scanner.nextLine()) - 1;
-
-        if (choice < 0 || choice >= admins.length()) {
-            System.out.println("Invalid selection.");
-            return;
-        }
-
-        JSONObject selected = admins.getJSONObject(choice);
-        String newOwnerId = selected.getString("user_id");
-
-        JSONObject promoteReq = new JSONObject();
-        promoteReq.put("action", "transfer_group_ownership");
-        promoteReq.put("group_id", groupId.toString());
-        promoteReq.put("new_owner_user_id", newOwnerId);
-
-        JSONObject promoteRes = sendWithResponse(promoteReq);
-        if (promoteRes == null || !promoteRes.getString("status").equals("success")) {
-            System.out.println("❌ Failed to transfer ownership.");
-            return;
-        }
-
-        System.out.println("✅ Ownership transferred successfully.");
         leaveChat(groupId, "group");
     }
+
 
     private void removeMemberFromGroup(UUID groupId) {
         JSONObject req = new JSONObject();
@@ -1455,39 +1485,70 @@ public class ActionHandler {
         JSONArray admins = res.getJSONObject("data").getJSONArray("admins");
 
         if (admins.length() == 0) {
-            System.out.println("⚠️ No other admins available. You cannot leave without promoting someone to owner.");
+            System.out.println("⚠️ No admins available. You cannot leave without transferring ownership.");
             return;
         }
 
-        System.out.println("\n--- Admins List ---");
-        for (int i = 0; i < admins.length(); i++) {
-            JSONObject admin = admins.getJSONObject(i);
-            System.out.printf("%d. %s (%s)\n", i + 1, admin.getString("profile_name"), admin.getString("user_id"));
+        UUID currentUserId = UUID.fromString(Session.getUserUUID());
+        boolean success = false;
+
+        while (!success) {
+            System.out.println("\n--- Admins List ---");
+            for (int i = 0; i < admins.length(); i++) {
+                JSONObject admin = admins.getJSONObject(i);
+                System.out.printf("%d. %s (%s)%s\n", i + 1,
+                        admin.getString("profile_name"),
+                        admin.getString("user_id"),
+                        admin.getString("internal_uuid").equals(currentUserId.toString()) ? " 👑 (You)" : "");
+            }
+            System.out.println("0. Cancel");
+
+            System.out.print("Select a new owner by number: ");
+            String input = scanner.nextLine().trim();
+
+            if (input.equals("0")) {
+                System.out.println("❌ Ownership transfer canceled.");
+                return;
+            }
+
+            int choice;
+            try {
+                choice = Integer.parseInt(input) - 1;
+            } catch (NumberFormatException e) {
+                System.out.println("❗ Invalid input. Please enter a number.");
+                continue;
+            }
+
+            if (choice < 0 || choice >= admins.length()) {
+                System.out.println("❗ Invalid selection. Please try again.");
+                continue;
+            }
+
+            JSONObject selected = admins.getJSONObject(choice);
+            String newOwnerId = selected.getString("internal_uuid");
+
+            if (newOwnerId.equals(currentUserId.toString())) {
+                System.out.println("⚠️ You cannot transfer ownership to yourself. Please select a different admin.");
+                continue;
+            }
+
+            // Send transfer request
+            JSONObject promoteReq = new JSONObject();
+            promoteReq.put("action", "transfer_channel_ownership");
+            promoteReq.put("channel_id", channelId.toString());
+            promoteReq.put("new_owner_user_id", newOwnerId);
+
+            JSONObject promoteRes = sendWithResponse(promoteReq);
+            if (promoteRes == null || !promoteRes.getString("status").equals("success")) {
+                System.out.println("❌ Failed to transfer ownership.");
+                return;
+            }
+
+            System.out.println("✅ Ownership transferred successfully.");
+            success = true; // Break loop
         }
 
-        System.out.print("Select a new owner by number: ");
-        int choice = Integer.parseInt(scanner.nextLine()) - 1;
-
-        if (choice < 0 || choice >= admins.length()) {
-            System.out.println("Invalid selection.");
-            return;
-        }
-
-        JSONObject selected = admins.getJSONObject(choice);
-        String newOwnerId = selected.getString("internal_id");
-
-        JSONObject promoteReq = new JSONObject();
-        promoteReq.put("action", "transfer_channel_ownership");
-        promoteReq.put("channel_id", channelId.toString());
-        promoteReq.put("new_owner_user_id", newOwnerId);
-
-        JSONObject promoteRes = sendWithResponse(promoteReq);
-        if (promoteRes == null || !promoteRes.getString("status").equals("success")) {
-            System.out.println("❌ Failed to transfer ownership.");
-            return;
-        }
-
-        System.out.println("✅ Ownership transferred successfully.");
+        // Continue execution after successful ownership transfer
         leaveChat(channelId, "channel");
     }
 
