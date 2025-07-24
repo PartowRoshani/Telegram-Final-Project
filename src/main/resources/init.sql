@@ -109,3 +109,13 @@ CREATE TABLE IF NOT EXISTS message_receipts (
     PRIMARY KEY (message_id, user_id)
 );
 
+--(Bouns)
+CREATE TABLE archived_chats (
+    user_id UUID NOT NULL REFERENCES users(internal_uuid) ON DELETE CASCADE,
+    chat_id UUID NOT NULL,
+    chat_type TEXT NOT NULL CHECK (chat_type IN ('private', 'group', 'channel')),
+    archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, chat_id)
+);
+
+
