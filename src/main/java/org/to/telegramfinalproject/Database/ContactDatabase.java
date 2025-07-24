@@ -34,6 +34,15 @@ public class ContactDatabase {
         }
     }
 
+    public static List<UUID> getContactUUIDs(UUID userId) {
+        List<Contact> contacts = getContacts(userId);
+        List<UUID> contactIds = new ArrayList<>();
+        for (Contact c : contacts) {
+            contactIds.add(c.getContact_id());
+        }
+        return contactIds;
+    }
+
 
 
     public boolean removeContact(UUID user_id, UUID contact_id)  {
