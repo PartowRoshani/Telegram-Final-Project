@@ -1628,6 +1628,50 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "edit_admin_permissions": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+
+                        UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
+                        String chatType = requestJson.getString("chat_type");
+                        UUID adminId = UUID.fromString(requestJson.getString("admin_id"));
+                        JSONObject newPermissions = requestJson.getJSONObject("permissions");
+
+                        boolean success = false;
+
+                        if (chatType.equals("group")) {
+                            success = GroupDatabase.updateAdminPermissions(chatId, adminId, newPermissions);
+                        } else if (chatType.equals("channel")) {
+                            success = ChannelDatabase.updateAdminPermissions(chatId, adminId, newPermissions);
+                        } else {
+                            response = new ResponseModel("error", "Invalid chat type.");
+                            break;
+                        }
+
+                        if (success) {
+                            JSONObject data = new JSONObject();
+                            data.put("chat_id", chatId.toString());
+                            data.put("chat_type", chatType);
+                            data.put("permissions", newPermissions);
+
+                            JSONObject event = new JSONObject();
+                            event.put("action", "admin_permissions_updated");
+                            event.put("data", data);
+
+                            RealTimeEventDispatcher.sendToUser(adminId, event);
+                        }
+
+
+                        response = success
+                                ? new ResponseModel("success", "Permissions updated successfully.")
+                                : new ResponseModel("error", "Failed to update permissions.");
+                        break;
+                    }
+
+
+
 
 
 

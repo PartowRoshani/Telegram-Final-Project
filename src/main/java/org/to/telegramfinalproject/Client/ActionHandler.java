@@ -909,6 +909,10 @@ public class ActionHandler {
         }
         System.out.println("10. View Profile");
 
+        if (isOwner) {
+            System.out.println("11. Edit Admin Permissions");
+        }
+
         System.out.println("0. Back to Chat List");
 
         String input = scanner.nextLine();
@@ -951,6 +955,11 @@ public class ActionHandler {
             }
             case "10" ->{
                 GroupInfo(chat.getId());
+            }
+            case "11" -> {
+                if (isOwner) {
+                    editAdminPermissions(chat.getId(), "group");
+                }
             }
 
             case "0" -> {
@@ -1015,6 +1024,10 @@ public class ActionHandler {
         }
 
         System.out.println("10. View Profile");
+        if (isOwner) {
+            System.out.println("11. Edit Admin Permissions");
+        }
+
         System.out.println("0. Back to Chat List");
 
         String input = scanner.nextLine();
@@ -1088,6 +1101,13 @@ public class ActionHandler {
             case "10"->{
                 ChannelInfo(chat.getId());
             }
+            case "11" -> {
+                if (isOwner) {
+                    editAdminPermissions(chat.getId(), "channel");
+                }
+            }
+
+
             case "0" -> {
                 return false;
             }
@@ -2113,33 +2133,100 @@ public class ActionHandler {
     }
 
 
-    private void editChannelAdminPermissions(UUID channelId) {
-        System.out.print("Enter user_id of the admin to edit: ");
-        String userId = scanner.nextLine().trim();
-
-        JSONObject permissions = new JSONObject();
-        System.out.print("Can post? (true/false): ");
-        permissions.put("can_post", Boolean.parseBoolean(scanner.nextLine()));
-        System.out.print("Can edit channel info? (true/false): ");
-        permissions.put("can_edit_channel", Boolean.parseBoolean(scanner.nextLine()));
-        System.out.print("Can add members? (true/false): ");
-        permissions.put("can_add_members", Boolean.parseBoolean(scanner.nextLine()));
-        System.out.print("Can remove members? (true/false): ");
-        permissions.put("can_remove_members", Boolean.parseBoolean(scanner.nextLine()));
-        System.out.print("Can add admins? (true/false): ");
-        permissions.put("can_add_admins", Boolean.parseBoolean(scanner.nextLine()));
-        System.out.print("Can remove admins? (true/false): ");
-        permissions.put("can_remove_admins", Boolean.parseBoolean(scanner.nextLine()));
-
+    private void editAdminPermissions(UUID chatId, String chatType) {
         JSONObject req = new JSONObject();
-        req.put("action", "edit_channel_admin_permissions");
-        req.put("channel_id", channelId.toString());
-        req.put("user_id", userId);
-        req.put("permissions", permissions);
+        req.put("action", chatType.equals("group") ? "view_group_admins" : "view_channel_admins");
+        req.put(chatType + "_id", chatId.toString());
 
         JSONObject res = sendWithResponse(req);
-        if (res != null)
-            System.out.println(res.getString("message"));
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch admins.");
+            return;
+        }
+
+        JSONArray admins = res.getJSONObject("data").getJSONArray("admins");
+        List<JSONObject> editableAdmins = new ArrayList<>();
+
+        System.out.println("\n--- Admins List ---");
+        for (int i = 0; i < admins.length(); i++) {
+            JSONObject admin = admins.getJSONObject(i);
+            if (!admin.getString("role").equals("owner")) {
+                editableAdmins.add(admin);
+                System.out.printf("%d. %s (%s)\n", editableAdmins.size(),
+                        admin.getString("profile_name"),
+                        admin.getString("user_id"));
+            }
+        }
+
+        if (editableAdmins.isEmpty()) {
+            System.out.println("⚠️ No editable admins found.");
+            return;
+        }
+
+        System.out.print("Select an admin to edit permissions: ");
+        int choice;
+        try {
+            choice = Integer.parseInt(scanner.nextLine()) - 1;
+        } catch (Exception e) {
+            System.out.println("❌ Invalid input.");
+            return;
+        }
+
+        if (choice < 0 || choice >= editableAdmins.size()) {
+            System.out.println("❌ Invalid selection.");
+            return;
+        }
+
+        JSONObject selected = editableAdmins.get(choice);
+        String adminId = selected.getString("user_id");
+
+        JSONObject permissions = new JSONObject();
+
+        if (chatType.equals("channel")) {
+            System.out.print("Can post? (true/false): ");
+            permissions.put("can_post", Boolean.parseBoolean(scanner.nextLine()));
+
+            System.out.print("Can edit channel info? (true/false): ");
+            permissions.put("can_edit_channel", Boolean.parseBoolean(scanner.nextLine()));
+
+            System.out.print("Can add members? (true/false): ");
+            permissions.put("can_add_members", Boolean.parseBoolean(scanner.nextLine()));
+
+            System.out.print("Can remove members? (true/false): ");
+            permissions.put("can_remove_members", Boolean.parseBoolean(scanner.nextLine()));
+
+            System.out.print("Can add admins? (true/false): ");
+            permissions.put("can_add_admins", Boolean.parseBoolean(scanner.nextLine()));
+
+            System.out.print("Can remove admins? (true/false): ");
+            permissions.put("can_remove_admins", Boolean.parseBoolean(scanner.nextLine()));
+        } else {
+            System.out.print("Can add members? (true/false): ");
+            permissions.put("can_add_members", Boolean.parseBoolean(scanner.nextLine()));
+
+            System.out.print("Can remove members? (true/false): ");
+            permissions.put("can_remove_members", Boolean.parseBoolean(scanner.nextLine()));
+
+            System.out.print("Can add admins? (true/false): ");
+            permissions.put("can_add_admins", Boolean.parseBoolean(scanner.nextLine()));
+
+            System.out.print("Can remove admins? (true/false): ");
+            permissions.put("can_remove_admins", Boolean.parseBoolean(scanner.nextLine()));
+
+            System.out.print("Can edit group info? (true/false): ");
+            permissions.put("can_edit_group", Boolean.parseBoolean(scanner.nextLine()));
+        }
+
+        JSONObject updateReq = new JSONObject();
+        updateReq.put("action", "edit_admin_permissions");
+        updateReq.put("chat_id", chatId.toString());
+        updateReq.put("chat_type", chatType);
+        updateReq.put("admin_id", adminId);
+        updateReq.put("permissions", permissions);
+
+        JSONObject updateRes = sendWithResponse(updateReq);
+        if (updateRes != null)
+            System.out.println(updateRes.getString("message"));
     }
 
 
@@ -2181,26 +2268,7 @@ public class ActionHandler {
     }
 
 
-    public void editAdminPermissions(String type, UUID entityId) {
-        System.out.print("Enter user ID of the admin to edit: ");
-        String targetUserId = scanner.nextLine().trim();
 
-        JSONObject permissions = new JSONObject();
-        System.out.print("Can send messages? (true/false): ");
-        permissions.put("can_send", Boolean.parseBoolean(scanner.nextLine()));
-        System.out.print("Can edit info? (true/false): ");
-        permissions.put("can_edit", Boolean.parseBoolean(scanner.nextLine()));
-
-        JSONObject req = new JSONObject();
-        req.put("action", type.equals("group") ? "edit_group_admin_permissions" : "edit_channel_admin_permissions");
-        req.put(type + "_id", entityId.toString());
-        req.put("target_user_id", targetUserId);
-        req.put("permissions", permissions);
-
-        send(req);
-        JSONObject res = getResponse();
-        System.out.println(res.getString("message"));
-    }
 
 
     public void viewAdmins(String type, UUID entityId) {

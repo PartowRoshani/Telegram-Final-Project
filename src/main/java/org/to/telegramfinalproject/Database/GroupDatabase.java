@@ -615,4 +615,18 @@ public class GroupDatabase {
         return memberIds;
     }
 
+    public static boolean updateAdminPermissions(UUID groupId, UUID userId, JSONObject permissions) {
+        String sql = "UPDATE group_members SET permissions = ?::jsonb WHERE group_id = ? AND user_id = ? AND role = 'admin'";
+        try (Connection conn = ConnectionDb.connect();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, permissions.toString());
+            stmt.setObject(2, groupId);
+            stmt.setObject(3, userId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 }

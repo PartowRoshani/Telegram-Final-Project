@@ -636,4 +636,18 @@ public class ChannelDatabase {
         return subscriberIds;
     }
 
+    public static boolean updateAdminPermissions(UUID channelId, UUID userId, JSONObject permissions) {
+        String sql = "UPDATE channel_subscribers SET permissions = ?::jsonb WHERE channel_id = ? AND user_id = ? AND role = 'admin'";
+        try (Connection conn = ConnectionDb.connect();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, permissions.toString());
+            stmt.setObject(2, channelId);
+            stmt.setObject(3, userId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 }

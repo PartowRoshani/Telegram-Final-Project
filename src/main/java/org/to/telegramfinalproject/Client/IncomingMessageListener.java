@@ -79,7 +79,7 @@ public class IncomingMessageListener implements Runnable {
                  "update_group_or_channel", "chat_deleted",
                  "blocked_by_user", "unblocked_by_user", "message_seen",
                  "removed_from_group", "removed_from_channel",
-                 "became_admin", "removed_admin", "ownership_transferred" -> true;
+                 "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated" -> true;
             default -> false;
         };
     }
@@ -117,7 +117,7 @@ public class IncomingMessageListener implements Runnable {
                 }).start();
             }
 
-            case "became_admin", "removed_admin", "ownership_transferred" -> {
+            case "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated" -> {
                 System.out.println("🧩 Detected admin/owner role change. Calling handler...");
                 new Thread(() -> {
                     try {
