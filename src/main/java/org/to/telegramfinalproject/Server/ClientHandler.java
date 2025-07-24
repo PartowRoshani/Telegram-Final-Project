@@ -1672,6 +1672,41 @@ public class ClientHandler implements Runnable {
 
 
 
+//                    case "search_chat_members": {
+//                        if (currentUser == null) {
+//                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+//                            break;
+//                        }
+//
+//                        UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
+//                        String chatType = requestJson.getString("chat_type");
+//                        String query = requestJson.getString("query").toLowerCase();
+//
+//                        List<User> matched = new ArrayList<>();
+//
+//                        if (chatType.equals("group")) {
+//                            if (!GroupDatabase.isMember(chatId, currentUser.getInternal_uuid())) {
+//                                response = new ResponseModel("error", "You are not a member of this group.");
+//                                break;
+//                            }
+//                            matched = GroupDatabase.searchGroupMembers(chatId, query);
+//                        } else if (chatType.equals("channel")) {
+//                            if (!ChannelDatabase.isAdmin(chatId, currentUser.getInternal_uuid())||!ChannelDatabase.isOwner(chatId, currentUser.getInternal_uuid())) {
+//                                response = new ResponseModel("error", "Only admins or owner can search subscribers.");
+//                                break;
+//                            }
+//                            matched = ChannelDatabase.searchSubscribers(chatId, query);
+//                        } else {
+//                            response = new ResponseModel("error", "Invalid chat type.");
+//                            break;
+//                        }
+//
+//                        JSONArray arr = new JSONArray();
+//                        for (User u : matched) arr.put(u.toJSON());
+//                        response = new ResponseModel("success", "Results found", Map.of("results", arr));
+//                        break;
+//                    }
+//
 
 
 

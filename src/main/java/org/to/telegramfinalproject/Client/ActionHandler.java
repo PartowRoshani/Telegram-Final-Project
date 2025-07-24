@@ -57,14 +57,41 @@ public class ActionHandler {
 
     public void register() {
         System.out.println("Register form: \n");
-        System.out.print("Username: ");
-        String username = this.scanner.nextLine();
-        System.out.print("User id: ");
-        String user_id = this.scanner.nextLine();
-        System.out.print("Password: ");
-        String password = this.scanner.nextLine();
-        System.out.print("Profile name: ");
-        String profile_name = this.scanner.nextLine();
+
+        String username, user_id, password, profile_name;
+
+        while (true) {
+            System.out.print("Username: ");
+            username = scanner.nextLine().trim();
+            if (username.isEmpty()) {
+                System.out.println("❌ Username cannot be empty.");
+                continue;
+            }
+
+            System.out.print("User id: ");
+            user_id = scanner.nextLine().trim();
+            if (user_id.isEmpty()) {
+                System.out.println("❌ User ID cannot be empty.");
+                continue;
+            }
+
+            System.out.print("Password: ");
+            password = scanner.nextLine();
+            if (password.isEmpty()) {
+                System.out.println("❌ Password cannot be empty.");
+                continue;
+            }
+
+            System.out.print("Profile name: ");
+            profile_name = scanner.nextLine().trim();
+            if (profile_name.isEmpty()) {
+                System.out.println("❌ Profile name cannot be empty.");
+                continue;
+            }
+
+            break;
+        }
+
 
         JSONObject request = new JSONObject();
         request.put("action", "register");
@@ -212,9 +239,9 @@ public class ActionHandler {
             System.err.println("Error fetching chat info: " + e.getMessage());
         }
 
-        // اگر شکست خورد، internalId نامعتبر می‌سازیم (برای جلوگیری از null)
+        //if invalid make unknown modle
         return new ChatEntry(
-                UUID.randomUUID(),                    // ساخت یک UUID موقت (ولی اشتباه)
+                UUID.randomUUID(),
                 receiverId,
                 "[Unknown " + receiverType + "]",
                 "",
@@ -237,7 +264,7 @@ public class ActionHandler {
                 if (response.has("data") && !response.isNull("data")) {
                     JSONObject data = response.getJSONObject("data");
 
-                    // ❗ چک کن که chat_list وجود داره
+                    //is chat list available
                     if (!data.has("chat_list") || data.isNull("chat_list")) {
                         System.out.println("❌ chat_list not found in response data.");
                         return;
@@ -283,8 +310,19 @@ public class ActionHandler {
 
 
     public void createGroup() {
-        System.out.print("Enter group ID: ");
-        String groupId = scanner.nextLine();
+        String groupId = null;
+
+        while (groupId == null){
+            System.out.print("Enter group ID: ");
+            String input = scanner.nextLine();
+            if (!input.trim().isEmpty()) {
+                groupId = input;
+            } else {
+                System.out.println("Group ID can't be empty.");
+            }
+
+        }
+
         String groupName = null;
         while (groupName == null) {
             System.out.print("Enter group name: ");
@@ -311,8 +349,18 @@ public class ActionHandler {
 
 
     public void createChannel() {
-        System.out.print("Enter channel ID: ");
-        String channelId = scanner.nextLine();
+        String channelId = null;
+
+        while (channelId == null){
+            System.out.print("Enter channel ID: ");
+            String input = scanner.nextLine();
+            if (!input.trim().isEmpty()) {
+                channelId = input;
+            } else {
+                System.out.println("Channel ID can't be empty.");
+            }
+
+        }
         String channelName = null;
         while (channelName == null) {
             System.out.print("Enter channel name: ");
@@ -367,8 +415,8 @@ public class ActionHandler {
                     response = incoming;
                     break;
                 } else {
-                    // این یک پیام Real-Time است
-                    handleRealTime(incoming); // ✅
+                    //real time
+                    handleRealTime(incoming);
                 }
             }
 
@@ -1377,7 +1425,7 @@ public class ActionHandler {
         }
 
         JSONObject selected = eligible.get(choice);
-        String targetInternalUUID = selected.getString("internal_uuid"); // دقت کن internal_uuid
+        String targetInternalUUID = selected.getString("internal_uuid");
 
         JSONObject permissions = new JSONObject();
         System.out.print("Can add members? (true/false): ");
@@ -1394,7 +1442,7 @@ public class ActionHandler {
         JSONObject promoteReq = new JSONObject();
         promoteReq.put("action", "add_admin_to_group");
         promoteReq.put("group_id", groupId.toString());
-        promoteReq.put("user_id", targetInternalUUID); // ارسال internal_uuid واقعی
+        promoteReq.put("user_id", targetInternalUUID);
         promoteReq.put("permissions", permissions);
 
         JSONObject promoteRes = sendWithResponse(promoteReq);
@@ -2111,26 +2159,7 @@ public class ActionHandler {
 
 
 
-    public void addAdminToEntity(String type, UUID entityId) {
-        System.out.print("Enter user ID to promote to admin: ");
-        String targetUserId = scanner.nextLine().trim();
 
-        JSONObject permissions = new JSONObject();
-        System.out.print("Can send messages? (true/false): ");
-        permissions.put("can_send", Boolean.parseBoolean(scanner.nextLine()));
-        System.out.print("Can edit info? (true/false): ");
-        permissions.put("can_edit", Boolean.parseBoolean(scanner.nextLine()));
-
-        JSONObject req = new JSONObject();
-        req.put("action", type.equals("group") ? "add_admin_to_group" : "add_admin_to_channel");
-        req.put(type + "_id", entityId.toString());
-        req.put("target_user_id", targetUserId);
-        req.put("permissions", permissions);
-
-        send(req);
-        JSONObject res = getResponse();
-        System.out.println(res.getString("message"));
-    }
 
 
     private void editAdminPermissions(UUID chatId, String chatType) {
@@ -2390,12 +2419,12 @@ public class ActionHandler {
                         ActionHandler.requestChatList();
                         if (Session.inChatListMenu) {
                             System.out.println("\n📬 Updated Chat List:");
-                            ActionHandler.displayChatList();  // این متدی باشه که چت‌ها رو نمایش بده
+                            ActionHandler.displayChatList();  //Show chats
                             System.out.print("Select a chat by number: ");
                         }
                     }
 
-                    Thread.sleep(300); // جلوگیری از مصرف بی‌مورد CPU
+                    Thread.sleep(300);
                 } catch (Exception e) {
                     System.out.println("❌ ChatStateMonitor crashed: " + e.getMessage());
                 }
@@ -2420,7 +2449,7 @@ public class ActionHandler {
                     if (Session.refreshCurrentChatMenu && Session.inChatMenu && Session.currentChatId != null) {
                         System.out.println("🔁 [Refresher] Refresh requested. Searching for chat...");
 
-                        // جستجو در لیست چت‌ها با استفاده از currentChatId
+
                         ChatEntry chat = Session.chatList.stream()
                                 .filter(e -> e.getId().toString().equals(Session.currentChatId))
                                 .findFirst()
@@ -2540,20 +2569,7 @@ public class ActionHandler {
 
 
 
-//    public static void requestPermissions(String chatId, String chatType) {
-//        JSONObject permissionReq = new JSONObject();
-//        permissionReq.put("action", "get_permissions");
-//        permissionReq.put("receiver_id", chatId);
-//        permissionReq.put("receiver_type", chatType);
-//        TelegramClient.send(permissionReq);
-//    }
-//
-//    public void refreshCurrentChat() {
-//        switch (Session.currentChatType.toLowerCase()) {
-//            case "group" -> showGroupChatMenu(Session.currentChatEntry);
-//            case "channel" -> showChannelChatMenu(Session.currentChatEntry);
-//        }
-//    }
+
 
 
     private void startMenuRefresherThread() {

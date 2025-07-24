@@ -3,6 +3,7 @@ package org.to.telegramfinalproject.Database;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.Group;
+import org.to.telegramfinalproject.Models.User;
 
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -628,5 +629,54 @@ public class GroupDatabase {
             return false;
         }
     }
+
+    public static boolean isMember(UUID groupId, UUID userId) {
+        String sql = "SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, groupId);
+            stmt.setObject(2, userId);
+            ResultSet rs = stmt.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+//    public static List<User> searchGroupMembers(UUID groupId, String keyword) {
+//        List<User> result = new ArrayList<>();
+//        String sql = """
+//        SELECT u.*
+//        FROM users u
+//        JOIN group_members gm ON gm.user_id = u.internal_uuid
+//        WHERE gm.group_id = ?
+//          AND (
+//                LOWER(u.profile_name) LIKE ?
+//                OR LOWER(u.username) LIKE ?
+//                OR LOWER(u.user_id) LIKE ?
+//              )
+//    """;
+//
+//        try (Connection conn = ConnectionDb.connect();
+//             PreparedStatement stmt = conn.prepareStatement(sql)) {
+//
+//            stmt.setObject(1, groupId);
+//            String likePattern = "%" + keyword.toLowerCase() + "%";
+//            stmt.setString(2, likePattern);
+//            stmt.setString(3, likePattern);
+//            stmt.setString(4, likePattern);
+//
+//            ResultSet rs = stmt.executeQuery();
+//            while (rs.next()) {
+//                User user = User.fromResultSet(rs);
+//                result.add(user);
+//            }
+//
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//        }
+//        return result;
+//    }
 
 }
