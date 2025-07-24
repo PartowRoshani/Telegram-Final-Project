@@ -35,7 +35,7 @@ public class LoginController {
         visiblePasswordField.textProperty().bindBidirectional(passwordField.textProperty());
 
         try {
-            connection = new ClientConnection("localhost", 12345);
+            connection = new ClientConnection("localhost", 8000);
         } catch (Exception e) {
             System.out.println("Could not connect to server: " + e.getMessage());
         }

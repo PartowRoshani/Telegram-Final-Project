@@ -118,8 +118,4 @@ public class User {
 
     public List<ChatEntry> getChatList(){return  this.chatList;}
 
-
-
-
 }
-

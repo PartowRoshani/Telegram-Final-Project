@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users(
-    user_id VARCHAR(70) UNIQUE,
+    user_id VARCHAR(70) UNIQUE NOT NULL,
     internal_uuid UUID PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password TEXT NOT NULL,
@@ -108,4 +108,14 @@ CREATE TABLE IF NOT EXISTS message_receipts (
     read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (message_id, user_id)
 );
+
+--(Bouns)
+CREATE TABLE archived_chats (
+    user_id UUID NOT NULL REFERENCES users(internal_uuid) ON DELETE CASCADE,
+    chat_id UUID NOT NULL,
+    chat_type TEXT NOT NULL CHECK (chat_type IN ('private', 'group', 'channel')),
+    archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, chat_id)
+);
+
 
