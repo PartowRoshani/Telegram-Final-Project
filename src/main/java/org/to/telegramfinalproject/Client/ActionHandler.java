@@ -582,6 +582,40 @@ public class ActionHandler {
             }
         }
     }
+//
+//    public void showChatListAndSelect() {
+//        if (Session.chatList == null || Session.chatList.isEmpty()) {
+//            System.out.println("No chats available.");
+//            return;
+//        }
+//
+//        System.out.println("\nYour Chats:");
+//        for (int i = 0; i < Session.chatList.size(); i++) {
+//            ChatEntry entry = Session.chatList.get(i);
+//            String time = (entry.getLastMessageTime() == null)
+//                    ? "No messages yet"
+//                    : entry.getLastMessageTime().toString();
+//            System.out.println((i + 1) + ". [" + entry.getType() + "] " +
+//                    entry.getName() + " - Last: " + time);
+//        }
+//
+//        System.out.print("Select a chat by number: ");
+//        int choice = Integer.parseInt(scanner.nextLine()) - 1;
+//
+//        if(choice == -1){
+//            System.out.println("Exit...");
+//            return;
+//        }
+//        if (choice < -1 || choice >= Session.chatList.size()) {
+//            System.out.println("Invalid selection.");
+//            return;
+//        }
+//
+//        ChatEntry selected = Session.chatList.get(choice);
+//        openChat(selected);
+//    }
+
+
 
     public void showChatListAndSelect() {
         if (Session.chatList == null || Session.chatList.isEmpty()) {
@@ -589,9 +623,15 @@ public class ActionHandler {
             return;
         }
 
+        List<ChatEntry> activeChats = Session.chatList.stream()
+                .filter(c -> !c.isArchived())
+                .toList();
+
         System.out.println("\nYour Chats:");
-        for (int i = 0; i < Session.chatList.size(); i++) {
-            ChatEntry entry = Session.chatList.get(i);
+        System.out.println("0. 📦 Archived Chats");
+
+        for (int i = 0; i < activeChats.size(); i++) {
+            ChatEntry entry = activeChats.get(i);
             String time = (entry.getLastMessageTime() == null)
                     ? "No messages yet"
                     : entry.getLastMessageTime().toString();
@@ -600,20 +640,25 @@ public class ActionHandler {
         }
 
         System.out.print("Select a chat by number: ");
-        int choice = Integer.parseInt(scanner.nextLine()) - 1;
+        int choice = Integer.parseInt(scanner.nextLine());
 
-        if(choice == -1){
-            System.out.println("Exit...");
+        if (choice == 0) {
+            showArchivedChats();
             return;
         }
-        if (choice < -1 || choice >= Session.chatList.size()) {
+
+        int index = choice - 1;
+
+        if (index < 0 || index >= activeChats.size()) {
             System.out.println("Invalid selection.");
             return;
         }
 
-        ChatEntry selected = Session.chatList.get(choice);
+        ChatEntry selected = activeChats.get(index);
         openChat(selected);
     }
+
+
 
 
 
@@ -640,6 +685,42 @@ public class ActionHandler {
     }
 
 
+    private void showArchivedChats() {
+        List<ChatEntry> archived = Session.chatList.stream()
+                .filter(ChatEntry::isArchived)
+                .toList();
+
+        if (archived.isEmpty()) {
+            System.out.println("📭 No archived chats.");
+            return;
+        }
+
+        System.out.println("\n📦 Archived Chats:");
+        for (int i = 0; i < archived.size(); i++) {
+            ChatEntry entry = archived.get(i);
+            String time = (entry.getLastMessageTime() == null)
+                    ? "No messages yet"
+                    : entry.getLastMessageTime().toString();
+            System.out.println((i + 1) + ". [" + entry.getType() + "] " +
+                    entry.getName() + " - Last: " + time);
+        }
+
+        System.out.print("Select a chat by number (or 0 to return): ");
+        int choice = Integer.parseInt(scanner.nextLine());
+
+        if (choice == 0) {
+            System.out.println("🔙 Returning to main chat list...");
+            return;
+        }
+
+        if (choice < 1 || choice > archived.size()) {
+            System.out.println("❌ Invalid selection.");
+            return;
+        }
+
+        ChatEntry selected = archived.get(choice - 1);
+        openChat(selected);
+    }
 
 
 
@@ -1920,4 +2001,50 @@ public class ActionHandler {
             return null;
         }
     }
+
+    private void archiveChat(UUID chatId, String chatType) {
+        JSONObject req = new JSONObject();
+        req.put("action", "archive_chat");
+        req.put("chat_id", chatId.toString());
+        req.put("chat_type", chatType);
+        JSONObject res = sendWithResponse(req);
+        if (res != null) System.out.println(res.getString("message"));
+    }
+
+    private void unarchiveChat(UUID chatId, String chatType) {
+        JSONObject req = new JSONObject();
+        req.put("action", "unarchive_chat");
+        req.put("chat_id", chatId.toString());
+        req.put("chat_type", chatType);
+        JSONObject res = sendWithResponse(req);
+        if (res != null) System.out.println(res.getString("message"));
+    }
+
+
+
+
+//    private void toggleArchiveChat(ChatEntry chat) {
+//        JSONObject req = new JSONObject();
+//        if (chat.isArchived()) {
+//            req.put("action", "unarchive_chat");
+//        } else {
+//            req.put("action", "archive_chat");
+//        }
+//        req.put("chat_id", chat.getId().toString());
+//        req.put("chat_type", chat.getType());
+//
+//        JSONObject res = sendWithResponse(req);
+//        if (res != null) {
+//            System.out.println(res.getString("message"));
+//
+//            // تغییر وضعیت آرشیو به‌صورت لوکالی
+//            chat.setArchived(!chat.isArchived());
+//
+//            // اگر در لیست اصلی یا آرشیو بود، بعد از تغییر منو رو ببند
+//            System.out.println("🔄 Returning to chat list...");
+//            forceExitChat = true;  // از منو خارج بشیم
+//        }
+
+
+
 }

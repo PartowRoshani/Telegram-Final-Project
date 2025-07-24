@@ -1189,6 +1189,50 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "archive_chat": {
+                        UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
+                        String chatType = requestJson.getString("chat_type");
+
+                        boolean success = ArchivedChatDatabase.archiveChat(currentUser.getInternal_uuid(), chatId, chatType);
+                        response = success
+                                ? new ResponseModel("success", "Chat archived successfully.")
+                                : new ResponseModel("error", "Failed to archive chat.");
+                        break;
+                    }
+
+                    case "unarchive_chat": {
+                        UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
+
+                        boolean success = ArchivedChatDatabase.unarchiveChat(currentUser.getInternal_uuid(), chatId);
+                        response = success
+                                ? new ResponseModel("success", "Chat unarchived successfully.")
+                                : new ResponseModel("error", "Failed to unarchive chat.");
+                        break;
+                    }
+
+                    case "get_archived_chats": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+
+                        List<UUID> archived = ArchivedChatDatabase.getArchivedChats(currentUser.getInternal_uuid());
+
+                        boolean success = archived != null;
+
+                        response = success
+                                ? new ResponseModel(
+                                "success",
+                                "Archived chat list fetched successfully.",
+                                new JSONObject().put("archived", new JSONArray(archived.stream().map(UUID::toString).toList()))
+                        )
+                                : new ResponseModel("error", "Failed to fetch archived chats.");
+
+                        break;
+                    }
+
+
+
 
 
                     default:

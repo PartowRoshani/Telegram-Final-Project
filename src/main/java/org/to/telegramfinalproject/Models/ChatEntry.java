@@ -87,4 +87,15 @@ public class ChatEntry {
     public void setPermissions(JSONObject permissions) {
         this.permissions = permissions;
     }
+
+    private boolean archived = false;
+
+    public boolean isArchived() {
+        return archived;
+    }
+
+    public void setArchived(boolean archived) {
+        this.archived = archived;
+    }
+
 }
