@@ -9,12 +9,57 @@ import java.util.List;
 import java.util.UUID;
 
 public class userDatabase {
+    
+    
     public userDatabase() {
     }
 
-    private Connection getConnection() throws SQLException {
+    public static boolean isUserOnline(UUID userId) {
+        String sql = "SELECT status FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String status = rs.getString("status");
+                return "online".equalsIgnoreCase(status);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+
+
+
+    private static Connection getConnection() throws SQLException {
         return ConnectionDb.connect();
     }
+
+    public static String getLastSeen(UUID userId) {
+        String sql = "SELECT last_seen FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                Timestamp lastSeen = rs.getTimestamp("last_seen");
+                if (lastSeen != null) {
+                    return lastSeen.toLocalDateTime().toString();
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Unknown";
+    }
+
 
     public User findByUserId(String userId) {
         String query = "SELECT * FROM users WHERE user_id = ?";
