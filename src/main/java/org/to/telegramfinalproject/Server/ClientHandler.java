@@ -1707,8 +1707,20 @@ public class ClientHandler implements Runnable {
 //                        break;
 //                    }
 //
+                    case "get_user_profile": {
+                        // Get the current user's user_id
+                        String user_id = this.currentUser.getUser_id();
 
+                        // Get the profile JSON from SidebarService
+                        JSONObject data = SidebarService.getUserProfile(user_id);
 
+                        if (data == null) {
+                            response = new ResponseModel("error", "Failed to retrieve user profile.");
+                        } else {
+                            response = new ResponseModel("success", "User profile retrieved successfully.", data);
+                        }
+                        break;
+                    }
 
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);

@@ -703,7 +703,8 @@ public class ActionHandler {
             System.out.println("2. Search");
             System.out.println("3. Create Channel");
             System.out.println("4. Create group");
-            System.out.println("5. Logout");
+            System.out.println("5. Show sidebar menu");
+            System.out.println("6. Logout");
             System.out.print("Choose an option: ");
             String choice = scanner.nextLine();
 
@@ -716,7 +717,8 @@ public class ActionHandler {
                 case "2" -> search();
                 case "3" -> createChannel();
                 case "4" -> createGroup();
-                case "5" -> {
+                case "5" -> showSidebarMenu();
+                case "6" -> {
                     logout();
                     return;
                 }
@@ -2712,8 +2714,50 @@ public class ActionHandler {
         }
     }
 
+    private void showSidebarMenu() {
+        System.out.println("\n--- Sidebar Menu ---");
+        System.out.println("1. View Profile");
+        System.out.println("2. New Group");
+        System.out.println("3. New Channel");
+        System.out.println("4. View Contacts");
+        System.out.println("5. Saved messages");
+        System.out.println("6. Settings");
+        System.out.println("7. Telegram features");
+        System.out.println("8. Telegram Q&A");
+        System.out.println("0. Back");
+        System.out.println("Choose your action: (0 to 8)");
 
+        // Handle invalid input
+        int action;
+        while (true) {
+            if (scanner.hasNextInt()) {
+                action = scanner.nextInt();
+                scanner.nextLine(); // Clear newline
 
+                if (action >= 0 && action <= 8) {
+                    break;
+                }
+                System.out.println("Invalid input. Please enter a number between 0 and 8.");
+            } else {
+                scanner.nextLine();
+                System.out.println("Invalid input. Try again.");
+            }
+        }
+
+        SidebarHandler sidebarHandler = new SidebarHandler(scanner);
+        switch (action) {
+            case 0 -> {
+                return;
+            }
+            case 1 -> sidebarHandler.handleSidebarAction(SidebarAction.MY_PROFILE);
+            case 2 -> sidebarHandler.handleSidebarAction(SidebarAction.NEW_GROUP);
+            case 3 -> sidebarHandler.handleSidebarAction(SidebarAction.NEW_CHANNEL);
+            case 4 -> sidebarHandler.handleSidebarAction(SidebarAction.CONTACTS);
+            case 5 -> sidebarHandler.handleSidebarAction(SidebarAction.SAVED_MESSAGES);
+            case 6 -> sidebarHandler.handleSidebarAction(SidebarAction.SETTINGS);
+            case 7 -> sidebarHandler.handleSidebarAction(SidebarAction.FEATURES);
+            case 8 -> sidebarHandler.handleSidebarAction(SidebarAction.Q_AND_A);
+            default -> System.out.println("Invalid action.");
+        }
+    }
 }
-
-
