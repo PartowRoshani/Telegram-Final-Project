@@ -87,36 +87,80 @@ public class ClientHandler implements Runnable {
                             List<Group> groups = GroupDatabase.getGroupsByUser(user.getInternal_uuid());
                             List<Channel> channels = ChannelDatabase.getChannelsByUser(user.getInternal_uuid());
                             List<Message> unreadMessages = MessageDatabase.getUnreadMessages(user.getInternal_uuid());
+                            List<UUID> archivedChatIds = ArchivedChatDatabase.getArchivedChats(user.getInternal_uuid());
+
+
 
                             user.setContactList(contacts);
                             user.setGroupList(groups);
                             user.setChannelList(channels);
                             user.setUnreadMessages(unreadMessages);
 
+
+
                             List<ChatEntry> chatList = new ArrayList<>();
+                            List<ChatEntry> archivedChatList = new ArrayList<>();
+                            List<ChatEntry> activeChatList = new ArrayList<>();
+
+
                             for (Contact contact : contacts) {
                                 User target = userDatabase.findByInternalUUID(contact.getContact_id());
                                 if (target == null) continue;
                                 LocalDateTime last = MessageDatabase.getLastMessageTimeBetween(user.getInternal_uuid(), target.getInternal_uuid(), "private");
 
-                                chatList.add(new ChatEntry(
-                                        target.getInternal_uuid(),      // internal UUID
-                                        target.getUser_id(),            // public display ID
+//                                chatList.add(new ChatEntry(
+//                                        target.getInternal_uuid(),      // internal UUID
+//                                        target.getUser_id(),            // public display ID
+//                                        target.getProfile_name(),
+//                                        target.getImage_url(),
+//                                        "private",
+//                                        last,
+//                                        false,
+//                                        false
+//                                ));
+
+                                UUID targetId = target.getInternal_uuid();
+
+                                ChatEntry entry = new ChatEntry(
+                                        targetId,
+                                        target.getUser_id(),
                                         target.getProfile_name(),
                                         target.getImage_url(),
                                         "private",
                                         last,
                                         false,
                                         false
-                                ));
+                                );
+
+
+
+                                if (archivedChatIds.contains(targetId)) {
+                                    archivedChatList.add(entry);
+                                    chatList.add(entry);
+                                } else {
+                                    activeChatList.add(entry);
+                                    chatList.add(entry);
+                                }
                             }
+
 
                             for (Group group : groups) {
                                 LocalDateTime last = MessageDatabase.getLastMessageTime(group.getInternal_uuid(), "group");
                                 boolean isOwner = GroupDatabase.isOwner(group.getInternal_uuid(), user.getInternal_uuid());
                                 boolean isAdmin = GroupDatabase.isAdmin(group.getInternal_uuid(), user.getInternal_uuid());
 
-                                chatList.add(new ChatEntry(
+//                                chatList.add(new ChatEntry(
+//                                        group.getInternal_uuid(),
+//                                        group.getGroup_id(),
+//                                        group.getGroup_name(),
+//                                        group.getImage_url(),
+//                                        "group",
+//                                        last,
+//                                        isOwner,
+//                                        isAdmin
+//                                ));
+
+                                ChatEntry entry = new ChatEntry(
                                         group.getInternal_uuid(),
                                         group.getGroup_id(),
                                         group.getGroup_name(),
@@ -125,7 +169,17 @@ public class ClientHandler implements Runnable {
                                         last,
                                         isOwner,
                                         isAdmin
-                                ));
+                                );
+
+                                if (archivedChatIds.contains(group.getInternal_uuid())) {
+                                    archivedChatList.add(entry);
+                                    chatList.add(entry);
+                                } else {
+                                    activeChatList.add(entry);
+                                    chatList.add(entry);
+                                }
+
+
                             }
 
                             for (Channel channel : channels) {
@@ -133,7 +187,18 @@ public class ClientHandler implements Runnable {
                                 boolean isOwner = ChannelDatabase.isOwner(channel.getInternal_uuid(), user.getInternal_uuid());
                                 boolean isAdmin = ChannelDatabase.isAdmin(channel.getInternal_uuid(), user.getInternal_uuid());
 
-                                chatList.add(new ChatEntry(
+//                                chatList.add(new ChatEntry(
+//                                        channel.getInternal_uuid(),
+//                                        channel.getChannel_id(),
+//                                        channel.getChannel_name(),
+//                                        channel.getImage_url(),
+//                                        "channel",
+//                                        last,
+//                                        isOwner,
+//                                        isAdmin
+//                                ));
+
+                                ChatEntry entry = new ChatEntry(
                                         channel.getInternal_uuid(),
                                         channel.getChannel_id(),
                                         channel.getChannel_name(),
@@ -142,8 +207,28 @@ public class ClientHandler implements Runnable {
                                         last,
                                         isOwner,
                                         isAdmin
-                                ));
+                                );
+
+                                if (archivedChatIds.contains(channel.getInternal_uuid())) {
+                                    archivedChatList.add(entry);
+                                    chatList.add(entry);
+                                } else {
+                                    activeChatList.add(entry);
+                                    chatList.add(entry);
+                                }
                             }
+
+                            activeChatList.sort((a, b) -> {
+                                if (a.getLastMessageTime() == null) return 1;
+                                if (b.getLastMessageTime() == null) return -1;
+                                return b.getLastMessageTime().compareTo(a.getLastMessageTime());
+                            });
+
+                            archivedChatList.sort((a, b) -> {
+                                if (a.getLastMessageTime() == null) return 1;
+                                if (b.getLastMessageTime() == null) return -1;
+                                return b.getLastMessageTime().compareTo(a.getLastMessageTime());
+                            });
 
 
                             chatList.sort((a, b) -> {
@@ -154,6 +239,8 @@ public class ClientHandler implements Runnable {
 
                             JSONObject userData = JsonUtil.userToJson(user);
                             userData.put("chat_list", JsonUtil.chatListToJson(chatList));
+                            userData.put("archived_chat_list", JsonUtil.chatListToJson(archivedChatList));
+                            userData.put("active_chat_lis", JsonUtil.chatListToJson(activeChatList));
                             response = new ResponseModel("success", "Welcome " + user.getProfile_name(), userData);
                         }
                         break;
@@ -1707,6 +1794,42 @@ public class ClientHandler implements Runnable {
 //                        break;
 //                    }
 //
+
+                    case "archive_chat": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+
+                        UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
+                        String chatType = requestJson.getString("chat_type");
+
+                        boolean success = ArchivedChatDatabase.archiveChat(currentUser.getInternal_uuid(), chatId, chatType);
+                        response = success
+                                ? new ResponseModel("success", "Chat archived successfully.")
+                                : new ResponseModel("error", "Failed to archive chat.");
+                        break;
+                    }
+
+
+                    case "unarchive_chat": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+
+                        UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
+
+                        boolean success = ArchivedChatDatabase.unarchiveChat(currentUser.getInternal_uuid(), chatId);
+                        response = success
+                                ? new ResponseModel("success", "Chat unarchived successfully.")
+                                : new ResponseModel("error", "Failed to unarchive chat.");
+                        break;
+                    }
+
+
+
+
 
 
 
