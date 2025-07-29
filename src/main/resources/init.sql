@@ -27,15 +27,15 @@ CREATE TABLE IF NOT EXISTS messages (
     receiver_id UUID NOT NULL ,
     content TEXT,
     message_type VARCHAR(20) DEFAULT 'TEXT' CHECK (message_type IN ('TEXT','IMAGE','FILE','VIDEO','AUDIO','STICKER','GIF')),
-    file_url TEXT,                                                --(Bouns)
     send_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20),                                      -- SEND,DELIVERED,READ
     reply_to_id UUID REFERENCES messages(message_id) ON DELETE SET NULL,        --(Bouns)
-    is_edited BOOLEAN DEFAULT FALSE,                                           --(Bonus)
-    original_message_id UUID REFERENCES messages(message_id)
-   ON DELETE SET NULL,              --(Bonus)
+    is_edited BOOLEAN DEFAULT FALSE,                                            --(Bonus)
+    edited_at TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
+    original_message_id UUID REFERENCES messages(message_id) ON DELETE SET NULL,              --(Bonus)
     forwarded_by UUID REFERENCES users(internal_uuid) ON DELETE SET NULL,              --(Bouns)
-    forwarded_from UUID REFERENCES users(internal_uuid) ON DELETE SET NULL             --(Bouns)
+    forwarded_from UUID REFERENCES users(internal_uuid) ON DELETE SET NULL,            --(Bouns)
+    is_deleted_globally BOOLEAN DEFAULT FALSE
     );
 
 CREATE TABLE IF NOT EXISTS private_chat (
@@ -117,5 +117,32 @@ CREATE TABLE archived_chats (
     archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, chat_id)
 );
+
+
+CREATE TABLE deleted_messages (
+    message_id UUID REFERENCES messages(message_id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(internal_uuid) ON DELETE CASCADE,
+    deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (message_id, user_id)
+);
+
+
+CREATE TABLE IF NOT EXISTS message_reactions (
+    message_id UUID REFERENCES messages(message_id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(internal_uuid) ON DELETE CASCADE,
+    emoji TEXT NOT NULL,  
+    reacted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (message_id, user_id)
+);
+
+--Multi attachments
+CREATE TABLE IF NOT EXISTS message_attachments (
+    attachment_id UUID PRIMARY KEY,
+    message_id UUID REFERENCES messages(message_id) ON DELETE CASCADE,
+    file_url TEXT NOT NULL,
+    file_type VARCHAR(20) CHECK (file_type IN ('IMAGE','VIDEO','AUDIO','FILE','GIF','STICKER')),
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 
 
