@@ -1708,11 +1708,11 @@ public class ClientHandler implements Runnable {
 //                    }
 //
                     case "get_user_profile": {
-                        // Get the current user's user_id
-                        String user_id = this.currentUser.getUser_id();
+                        // Get the current user's UUID
+                        UUID user_UUID = this.currentUser.getInternal_uuid();
 
                         // Get the profile JSON from SidebarService
-                        JSONObject data = SidebarService.getUserProfile(user_id);
+                        JSONObject data = SidebarService.getUserProfile(user_UUID);
 
                         if (data == null) {
                             response = new ResponseModel("error", "Failed to retrieve user profile.");
@@ -1729,24 +1729,24 @@ public class ClientHandler implements Runnable {
                             break;
                         }
 
-                        String user_id = this.currentUser.getUser_id();
+                        UUID user_UUID = this.currentUser.getInternal_uuid();
                         String newProfileName = requestJson.getString("new_profile_name");
 
-                        response = SidebarService.updateProfileName(user_id, newProfileName);
+                        response = SidebarService.updateProfileName(user_UUID, newProfileName);
                         break;
                     }
 
                     case "edit_user_id": {
                         // Validate input
-                        if (!requestJson.has("new_user-id")) {
+                        if (!requestJson.has("new_user_id")) {
                             response = new ResponseModel("error", "Missing new user ID.");
                             break;
                         }
 
-                        String currentUserId = this.currentUser.getUser_id();
+                        UUID user_UUID = this.currentUser.getInternal_uuid();
                         String newUserId = requestJson.getString("new_user_id");
 
-                        response = SidebarService.updateUserId(currentUserId, newUserId);
+                        response = SidebarService.updateUserId(user_UUID, newUserId);
                         break;
                     }
 
@@ -1757,10 +1757,10 @@ public class ClientHandler implements Runnable {
                             break;
                         }
 
-                        String currentUserId = this.currentUser.getUser_id();
+                        UUID user_UUID = this.currentUser.getInternal_uuid();
                         String newBio = requestJson.getString("new_bio").trim();
 
-                        response = SidebarService.updateBio(currentUserId, newBio);
+                        response = SidebarService.updateBio(user_UUID, newBio);
                         break;
                     }
 
@@ -1771,10 +1771,10 @@ public class ClientHandler implements Runnable {
                             break;
                         }
 
-                        String currentUserId = this.currentUser.getUser_id();
+                        UUID user_UUID = this.currentUser.getInternal_uuid();
                         String newImageUrl = requestJson.getString("new_image_url").trim();
 
-                        response = SidebarService.updateProfilePicture(currentUserId, newImageUrl);
+                        response = SidebarService.updateProfilePicture(user_UUID, newImageUrl);
                         break;
                     }
 

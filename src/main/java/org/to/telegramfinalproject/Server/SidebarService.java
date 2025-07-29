@@ -6,13 +6,14 @@ import org.to.telegramfinalproject.Models.ResponseModel;
 import org.to.telegramfinalproject.Models.User;
 
 import java.util.Objects;
+import java.util.UUID;
 
 public class SidebarService {
     private static userDatabase userDB = new userDatabase();
 
     // Returns current user's profile data (name, bio, status, etc.)
-    public static JSONObject getUserProfile(String userId) {
-        User user = userDB.findByUserId(userId);
+    public static JSONObject getUserProfile(UUID userUUID) {
+        User user = userDB.findByInternalUUID(userUUID);
 
         if (user == null) {
             return null;
@@ -29,8 +30,8 @@ public class SidebarService {
     }
 
     // Changes the user's profile picture
-    public static ResponseModel updateProfilePicture(String userId, String newImageUrl) {
-        User user = userDB.findByUserId(userId);
+    public static ResponseModel updateProfilePicture(UUID userUUID, String newImageUrl) {
+        User user = userDB.findByInternalUUID(userUUID);
         if (user == null) {
             return new ResponseModel("error", "User not found.");
         }
@@ -41,7 +42,7 @@ public class SidebarService {
         }
 
         user.setImage_url(newImageUrl); // Can be null
-        boolean success = userDB.updateByUUID(user.getInternal_uuid(), user);
+        boolean success = userDB.updateByUUID(userUUID, user);
 
         if (success) {
             return new ResponseModel("success", "Profile picture updated successfully.");
@@ -52,12 +53,12 @@ public class SidebarService {
     }
 
     // Changes user's bio
-    public static ResponseModel updateBio(String userId, String newBio) {
+    public static ResponseModel updateBio(UUID userUUID, String newBio) {
         if (newBio.length() > 70) {
             return new ResponseModel("error", "Bio is too long.");
         }
 
-        User user = userDB.findByUserId(userId);
+        User user = userDB.findByInternalUUID(userUUID);
         if (user == null) {
             return new ResponseModel("error", "User not found.");
         }
@@ -68,7 +69,7 @@ public class SidebarService {
         }
 
         user.setBio(newBio);
-        boolean success = userDB.updateByUUID(user.getInternal_uuid(), user);
+        boolean success = userDB.updateByUUID(userUUID, user);
 
         if (success) {
             return new ResponseModel("success", "Bio updated successfully.");
@@ -79,7 +80,7 @@ public class SidebarService {
     }
 
     // Changes user-id
-    public static ResponseModel updateUserId(String currentUserId, String newUserId) {
+    public static ResponseModel updateUserId(UUID userUUID, String newUserId) {
         if (newUserId == null || newUserId.trim().isEmpty()) {
             return new ResponseModel("error", "User ID cannot be empty.");
         }
@@ -98,18 +99,19 @@ public class SidebarService {
             return new ResponseModel("error", "This user ID is already taken.");
         }
 
-        User user = userDB.findByUserId(currentUserId);
+        User user = userDB.findByInternalUUID(userUUID);
         if (user == null) {
             return new ResponseModel("error", "User not found.");
         }
 
+        String currentUserId = user.getUser_id();
         if (Objects.equals(currentUserId, newUserId)) {
             return new ResponseModel("error", "No changes made. User ID is the same.");
         }
 
         user.setUser_id(newUserId);
 
-        boolean saved = userDB.updateByUUID(user.getInternal_uuid(), user);
+        boolean saved = userDB.updateByUUID(userUUID, user);
         if (saved) {
             return new ResponseModel("success", "User ID updated successfully.");
         } else {
@@ -119,13 +121,13 @@ public class SidebarService {
     }
 
     // Changes user's profile name
-    public static ResponseModel updateProfileName(String userId, String newProfileName) {
+    public static ResponseModel updateProfileName(UUID userUUID, String newProfileName) {
         if (newProfileName == null || newProfileName.trim().isEmpty()) {
             return new ResponseModel("error", "Invalid input."); // Invalid input (empty or just spaces)
         }
 
         // Fetch the user from database
-        User user = userDB.findByUserId(userId);
+        User user = userDB.findByInternalUUID(userUUID);
         if (user == null) {
             return new ResponseModel("error", "User not found."); // User doesn't exist
         }
@@ -138,7 +140,7 @@ public class SidebarService {
         // Only set the profile name *after* successful DB update
         user.setProfile_name(newProfileName);
 
-        boolean saved = userDB.updateByUUID(user.getInternal_uuid(), user);
+        boolean saved = userDB.updateByUUID(userUUID, user);
 
         if (saved) {
             return new ResponseModel("success", "Profile name updated successfully.");
