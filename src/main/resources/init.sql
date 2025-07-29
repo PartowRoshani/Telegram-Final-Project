@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS private_chat (
     user1_id UUID REFERENCES users(internal_uuid) ON DELETE SET NULL,
     user2_id UUID REFERENCES users(internal_uuid) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    type ENUM('normal', 'saved') DEFAULT 'normal'       -- Saved message chat or a normal chat
     CONSTRAINT unique_users UNIQUE (user1_id, user2_id)
     );
 CREATE TABLE IF NOT EXISTS groups (
