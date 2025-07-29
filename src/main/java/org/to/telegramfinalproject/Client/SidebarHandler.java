@@ -1,5 +1,6 @@
 package org.to.telegramfinalproject.Client;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.Scanner;
@@ -51,7 +52,13 @@ public class SidebarHandler {
             return;
         }
 
-        JSONObject profile = response.getJSONObject("data");
+        JSONObject profile;
+        try {
+            profile = response.getJSONObject("data");
+        } catch (JSONException e) {
+            System.out.println("Received malformed profile data from server.");
+            return;
+        }
 
         String profileName = profile.optString("profile_name", "NOT-AVAILABLE");
         String userId = profile.optString("user_id", "NOT-AVAILABLE");
@@ -63,7 +70,7 @@ public class SidebarHandler {
         System.out.println("===== My Profile =====");
         System.out.println("Profile Picture URL : " + profilePictureUrl);
         System.out.println("Profile Name        : " + profileName);
-        System.out.println("User ID             : " + userId);
+        System.out.println("User ID             : @" + userId);
         System.out.println("Status              : " + status);
         System.out.println("Bio                 : " + bio);
         System.out.println("======================");
@@ -103,19 +110,117 @@ public class SidebarHandler {
     }
 
     private void editProfileName() {
+        System.out.println("Enter your new profile name:");
+        String newProfileName = scanner.nextLine().trim();
 
+        // Step 1: Validate input
+        while (newProfileName.trim().isEmpty()) {
+            System.out.println("Profile name cannot be empty. Enter another name.");
+            newProfileName = scanner.nextLine().trim();
+        }
+
+        // Step 2: Create request
+        JSONObject request = new JSONObject();
+        request.put("action", "edit_profile_name");
+        request.put("new_profile_name", newProfileName);
+
+        // Step 3: Send request and receive response
+        JSONObject response = ActionHandler.sendWithResponse(request);
+
+        // Step 4: Handle response
+        if (response == null || !response.optString("status", "fail").equals("success")) {
+            System.out.println("Failed to update profile name.");
+        } else {
+            System.out.println("Profile name updated successfully!");
+        }
     }
 
     private void editUserId() {
+        while (true) {
+            System.out.println("Enter your new user ID: ");
+            String newUserId = scanner.nextLine().trim();
 
+            if (newUserId.isEmpty()) {
+                System.out.println("User ID cannot be empty.");
+                continue;
+            }
+
+            if (newUserId.contains(" ")) {
+                System.out.println("User ID cannot contain spaces.");
+                continue;
+            }
+
+            if (!newUserId.matches("^[a-zA-Z0-9_]+$")) {
+                System.out.println("User ID can only contain letters, digits, and underscores.");
+                continue;
+            }
+
+            // Send to server
+            JSONObject request = new JSONObject();
+            request.put("action", "edit_user_id");
+            request.put("new_user_id", newUserId);
+            JSONObject response = ActionHandler.sendWithResponse(request);
+
+            if (response.getString("status").equals("success")) {
+                System.out.println("User ID updated successfully.");
+                break;
+            } else {
+                // Server-side error message (e.g., ID already exists)
+                System.out.println(response.getString("message"));
+            }
+        }
     }
 
     private void editBio() {
+        System.out.println("Enter your new bio:");
+        String newBio = scanner.nextLine().trim();
 
+        // Limit the bio length
+        if (newBio.length() > 70) {
+            System.out.println("Bio cannot be more than 70 characters.");
+            return;
+        }
+
+        JSONObject request = new JSONObject();
+        request.put("action", "edit_bio");
+        request.put("new_bio", newBio);
+
+        JSONObject response = ActionHandler.sendWithResponse(request);
+
+        if (response.getString("status").equals("success")) {
+            System.out.println("Bio updated successfully.");
+        } else {
+            System.out.println(response.getString("message"));
+        }
     }
 
     private void editProfilePictureUrl() {
+        while (true) {
+            System.out.println("Enter new profile picture URL (or leave empty to remove):");
+            String newImageUrl = scanner.nextLine().trim();
 
+            if (newImageUrl.contains(" ")) {
+                System.out.println("URL cannot contain spaces.");
+                continue;
+            }
+
+            if (!newImageUrl.isEmpty() && !newImageUrl.matches("^(http|https)://.*$")) {
+                System.out.println("Invalid URL format. Please enter a valid HTTP/HTTPS link.");
+                continue;
+            }
+
+            JSONObject request = new JSONObject();
+            request.put("action", "edit_profile_picture");
+            request.put("new_image_url", newImageUrl);
+            JSONObject response = ActionHandler.sendWithResponse(request);
+
+            if (response.getString("status").equals("success")) {
+                System.out.println("Bio updated successfully.");
+            } else {
+                System.out.println(response.getString("message"));
+            }
+            break;
+        }
     }
 
     private void createNewGroup() {

@@ -1722,6 +1722,62 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "edit_profile_name": {
+                        // Validate input
+                        if (!requestJson.has("new_profile_name")) {
+                            response = new ResponseModel("error", "Missing new profile name.");
+                            break;
+                        }
+
+                        String user_id = this.currentUser.getUser_id();
+                        String newProfileName = requestJson.getString("new_profile_name");
+
+                        response = SidebarService.updateProfileName(user_id, newProfileName);
+                        break;
+                    }
+
+                    case "edit_user_id": {
+                        // Validate input
+                        if (!requestJson.has("new_user-id")) {
+                            response = new ResponseModel("error", "Missing new user ID.");
+                            break;
+                        }
+
+                        String currentUserId = this.currentUser.getUser_id();
+                        String newUserId = requestJson.getString("new_user_id");
+
+                        response = SidebarService.updateUserId(currentUserId, newUserId);
+                        break;
+                    }
+
+                    case "edit_bio": {
+                        // Validate input
+                        if (!requestJson.has("new_bio")) {
+                            response = new ResponseModel("error", "Missing new bio.");
+                            break;
+                        }
+
+                        String currentUserId = this.currentUser.getUser_id();
+                        String newBio = requestJson.getString("new_bio").trim();
+
+                        response = SidebarService.updateBio(currentUserId, newBio);
+                        break;
+                    }
+
+                    case "edit_profile_picture": {
+                        // Validate input
+                        if (!requestJson.has("new_image_url")) {
+                            response = new ResponseModel("error", "Missing new image url.");
+                            break;
+                        }
+
+                        String currentUserId = this.currentUser.getUser_id();
+                        String newImageUrl = requestJson.getString("new_image_url").trim();
+
+                        response = SidebarService.updateProfilePicture(currentUserId, newImageUrl);
+                        break;
+                    }
+
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);
                 }

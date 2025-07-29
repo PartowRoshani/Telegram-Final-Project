@@ -152,7 +152,7 @@ public class userDatabase {
     }
 
     public boolean save(User user) {
-        String query = "INSERT INTO users (user_id, internal_uuid, username, password, profile_name) VALUES (?, ?, ?, ?, ?)";
+        String query = "INSERT INTO users (user_id, internal_uuid, username, password, profile_name, bio, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try {
             boolean var5;
@@ -165,6 +165,8 @@ public class userDatabase {
                 stmt.setString(3, user.getUsername());
                 stmt.setString(4, user.getPassword());
                 stmt.setString(5, user.getProfile_name());
+                stmt.setString(6, user.getBio());
+                stmt.setString(7, user.getImage_url());
                 var5 = stmt.executeUpdate() > 0;
             }
 
@@ -223,7 +225,7 @@ public class userDatabase {
     }
 
     private User extractUser(ResultSet rs) throws SQLException {
-        return new User(rs.getString("user_id"), UUID.fromString(rs.getString("internal_uuid")), rs.getString("username"), rs.getString("password"), rs.getString("profile_name"));
+        return new User(rs.getString("user_id"), UUID.fromString(rs.getString("internal_uuid")), rs.getString("username"), rs.getString("password"), rs.getString("profile_name"), rs.getString("bio"), rs.getString("image_url"));
     }
 
     public boolean deleteByUUID(UUID uuid) {
@@ -288,7 +290,9 @@ public class userDatabase {
                         UUID.fromString(rs.getString("internal_uuid")),
                         rs.getString("username"),
                         rs.getString("password"),
-                        rs.getString("profile_name")
+                        rs.getString("profile_name"),
+                        rs.getString("bio"),
+                        rs.getString("image_url")
                 );
 
                 user.setBio(rs.getString("bio"));
