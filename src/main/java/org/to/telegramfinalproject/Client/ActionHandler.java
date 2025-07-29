@@ -2744,7 +2744,7 @@ public class ActionHandler {
             }
         }
 
-        SidebarHandler sidebarHandler = new SidebarHandler(scanner);
+        SidebarHandler sidebarHandler = new SidebarHandler(scanner, this);
         switch (action) {
             case 0 -> {
                 return;

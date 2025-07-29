@@ -7,9 +7,11 @@ import java.util.Scanner;
 
 public class SidebarHandler {
     private final Scanner scanner;
+    private final ActionHandler actionHandler;
 
-    public SidebarHandler(Scanner scanner) {
+    public SidebarHandler(Scanner scanner, ActionHandler actionHandler) {
         this.scanner = scanner;
+        this.actionHandler = actionHandler;
     }
 
     public void handleSidebarAction(SidebarAction action) {
@@ -224,11 +226,11 @@ public class SidebarHandler {
     }
 
     private void createNewGroup() {
-        System.out.println("👥 Creating a new group...");
+        actionHandler.createGroup();
     }
 
     private void createNewChannel() {
-        System.out.println("📢 Creating a new channel...");
+        actionHandler.createChannel();
     }
 
     private void showContacts() {
