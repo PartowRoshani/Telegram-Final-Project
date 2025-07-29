@@ -440,7 +440,10 @@ public class ActionHandler {
                     Session.currentUser = response.getJSONObject("data");
 
                     JSONArray chatListJson = Session.currentUser.getJSONArray("chat_list");
+                    JSONArray Archived = Session.currentUser.getJSONArray("archived_chat_list");
+                    JSONArray Active = Session.currentUser.getJSONArray("active_chat_lis");
                     List<ChatEntry> chatList = new ArrayList<>();
+
 
                     for (Object obj : chatListJson) {
                         JSONObject chat = (JSONObject) obj;
@@ -462,7 +465,48 @@ public class ActionHandler {
 
                     }
 
+                    List<ChatEntry> archivedChats = new ArrayList<>();
+                    for (Object obj : Archived){
+                        JSONObject chat = (JSONObject)  obj;
 
+                        ChatEntry entry = new ChatEntry(
+                                UUID.fromString(chat.getString("internal_id")),
+                                chat.getString("id"),
+                                chat.getString("name"),
+                                chat.optString("image_url", ""),
+                                chat.getString("type"),
+                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
+                                chat.optBoolean("is_owner", false),
+                                chat.optBoolean("is_admin", false)
+                        );
+                        archivedChats.add(entry);
+
+                    }
+
+                    List<ChatEntry> activeChats = new ArrayList<>();
+                    for (Object obj : Active){
+                        JSONObject chat = (JSONObject)  obj;
+
+                        ChatEntry entry = new ChatEntry(
+                                UUID.fromString(chat.getString("internal_id")),
+                                chat.getString("id"),
+                                chat.getString("name"),
+                                chat.optString("image_url", ""),
+                                chat.getString("type"),
+                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
+                                chat.optBoolean("is_owner", false),
+                                chat.optBoolean("is_admin", false)
+                        );
+
+                        activeChats.add(entry);
+
+                    }
+
+
+
+
+                    Session.activeChats = activeChats;
+                    Session.archivedChats = archivedChats;
                     Session.chatList = chatList;
                     break;
 
@@ -725,31 +769,107 @@ public class ActionHandler {
         }
     }
 
+//    public void showChatListAndSelect() {
+//
+//
+//        List<ChatEntry> chatList = Session.getChatList();
+//        if (chatList.isEmpty()) {
+//            System.out.println("📭 You have no chats.");
+//            return;
+//        }
+//
+//        System.out.println("\nYour Chats:");
+//        for (int i = 0; i < chatList.size(); i++) {
+//            ChatEntry entry = chatList.get(i);
+//            String last = entry.getLastMessageTime() == null ? "No messages yet" : entry.getLastMessageTime().toString();
+//            System.out.printf("%d. [%s] %s - Last: %s\n", i + 1, entry.getType(), entry.getName(), last);
+//        }
+//
+//        System.out.print("Select a chat by number: ");
+//        int choice = Integer.parseInt(scanner.nextLine());
+//        if (choice < 1 || choice > chatList.size()) {
+//            System.out.println("❌ Invalid choice.");
+//            return;
+//        }
+//
+//        openChat(chatList.get(choice - 1));
+//    }
+
+
     public void showChatListAndSelect() {
-
-
-        List<ChatEntry> chatList = Session.getChatList();
-        if (chatList.isEmpty()) {
-            System.out.println("📭 You have no chats.");
+        if (Session.activeChats == null || Session.activeChats.isEmpty()) {
+            System.out.println("No active chats.");
             return;
         }
 
         System.out.println("\nYour Chats:");
-        for (int i = 0; i < chatList.size(); i++) {
-            ChatEntry entry = chatList.get(i);
-            String last = entry.getLastMessageTime() == null ? "No messages yet" : entry.getLastMessageTime().toString();
-            System.out.printf("%d. [%s] %s - Last: %s\n", i + 1, entry.getType(), entry.getName(), last);
+        System.out.println("0. 📦 Archived Chats");
+
+        for (int i = 0; i < Session.activeChats.size(); i++) {
+            ChatEntry entry = Session.activeChats.get(i);
+            String time = (entry.getLastMessageTime() == null)
+                    ? "No messages yet"
+                    : entry.getLastMessageTime().toString();
+            System.out.println((i + 1) + ". [" + entry.getType() + "] " +
+                    entry.getName() + " - Last: " + time);
         }
 
         System.out.print("Select a chat by number: ");
         int choice = Integer.parseInt(scanner.nextLine());
-        if (choice < 1 || choice > chatList.size()) {
-            System.out.println("❌ Invalid choice.");
+
+        if (choice == 0) {
+            showArchivedChats();
             return;
         }
 
-        openChat(chatList.get(choice - 1));
+        int index = choice - 1;
+
+        if (index < 0 || index >= Session.activeChats.size()) {
+            System.out.println("Invalid selection.");
+            return;
+        }
+
+        ChatEntry selected = Session.activeChats.get(index);
+        openChat(selected);
     }
+
+
+
+    private void showArchivedChats() {
+        if (Session.archivedChats == null || Session.archivedChats.isEmpty()) {
+            System.out.println("📭 No archived chats.");
+            return;
+        }
+
+        System.out.println("\n📦 Archived Chats:");
+        for (int i = 0; i < Session.archivedChats.size(); i++) {
+            ChatEntry entry = Session.archivedChats.get(i);
+            String time = (entry.getLastMessageTime() == null)
+                    ? "No messages yet"
+                    : entry.getLastMessageTime().toString();
+            System.out.println((i + 1) + ". [" + entry.getType() + "] " +
+                    entry.getName() + " - Last: " + time);
+        }
+
+        System.out.print("Select a chat by number (or 0 to return): ");
+        int choice = Integer.parseInt(scanner.nextLine());
+
+        if (choice == 0) {
+            System.out.println("🔙 Returning to main chat list...");
+            return;
+        }
+
+        int index = choice - 1;
+
+        if (index < 0 || index >= Session.archivedChats.size()) {
+            System.out.println("❌ Invalid selection.");
+            return;
+        }
+
+        ChatEntry selected = Session.archivedChats.get(index);
+        openChat(selected);
+    }
+
 
 
 
@@ -856,7 +976,8 @@ public class ActionHandler {
         System.out.println("3. Delete chat (one-sided)");
         System.out.println("4. Delete chat (both sides)");
         System.out.println("5. View profile");
-        System.out.println("6. Back");
+        System.out.println("6. Archive/Unarchived");
+        System.out.println("7. Back");
 
 
         String input = scanner.nextLine();
@@ -897,7 +1018,13 @@ public class ActionHandler {
                 return true;
             }
 
-            case "6" -> {
+            case "6" ->{
+                toggleArchive(chat.getId() , "private");
+
+                return true;
+            }
+
+            case "7" -> {
                 return false;
             }
             default -> System.out.println("Invalid choice.");
@@ -961,6 +1088,8 @@ public class ActionHandler {
             System.out.println("11. Edit Admin Permissions");
         }
 
+        System.out.println("12. Archive/Unarchived");
+
         System.out.println("0. Back to Chat List");
 
         String input = scanner.nextLine();
@@ -1008,6 +1137,10 @@ public class ActionHandler {
                 if (isOwner) {
                     editAdminPermissions(chat.getId(), "group");
                 }
+            }
+
+            case "12"->{
+                toggleArchive(chat.getId() , "group");
             }
 
             case "0" -> {
@@ -1076,6 +1209,7 @@ public class ActionHandler {
             System.out.println("11. Edit Admin Permissions");
         }
 
+        System.out.println("12. Archive/Unarchived");
         System.out.println("0. Back to Chat List");
 
         String input = scanner.nextLine();
@@ -1153,6 +1287,10 @@ public class ActionHandler {
                 if (isOwner) {
                     editAdminPermissions(chat.getId(), "channel");
                 }
+            }
+
+            case "12"->{
+                toggleArchive(chat.getId() , "channel");
             }
 
 
@@ -2711,6 +2849,56 @@ public class ActionHandler {
             System.out.println("✅ Server Response: " + response.getString("message"));
         }
     }
+
+
+
+    public void toggleArchive(UUID chatId, String chatType) {
+        // پیدا کردن چت از Session.chatList
+        Optional<ChatEntry> optional = Session.chatList.stream()
+                .filter(c -> c.getId().equals(chatId))
+                .findFirst();
+
+        if (optional.isEmpty()) {
+            System.out.println("❌ Chat not found.");
+            return;
+        }
+
+        ChatEntry chat = optional.get();
+
+        if (chat.isArchived()) {
+            unarchiveChat(chatId, chatType);
+            chat.setArchived(false);
+            System.out.println("✅ Chat unarchived.");
+        } else {
+            archiveChat(chatId, chatType);
+            chat.setArchived(true);
+            System.out.println("✅ Chat archived.");
+        }
+
+        Session.refreshChatLists();
+    }
+
+
+    private void archiveChat(UUID chatId, String chatType) {
+        JSONObject req = new JSONObject();
+        req.put("action", "archive_chat");
+        req.put("chat_id", chatId.toString());
+        req.put("chat_type", chatType);
+        JSONObject res = sendWithResponse(req);
+        if (res != null) System.out.println(res.getString("message"));
+    }
+
+    private void unarchiveChat(UUID chatId, String chatType) {
+        JSONObject req = new JSONObject();
+        req.put("action", "unarchive_chat");
+        req.put("chat_id", chatId.toString());
+        req.put("chat_type", chatType);
+        JSONObject res = sendWithResponse(req);
+        if (res != null) System.out.println(res.getString("message"));
+    }
+
+
+
 
 
 

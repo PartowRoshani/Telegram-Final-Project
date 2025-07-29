@@ -13,6 +13,9 @@ import java.util.UUID;
 public class Session {
     public static JSONObject currentUser;
     public static List<ChatEntry> chatList = new ArrayList<>();
+    public static List<ChatEntry> archivedChats = new ArrayList<>();
+    public static List<ChatEntry> activeChats = new ArrayList<>();
+
     public static volatile boolean forceRefreshChatList = false;
     public static volatile boolean backToChatList = false;
     public static boolean inChatListMenu = false;
@@ -55,4 +58,14 @@ public class Session {
         return chatList;
     }
 
+
+    public static void refreshChatLists() {
+        Session.activeChats = Session.chatList.stream()
+                .filter(c -> !c.isArchived())
+                .toList();
+
+        Session.archivedChats = Session.chatList.stream()
+                .filter(ChatEntry::isArchived)
+                .toList();
+    }
 }
