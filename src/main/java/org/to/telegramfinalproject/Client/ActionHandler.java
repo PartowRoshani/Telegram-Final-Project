@@ -2508,13 +2508,21 @@ public class ActionHandler {
             return;
         }
 
+
         System.out.println("\n💬 Your Chats:");
+        System.out.println("0. 📦 Archived chats");
+
         int index = 1;
-        System.out.println("0. Archived chats");
         for (ChatEntry chat : Session.activeChats) {
-            System.out.printf("%d. [%s] %s (%s)\n", index++, chat.getType(), chat.getName(), chat.getDisplayId());
+            String time = (chat.getLastMessageTime() == null)
+                    ? "No messages yet"
+                    : chat.getLastMessageTime().toString();
+
+            System.out.printf("%d. [%s] %s (%s) - Last: %s\n",
+                    index++, chat.getType(), chat.getName(), chat.getDisplayId(), time);
         }
     }
+
 
     public static class ChatStateMonitor implements Runnable {
         private final PrintWriter out;

@@ -115,6 +115,22 @@ public class ChatEntry {
         this.archived = archived;
     }
 
-    public void setLastMessageTime(String newTime) {this.lastMessageTime = LocalDateTime.parse(newTime);
+//    public void setLastMessageTime(String newTime) {this.lastMessageTime = LocalDateTime.parse(newTime);
+//    }
+
+
+    public void setLastMessageTime(String newTime) {
+        if (newTime == null || newTime.isBlank()) {
+            this.lastMessageTime = null;
+            return;
+        }
+
+        try {
+            this.lastMessageTime = LocalDateTime.parse(newTime);
+        } catch (Exception e) {
+            System.out.println("❌ Failed to parse lastMessageTime: " + newTime);
+            this.lastMessageTime = null;
+        }
     }
+
 }

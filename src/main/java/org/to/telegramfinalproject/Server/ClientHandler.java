@@ -1930,7 +1930,6 @@ public class ClientHandler implements Runnable {
                     return new ResponseModel("error", "Message inserted but failed to attach files.");
             }
 
-            // ری‌ل‌تایم (اختیاری: dispatchMessageToReceiver(messageId, receiverId, receiverType))
 
 
             Message msg = new Message(messageId, senderId, receiverId, receiverType, content, messageType, LocalDateTime.now());

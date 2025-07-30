@@ -158,6 +158,44 @@ public class IncomingMessageListener implements Runnable {
                         System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
                     });
 
+            Session.activeChats.stream()
+                    .filter(chat -> chat.getId().equals(chatUUID))
+                    .findFirst()
+                    .ifPresent(chat -> {
+                        chat.setLastMessageTime(newTime);
+                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
+                    });
+
+            Session.archivedChats.stream()
+                    .filter(chat -> chat.getId().equals(chatUUID))
+                    .findFirst()
+                    .ifPresent(chat -> {
+                        chat.setLastMessageTime(newTime);
+                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
+                    });
+
+            Session.chatList.sort((c1, c2) -> {
+                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
+                if (c1.getLastMessageTime() == null) return 1;
+                if (c2.getLastMessageTime() == null) return -1;
+                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime()); // descending
+            });
+            Session.activeChats.sort((c1, c2) -> {
+                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
+                if (c1.getLastMessageTime() == null) return 1;
+                if (c2.getLastMessageTime() == null) return -1;
+                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime()); // descending
+            });
+            Session.archivedChats.sort((c1, c2) -> {
+                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
+                if (c1.getLastMessageTime() == null) return 1;
+                if (c2.getLastMessageTime() == null) return -1;
+                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime()); // descending
+            });
+
+
+
+
             if (Session.inChatListMenu) {
                 ActionHandler.displayChatList();
                 System.out.print("Select a chat by number: ");
