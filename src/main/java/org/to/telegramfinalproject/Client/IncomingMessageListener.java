@@ -107,15 +107,21 @@ public class IncomingMessageListener implements Runnable {
             }
 
             case "chat_updated" -> {
-                System.out.println("\n🔄 Group/Channel info updated.");
-                new Thread(() -> {
-                    try {
-                        handleAdminRoleChanged(msg);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }).start();
+                System.out.println("\n🔄 Chat info updated.");
+
+                if (msg.has("last_message_time")) {
+                    updateLastMessageTime(msg); 
+                } else {
+                    new Thread(() -> {
+                        try {
+                            handleAdminRoleChanged(msg);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }).start();
+                }
             }
+
 
             case "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated" -> {
                 System.out.println("🧩 Detected admin/owner role change. Calling handler...");
@@ -138,6 +144,30 @@ public class IncomingMessageListener implements Runnable {
 
         System.out.print(">> ");
     }
+
+    private void updateLastMessageTime(JSONObject msg) {
+        try {
+            UUID chatUUID = UUID.fromString(msg.getString("chat_id"));
+            String newTime = msg.optString("last_message_time", null);
+
+            Session.chatList.stream()
+                    .filter(chat -> chat.getId().equals(chatUUID))
+                    .findFirst()
+                    .ifPresent(chat -> {
+                        chat.setLastMessageTime(newTime);
+                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
+                    });
+
+            if (Session.inChatListMenu) {
+                ActionHandler.displayChatList();
+                System.out.print("Select a chat by number: ");
+            }
+
+        } catch (Exception e) {
+            System.out.println("❌ Failed to update last message time: " + e.getMessage());
+        }
+    }
+
 
     private void handleAdminRoleChanged(JSONObject data) throws IOException {
         String chatType = data.getString("chat_type");
@@ -230,11 +260,26 @@ public class IncomingMessageListener implements Runnable {
     private void displayRealTimeMessage(String action, JSONObject msg) {
         switch (action) {
             case "new_message" -> {
-                System.out.println("\n🔔 New Message:");
-                System.out.println("From: " + msg.getString("sender"));
-                System.out.println("Time: " + msg.getString("time"));
-                System.out.println("Content: " + msg.getString("content"));
+                System.out.println("\n🔔 New Message Received:");
+                String senderName = msg.optString("sender_name", "Unknown");
+                String content = msg.optString("content", "(empty)");
+                String sendAt = msg.optString("send_at", "-");
+
+                String receiverId = msg.optString("receiver_id", "");
+                String receiverType = msg.optString("receiver_type", "");
+
+                boolean isInCurrentChat = Session.inChatMenu &&
+                        Session.currentChatId != null &&
+                        Session.currentChatId.equals(receiverId);
+
+                if (isInCurrentChat) {
+                    System.out.println(senderName + ": " + content + "   (" + sendAt + ")");
+                } else {
+                    System.out.println("💬 Message from " + senderName + " in " + receiverType + " chat: " + content);
+                    Session.forceRefreshChatList = true;
+                }
             }
+
             case "message_edited" -> {
                 System.out.println("\n✏️ Message Edited:");
                 System.out.println("ID: " + msg.getString("message_id"));

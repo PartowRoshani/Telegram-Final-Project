@@ -115,4 +115,6 @@ public class ChatEntry {
         this.archived = archived;
     }
 
+    public void setLastMessageTime(String newTime) {this.lastMessageTime = LocalDateTime.parse(newTime);
+    }
 }

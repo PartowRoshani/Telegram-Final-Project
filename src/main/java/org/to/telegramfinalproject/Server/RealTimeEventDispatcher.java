@@ -3,6 +3,7 @@ package org.to.telegramfinalproject.Server;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.ChannelDatabase;
 import org.to.telegramfinalproject.Database.GroupDatabase;
+import org.to.telegramfinalproject.Database.userDatabase;
 import org.to.telegramfinalproject.Models.Message;
 import org.to.telegramfinalproject.Models.User;
 
@@ -151,7 +152,6 @@ public class RealTimeEventDispatcher {
         data.put("sender", sender.getUser_id());
         data.put("receiver_type", msg.getReceiver_type());
         data.put("receiver_id", msg.getReceiver_id());
-        data.put("file_url", msg.getFile_url());
         data.put("file_type", msg.getMessage_type()); // IMAGE, FILE, VIDEO...
         data.put("time", msg.getSend_at().toString());
 
@@ -304,5 +304,31 @@ public class RealTimeEventDispatcher {
 
         broadcastToUsers(affectedUsers, event);
     }
+
+
+    public static void sendNewMessage(Message message, List<UUID> receivers) {
+        JSONObject payload = new JSONObject();
+        payload.put("action", "new_message");
+
+        JSONObject data = new JSONObject();
+        data.put("id", message.getMessage_id().toString());
+        data.put("sender_id", message.getSender_id().toString());
+        data.put("receiver_id", message.getReceiver_id().toString());
+        data.put("receiver_type", message.getReceiver_type());
+        data.put("content", message.getContent());
+        data.put("send_at", message.getSend_at().toString());
+
+        User sender = userDatabase.findByInternalUUID(message.getSender_id());
+        if (sender != null) {
+            data.put("sender_name", sender.getProfile_name());
+        }
+
+        payload.put("data", data);
+
+        for (UUID userId : receivers) {
+            sendToUser(userId, payload);
+        }
+    }
+
 
 }

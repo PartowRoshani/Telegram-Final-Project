@@ -1157,6 +1157,9 @@ public class ClientHandler implements Runnable {
                                     obj.put("receiver_type", m.getReceiver_type());
                                     obj.put("content", m.getContent());
                                     obj.put("send_at", m.getSend_at().toString());
+                                    User senderUser = userDatabase.findByInternalUUID(m.getSender_id());
+                                    String senderName = senderUser != null ? senderUser.getProfile_name() : "Unknown";
+                                    obj.put("sender_name", senderName);
                                     messageArray.put(obj);
                                 }
 
@@ -1827,6 +1830,12 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "send_message" : {
+                         response = handleSendMessage(requestJson);
+                    }
+                    break;
+
+
 
 
 
@@ -1888,4 +1897,86 @@ public class ClientHandler implements Runnable {
 
 
     }
+    private ResponseModel handleSendMessage(JSONObject json) {
+        try {
+            if (currentUser == null)
+                return new ResponseModel("error", "Unauthorized. Please login first.");
+
+            UUID messageId = UUID.randomUUID();
+            UUID senderId = currentUser.getInternal_uuid();
+            UUID receiverId = UUID.fromString(json.getString("receiver_id"));
+            String receiverType = json.getString("receiver_type");
+            String content = json.optString("content", "");
+            String messageType = json.optString("message_type", "TEXT");
+
+            boolean inserted = MessageDatabase.insertMessage(messageId, senderId, receiverId, receiverType, content, messageType);
+            if (!inserted)
+                return new ResponseModel("error", "Failed to insert message.");
+
+            if (json.has("attachments")) {
+                JSONArray attachmentsArray = json.getJSONArray("attachments");
+                List<FileAttachment> attachments = new ArrayList<>();
+
+                for (int i = 0; i < attachmentsArray.length(); i++) {
+                    JSONObject attJson = attachmentsArray.getJSONObject(i);
+                    attachments.add(new FileAttachment(
+                            attJson.getString("file_url"),
+                            attJson.getString("file_type")
+                    ));
+                }
+
+                boolean attInserted = MessageDatabase.insertAttachments(messageId, attachments);
+                if (!attInserted)
+                    return new ResponseModel("error", "Message inserted but failed to attach files.");
+            }
+
+            // ری‌ل‌تایم (اختیاری: dispatchMessageToReceiver(messageId, receiverId, receiverType))
+
+
+            Message msg = new Message(messageId, senderId, receiverId, receiverType, content, messageType, LocalDateTime.now());
+            List<UUID> receivers = getReceiversForChat(receiverId, receiverType);
+            receivers.remove(senderId);
+
+            RealTimeEventDispatcher.sendNewMessage(msg, receivers);
+
+
+            JSONObject chatUpdate = new JSONObject();
+            chatUpdate.put("chat_id", receiverId.toString());
+            chatUpdate.put("chat_type", receiverType);
+            chatUpdate.put("last_message_time", LocalDateTime.now().toString());
+
+            JSONObject chatPayload = new JSONObject();
+            chatPayload.put("action", "chat_updated");
+            chatPayload.put("data", chatUpdate);
+
+            for (UUID receiver : receivers) {
+                RealTimeEventDispatcher.sendToUser(receiver, chatPayload);
+            }
+
+
+            JSONObject data = new JSONObject();
+            data.put("message_id", messageId.toString());
+            return new ResponseModel("success", "Message sent successfully.", data);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseModel("error", "Exception occurred while sending message.");
+        }
+    }
+
+    private List<UUID> getReceiversForChat(UUID receiverId, String receiverType) {
+        switch (receiverType) {
+            case "private":
+                return PrivateChatDatabase.getMembers(receiverId);
+            case "group":
+                return GroupDatabase.getMemberUUIDs(receiverId);
+            case "channel":
+                return ChannelDatabase.getSubscriberUUIDs(receiverId);
+            default:
+                return new ArrayList<>();
+        }
+    }
+
+
+
 }

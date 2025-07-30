@@ -25,6 +25,8 @@ public class ActionHandler {
     public static ActionHandler instance;
 
 
+
+
     private void handleRealTime(JSONObject json) throws IOException {
         IncomingMessageListener listener = new IncomingMessageListener(this.in);
         listener.handleRealTimeEvent (json);
@@ -705,12 +707,14 @@ public class ActionHandler {
                     System.out.println("\n🔓 Messages fetched:");
                     System.out.println("─────────────────────────────────────────────");
                     for (int i = 0; i < messages.length(); i++) {
+
                         JSONObject m = messages.getJSONObject(i);
                         String senderId = m.getString("sender_id");
+                        String senderName = m.optString("sender_name", "Other");
                         String content = m.getString("content");
                         String time = m.getString("send_at");
 
-                        String label = senderId.equals(Session.currentUser.getString("internal_uuid")) ? "You" : "Other";
+                        String label = senderId.equals(Session.currentUser.getString("internal_uuid")) ? "You" : senderName;
                         System.out.println("[" + time + "] " + label + ": " + content);
                     }
                     System.out.println("─────────────────────────────────────────────");
@@ -891,10 +895,11 @@ public class ActionHandler {
         for (int i = 0; i < messages.length(); i++) {
             JSONObject m = messages.getJSONObject(i);
             String senderId = m.getString("sender_id");
+            String senderName = m.optString("sender_name", "Other");
             String content = m.getString("content");
             String time = m.getString("send_at");
 
-            String label = senderId.equals(Session.currentUser.getString("internal_uuid")) ? "You" : "Other";
+            String label = senderId.equals(Session.currentUser.getString("internal_uuid")) ? "You" : senderName;
             System.out.println("[" + time + "] " + label + ": " + content);
         }
         System.out.println("─────────────────────────────────────────────");
@@ -982,7 +987,7 @@ public class ActionHandler {
 
         String input = scanner.nextLine();
         switch (input) {
-            case "1" -> sendMessageTo(chat.getId(), "private");
+            case "1" -> sendMessage(chat.getId(), "private");
             case "2" -> toggleBlock(chat.getId());
             case "3" -> {
                 deleteChat(chat.getId(), false);
@@ -1094,7 +1099,7 @@ public class ActionHandler {
 
         String input = scanner.nextLine();
         switch (input) {
-            case "1" -> sendMessageTo(chat.getId(), "group");
+            case "1" -> sendMessage(chat.getId(), "group");
             case "2" -> viewGroupMembers(chat.getId());
             case "3" -> {
                 if (isOwner || (isAdmin && perms.optBoolean("can_add_members", false)))
@@ -1216,7 +1221,7 @@ public class ActionHandler {
         switch (input) {
             case "1" -> {
                 if (isOwner || (isAdmin && perms.optBoolean("can_post", false))) {
-                    sendMessageTo(chat.getId(), "channel");
+                    sendMessage(chat.getId(), "channel");
                 } else {
                     System.out.println("❌ You don't have permission to post.");
                 }
@@ -1985,31 +1990,7 @@ public class ActionHandler {
 
 
 
-    private void sendMessageTo(UUID id, String type) {
-        System.out.print("Enter message: ");
-        String text = scanner.nextLine().trim();
 
-        if (text.isEmpty()) {
-            System.out.println("Message cannot be empty.");
-            return;
-        }
-
-        JSONObject req = new JSONObject();
-        req.put("action", "send_message");
-        req.put("sender_id", Session.getUserUUID());
-        req.put("receiver_id", id.toString());
-        req.put("receiver_type", type);
-        req.put("text", text);
-
-        JSONObject res = sendWithResponse(req);
-        if (res == null) return;
-
-        if (res.getBoolean("success")) {
-            System.out.println("✅ Message sent.");
-        } else {
-            System.out.println("❌ Failed to send message.");
-        }
-    }
 
     private void addMemberToGroup(UUID groupId, UUID userId) {
         JSONObject req = new JSONObject();
@@ -2529,7 +2510,8 @@ public class ActionHandler {
 
         System.out.println("\n💬 Your Chats:");
         int index = 1;
-        for (ChatEntry chat : Session.chatList) {
+        System.out.println("0. Archived chats");
+        for (ChatEntry chat : Session.activeChats) {
             System.out.printf("%d. [%s] %s (%s)\n", index++, chat.getType(), chat.getName(), chat.getDisplayId());
         }
     }
@@ -2895,6 +2877,64 @@ public class ActionHandler {
         req.put("chat_type", chatType);
         JSONObject res = sendWithResponse(req);
         if (res != null) System.out.println(res.getString("message"));
+    }
+
+
+    public void sendMessage(UUID receiverId, String receiverType) {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("Enter your message: ");
+        String content = scanner.nextLine();
+
+        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE): ");
+        String messageType = scanner.nextLine();
+        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+        while (!allowedTypes.contains(messageType.toUpperCase())) {
+            System.out.println("❌ Invalid message type. Try again (TEXT / IMAGE / VIDEO / FILE): ");
+            messageType = scanner.nextLine();
+        }
+
+        JSONArray attachmentsArray = new JSONArray();
+
+        System.out.print("Do you want to attach files? (yes/no): ");
+        if (scanner.nextLine().equalsIgnoreCase("yes")) {
+            while (true) {
+                System.out.print("File URL: ");
+                String fileUrl = scanner.nextLine();
+
+                System.out.print("File Type (IMAGE / VIDEO / FILE): ");
+                String fileType = scanner.nextLine();
+
+                JSONObject fileJson = new JSONObject();
+                fileJson.put("file_url", fileUrl);
+                fileJson.put("file_type", fileType);
+                attachmentsArray.put(fileJson);
+
+                System.out.print("Add another file? (yes/no): ");
+                if (!scanner.nextLine().equalsIgnoreCase("yes")) {
+                    break;
+                }
+            }
+        }
+
+        JSONObject messageJson = new JSONObject();
+        messageJson.put("action", "send_message");
+        messageJson.put("receiver_id", receiverId.toString());
+        messageJson.put("receiver_type", receiverType);
+        messageJson.put("content", content);
+        messageJson.put("message_type", messageType);
+
+        if (!attachmentsArray.isEmpty()) {
+            messageJson.put("attachments", attachmentsArray);
+        }
+
+        JSONObject response = sendWithResponse(messageJson);
+        if (response != null && response.getString("status").equals("success")) {
+            System.out.println("✅ Message sent successfully! ID: " + response.getJSONObject("data").getString("message_id"));
+        } else {
+            System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "no response"));
+        }
+
     }
 
 
