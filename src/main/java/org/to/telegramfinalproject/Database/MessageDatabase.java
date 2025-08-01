@@ -401,4 +401,42 @@ public class MessageDatabase {
     }
 
 
+    public List<Message> getMessagesForPrivateChat(UUID user1, UUID user2) {
+        UUID chatId = PrivateChatDatabase.findChatIdByUsers(user1, user2);
+        if (chatId == null) return new ArrayList<>();
+        return findByReceiver("private", chatId);
+    }
+
+    public static List<Message> findByReceiver(String receiverType, UUID receiverId) {
+        List<Message> messages = new ArrayList<>();
+        String sql = "SELECT * FROM messages WHERE receiver_type = ? AND receiver_id = ? ORDER BY send_at";
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, receiverType);
+            ps.setObject(2, receiverId);
+
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                UUID messageId = (UUID) rs.getObject("message_id");
+                UUID senderId = (UUID) rs.getObject("sender_id");
+                UUID recId = (UUID) rs.getObject("receiver_id");
+                String type = rs.getString("receiver_type");
+                String content = rs.getString("content");
+                String messageType = rs.getString("message_type");
+                LocalDateTime sendAt = rs.getTimestamp("send_at").toLocalDateTime();
+
+                Message message = new Message(messageId, senderId, recId, type, content, messageType, sendAt);
+                messages.add(message);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return messages;
+    }
+
+
 }

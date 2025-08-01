@@ -103,38 +103,84 @@ public class ClientHandler implements Runnable {
                             List<ChatEntry> activeChatList = new ArrayList<>();
 
 
+                            JSONArray contactList = new JSONArray();
                             for (Contact contact : contacts) {
                                 User target = userDatabase.findByInternalUUID(contact.getContact_id());
                                 if (target == null) continue;
-                                LocalDateTime last = MessageDatabase.getLastMessageTimeBetween(user.getInternal_uuid(), target.getInternal_uuid(), "private");
 
-//                                chatList.add(new ChatEntry(
-//                                        target.getInternal_uuid(),      // internal UUID
-//                                        target.getUser_id(),            // public display ID
+                                JSONObject c = new JSONObject();
+                                c.put("user_id", contact.getUser_id().toString());
+                                c.put("contact_id", contact.getContact_id().toString());
+                                c.put("is_blocked", contact.getIs_blocked());
+
+                                c.put("profile_name", target.getProfile_name());
+                                c.put("image_url", target.getImage_url());
+
+                                contactList.put(c);
+                            }
+
+
+
+//                            for (Contact contact : contacts) {
+//                                User target = userDatabase.findByInternalUUID(contact.getContact_id());
+//                                if (target == null) continue;
+//                                LocalDateTime last = MessageDatabase.getLastMessageTimeBetween(user.getInternal_uuid(), target.getInternal_uuid(), "private");
+//
+////                                chatList.add(new ChatEntry(
+////                                        target.getInternal_uuid(),      // internal UUID
+////                                        target.getUser_id(),            // public display ID
+////                                        target.getProfile_name(),
+////                                        target.getImage_url(),
+////                                        "private",
+////                                        last,
+////                                        false,
+////                                        false
+////                                ));
+//
+//                                UUID targetId = target.getInternal_uuid();
+//
+//                                ChatEntry entry = new ChatEntry(
+//                                        targetId,
+//                                        target.getUser_id(),
 //                                        target.getProfile_name(),
 //                                        target.getImage_url(),
 //                                        "private",
 //                                        last,
 //                                        false,
 //                                        false
-//                                ));
+//                                );
+//
+//
+//
+//                            }
 
-                                UUID targetId = target.getInternal_uuid();
+
+
+                            List<PrivateChat> privateChats = PrivateChatDatabase.findChatsOfUser(currentUser.getInternal_uuid());
+                            for (PrivateChat chat : privateChats) {
+                                UUID otherId = chat.getUser1_id().equals(currentUser.getInternal_uuid()) ?
+                                        chat.getUser2_id() : chat.getUser1_id();
+
+                                User otherUser = userDatabase.findByInternalUUID(otherId);
+                                if (otherUser == null) continue;
+
+                                LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTimeBetween(
+                                        currentUser.getInternal_uuid(), otherId, "private"
+                                );
 
                                 ChatEntry entry = new ChatEntry(
-                                        targetId,
-                                        target.getUser_id(),
-                                        target.getProfile_name(),
-                                        target.getImage_url(),
+                                        chat.getChat_id(),                      // 🔹 real private chat_id
+                                        otherUser.getUser_id(),                // نمایش عمومی طرف مقابل
+                                        otherUser.getProfile_name(),
+                                        otherUser.getImage_url(),
                                         "private",
-                                        last,
+                                        lastMessageTime,
                                         false,
                                         false
                                 );
+                                entry.setOtherUserId(otherId);
 
-
-
-                                if (archivedChatIds.contains(targetId)) {
+                                if (archivedChatIds.contains(chat.getChat_id())) {
                                     archivedChatList.add(entry);
                                     chatList.add(entry);
                                 } else {
@@ -142,6 +188,7 @@ public class ClientHandler implements Runnable {
                                     chatList.add(entry);
                                 }
                             }
+
 
 
                             for (Group group : groups) {
@@ -240,7 +287,8 @@ public class ClientHandler implements Runnable {
                             JSONObject userData = JsonUtil.userToJson(user);
                             userData.put("chat_list", JsonUtil.chatListToJson(chatList));
                             userData.put("archived_chat_list", JsonUtil.chatListToJson(archivedChatList));
-                            userData.put("active_chat_lis", JsonUtil.chatListToJson(activeChatList));
+                            userData.put("active_chat_list", JsonUtil.chatListToJson(activeChatList));
+                            userData.put("contact_list", contactList);
                             response = new ResponseModel("success", "Welcome " + user.getProfile_name(), userData);
                         }
                         break;
@@ -605,33 +653,86 @@ public class ClientHandler implements Runnable {
                         List<Contact> contacts = ContactDatabase.getContacts(currentUser.getInternal_uuid());
                         List<Group> groups = GroupDatabase.getGroupsByUser(currentUser.getInternal_uuid());
                         List<Channel> channels = ChannelDatabase.getChannelsByUser(currentUser.getInternal_uuid());
-
+                        List<UUID> archivedChatIds = ArchivedChatDatabase.getArchivedChats(currentUser.getInternal_uuid());
                         List<ChatEntry> chatList = new ArrayList<>();
+                        List<ChatEntry> archivedChatList = new ArrayList<>();
+                        List<ChatEntry> activeChatList = new ArrayList<>();
 
-                        for (Contact contact : contacts) {
-                            User target = userDatabase.findByInternalUUID(contact.getContact_id());
-                            if (target == null) continue;
 
-                            LocalDateTime last = MessageDatabase.getLastMessageTimeBetween(currentUser.getInternal_uuid(), target.getInternal_uuid(), "private");
 
-                            chatList.add(new ChatEntry(
-                                    target.getInternal_uuid(),
-                                    target.getUser_id(),
-                                    target.getProfile_name(),
-                                    target.getImage_url(),
+
+
+
+//                        for (Contact contact : contacts) {
+//                            User target = userDatabase.findByInternalUUID(contact.getContact_id());
+//                            if (target == null) continue;
+//
+//                            LocalDateTime last = MessageDatabase.getLastMessageTimeBetween(currentUser.getInternal_uuid(), target.getInternal_uuid(), "private");
+//
+//                            chatList.add(new ChatEntry(
+//                                    target.getInternal_uuid(),
+//                                    target.getUser_id(),
+//                                    target.getProfile_name(),
+//                                    target.getImage_url(),
+//                                    "private",
+//                                    last,
+//                                    false,
+//                                    false
+//                            ));
+//                        }
+//
+
+                        List<PrivateChat> privateChats = PrivateChatDatabase.findChatsOfUser(currentUser.getInternal_uuid());
+                        for (PrivateChat chat : privateChats) {
+                            UUID otherId = chat.getUser1_id().equals(currentUser.getInternal_uuid()) ?
+                                    chat.getUser2_id() : chat.getUser1_id();
+
+                            User otherUser = userDatabase.findByInternalUUID(otherId);
+                            if (otherUser == null) continue;
+
+                            LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTimeBetween(
+                                    currentUser.getInternal_uuid(), otherId, "private"
+                            );
+
+                            ChatEntry entry = new ChatEntry(
+                                    chat.getChat_id(),                      // 🔹 real private chat_id
+                                    otherUser.getUser_id(),                // نمایش عمومی طرف مقابل
+                                    otherUser.getProfile_name(),
+                                    otherUser.getImage_url(),
                                     "private",
-                                    last,
+                                    lastMessageTime,
                                     false,
                                     false
-                            ));
+                            );
+                            entry.setOtherUserId(otherId);
+
+                            if (archivedChatIds.contains(chat.getChat_id())) {
+                                archivedChatList.add(entry);
+                                chatList.add(entry);
+                            } else {
+                                activeChatList.add(entry);
+                                chatList.add(entry);
+                            }
                         }
+
 
                         for (Group group : groups) {
                             LocalDateTime last = MessageDatabase.getLastMessageTime(group.getInternal_uuid(), "group");
                             boolean isOwner = GroupDatabase.isOwner(group.getInternal_uuid(), currentUser.getInternal_uuid());
                             boolean isAdmin = GroupDatabase.isAdmin(group.getInternal_uuid(), currentUser.getInternal_uuid());
 
-                            chatList.add(new ChatEntry(
+//                                chatList.add(new ChatEntry(
+//                                        group.getInternal_uuid(),
+//                                        group.getGroup_id(),
+//                                        group.getGroup_name(),
+//                                        group.getImage_url(),
+//                                        "group",
+//                                        last,
+//                                        isOwner,
+//                                        isAdmin
+//                                ));
+
+                            ChatEntry entry = new ChatEntry(
                                     group.getInternal_uuid(),
                                     group.getGroup_id(),
                                     group.getGroup_name(),
@@ -640,7 +741,17 @@ public class ClientHandler implements Runnable {
                                     last,
                                     isOwner,
                                     isAdmin
-                            ));
+                            );
+
+                            if (archivedChatIds.contains(group.getInternal_uuid())) {
+                                archivedChatList.add(entry);
+                                chatList.add(entry);
+                            } else {
+                                activeChatList.add(entry);
+                                chatList.add(entry);
+                            }
+
+
                         }
 
                         for (Channel channel : channels) {
@@ -648,7 +759,18 @@ public class ClientHandler implements Runnable {
                             boolean isOwner = ChannelDatabase.isOwner(channel.getInternal_uuid(), currentUser.getInternal_uuid());
                             boolean isAdmin = ChannelDatabase.isAdmin(channel.getInternal_uuid(), currentUser.getInternal_uuid());
 
-                            chatList.add(new ChatEntry(
+//                                chatList.add(new ChatEntry(
+//                                        channel.getInternal_uuid(),
+//                                        channel.getChannel_id(),
+//                                        channel.getChannel_name(),
+//                                        channel.getImage_url(),
+//                                        "channel",
+//                                        last,
+//                                        isOwner,
+//                                        isAdmin
+//                                ));
+
+                            ChatEntry entry = new ChatEntry(
                                     channel.getInternal_uuid(),
                                     channel.getChannel_id(),
                                     channel.getChannel_name(),
@@ -657,17 +779,39 @@ public class ClientHandler implements Runnable {
                                     last,
                                     isOwner,
                                     isAdmin
-                            ));
+                            );
+
+                            if (archivedChatIds.contains(channel.getInternal_uuid())) {
+                                archivedChatList.add(entry);
+                                chatList.add(entry);
+                            } else {
+                                activeChatList.add(entry);
+                                chatList.add(entry);
+                            }
                         }
+
+                        activeChatList.sort((a, b) -> {
+                            if (a.getLastMessageTime() == null) return 1;
+                            if (b.getLastMessageTime() == null) return -1;
+                            return b.getLastMessageTime().compareTo(a.getLastMessageTime());
+                        });
+
+                        archivedChatList.sort((a, b) -> {
+                            if (a.getLastMessageTime() == null) return 1;
+                            if (b.getLastMessageTime() == null) return -1;
+                            return b.getLastMessageTime().compareTo(a.getLastMessageTime());
+                        });
+
 
                         chatList.sort((a, b) -> {
                             if (a.getLastMessageTime() == null) return 1;
                             if (b.getLastMessageTime() == null) return -1;
                             return b.getLastMessageTime().compareTo(a.getLastMessageTime());
                         });
-
                         JSONObject data = new JSONObject();
                         data.put("chat_list", JsonUtil.chatListToJson(chatList));
+                        data.put("archived_chat_list", JsonUtil.chatListToJson(archivedChatList));
+                        data.put("active_chat_list", JsonUtil.chatListToJson(activeChatList));
                         response = new ResponseModel("success", "Chat list updated.", data);
 
                         break;
@@ -1116,13 +1260,16 @@ public class ClientHandler implements Runnable {
 
                             switch (receiverType) {
                                 case "private" -> {
-                                    User otherUser = new userDatabase().findByInternalUUID(UUID.fromString(receiverId));
-                                    if (otherUser == null) {
-                                        response = new ResponseModel("error", "User not found.");
+                                    List<UUID> members = PrivateChatDatabase.getMembers(UUID.fromString(receiverId));
+                                    if (members.size() != 2) {
+                                        response = new ResponseModel("error", "Invalid private chat.");
                                         break;
                                     }
-                                    messages = MessageDatabase.privateChatHistory(currentUser.getInternal_uuid(), otherUser.getInternal_uuid());
+
+                                    UUID otherUserId = members.get(0).equals(currentUser.getInternal_uuid()) ? members.get(1) : members.get(0);
+                                    messages = MessageDatabase.privateChatHistory(currentUser.getInternal_uuid(), otherUserId);
                                 }
+
                                 case "group" -> {
                                     Group group = GroupDatabase.findByInternalUUID(UUID.fromString(receiverId));
                                     if (group == null) {
@@ -1836,6 +1983,45 @@ public class ClientHandler implements Runnable {
                     break;
 
 
+                    case "get_or_create_private_chat": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+
+                        try {
+                            UUID user1 = UUID.fromString(requestJson.getString("user1"));
+                            UUID user2 = UUID.fromString(requestJson.getString("user2"));
+
+                            UUID chatId = PrivateChatDatabase.getOrCreateChat(user1, user2);
+
+                            JSONObject data = new JSONObject();
+                            data.put("chat_id", chatId.toString());
+                            response = new ResponseModel("success", "Private chat ID retrieved.", data);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            response = new ResponseModel("error", "Invalid data or internal error.");
+                        }
+
+                        break;
+                    }
+
+
+
+                    case "get_private_chat_target": {
+                        UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
+                        userId = currentUser.getInternal_uuid();
+
+                        UUID targetId = PrivateChatDatabase.getOtherUserInChat(chatId, userId);
+                        if (targetId == null) {
+                            response = new ResponseModel("error", "Could not find other user.");
+                        } else {
+                            JSONObject data = new JSONObject();
+                            data.put("target_id", targetId.toString());
+                            response = new ResponseModel("success", "Target fetched.", data);
+                        }
+                        break;
+                    }
 
 
 
@@ -1904,8 +2090,15 @@ public class ClientHandler implements Runnable {
 
             UUID messageId = UUID.randomUUID();
             UUID senderId = currentUser.getInternal_uuid();
-            UUID receiverId = UUID.fromString(json.getString("receiver_id"));
             String receiverType = json.getString("receiver_type");
+            UUID receiverId;
+
+            if (receiverType.equals("private")) {
+                UUID receiverUserId = UUID.fromString(json.getString("receiver_user_id"));
+                receiverId = PrivateChatDatabase.getOrCreateChat(senderId, receiverUserId);
+            } else {
+                receiverId = UUID.fromString(json.getString("receiver_id")); // group یا channel
+            }
             String content = json.optString("content", "");
             String messageType = json.optString("message_type", "TEXT");
 

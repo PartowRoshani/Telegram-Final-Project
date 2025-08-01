@@ -9,7 +9,7 @@ public class PrivateChat {
     private UUID user2_id;
     private LocalDateTime created_at;
 
-    public PrivateChat(UUID chat_id, UUID user1_id, UUID user2_id, LocalDateTime created_at){
+    public PrivateChat(UUID chat_id, UUID user1_id, UUID user2_id){
         this.chat_id = chat_id;
         this.user1_id =user1_id;
         this.user2_id =user2_id;

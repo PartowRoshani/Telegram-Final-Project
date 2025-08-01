@@ -3,6 +3,7 @@ package org.to.telegramfinalproject.Client;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.ChatEntry;
+import org.to.telegramfinalproject.Models.ContactEntry;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -16,7 +17,7 @@ public class Session {
     public static List<ChatEntry> chatList = new ArrayList<>();
     public static List<ChatEntry> archivedChats = new ArrayList<>();
     public static List<ChatEntry> activeChats = new ArrayList<>();
-
+    public static UUID currentPrivateChatUserId = null;
     public static volatile boolean forceRefreshChatList = false;
     public static volatile boolean backToChatList = false;
     public static boolean inChatListMenu = false;
@@ -25,7 +26,7 @@ public class Session {
     public static volatile boolean refreshCurrentChatMenu = false;
     public static String currentChatId = null;
     public static ChatEntry currentChatEntry = null;
-
+    public static List<ContactEntry> contactEntries = new ArrayList<>();
 
 
 

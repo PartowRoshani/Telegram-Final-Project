@@ -13,6 +13,7 @@ public class ChatEntry {
     private String type;
     private LocalDateTime lastMessageTime;
     private boolean archived = false;
+    private UUID otherUser;
 
 
     private boolean isOwner = false;
@@ -133,4 +134,10 @@ public class ChatEntry {
         }
     }
 
+    public void setOtherUserId(UUID otherId) {this.otherUser =  otherId;
+    }
+
+    public UUID getOtherUserId(){
+        return otherUser;
+    }
 }
