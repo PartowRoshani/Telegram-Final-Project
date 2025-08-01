@@ -65,6 +65,54 @@ public class MessageDatabase {
         }
     }
 
+    public static void markGloballyDeleted(UUID chatId) {
+        String sql = "UPDATE messages SET deleted_globally = true WHERE receiver_id = ? AND receiver_type = 'private'";
+        try (Connection conn = ConnectionDb.connect(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, chatId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void logDeletedMessagesFor(UUID chatId, UUID userId) {
+        List<Message> messages = MessageDatabase.privateChatHistory(chatId);
+        for (Message message : messages) {
+            if (!isMessageDeleted(message.getMessage_id(), userId)) {
+                String sql = """
+                INSERT INTO deleted_messages (message_id, user_id)
+                VALUES (?, ?)
+                ON CONFLICT (message_id, user_id) DO NOTHING
+                """;
+                try (Connection conn = ConnectionDb.connect();
+                     PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setObject(1, message.getMessage_id());
+                    ps.setObject(2, userId);
+                    ps.executeUpdate();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public static boolean isMessageDeleted(UUID messageId, UUID userId) {
+        String sql = "SELECT 1 FROM deleted_messages WHERE message_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, messageId);
+            ps.setObject(2, userId);
+            ResultSet rs = ps.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+
+
     public void markMessageAsRead(UUID messageId, UUID userId) {
         String sql = "INSERT INTO message_receipts (message_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
         try (Connection conn = ConnectionDb.connect();

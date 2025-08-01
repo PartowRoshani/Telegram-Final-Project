@@ -1432,24 +1432,31 @@ public class ClientHandler implements Runnable {
 
 
 
-                    case "delete_private_chat" : {
+                    case "delete_private_chat": {
                         if (currentUser == null) {
                             response = new ResponseModel("error", "Unauthorized. Please login first.");
                             break;
                         }
-                        UUID targetId = UUID.fromString(requestJson.getString("target_id"));
+
+                        // دریافت شناسه چت و نوع حذف (یک‌طرفه یا دوطرفه)
+                        UUID targetId = UUID.fromString(requestJson.getString("chat_id"));
                         boolean both = requestJson.getBoolean("both");
 
-                        //RealTime
+                        // Real-Time Event Dispatch (اطلاع‌رسانی ریل تایم)
                         if (both) {
+                            // حذف دوطرفه
                             RealTimeEventDispatcher.notifyChatDeleted("private", targetId, List.of(currentUser.getInternal_uuid()));
                             RealTimeEventDispatcher.notifyChatDeleted("private", currentUser.getInternal_uuid(), List.of(targetId));
                         } else {
+                            // حذف یک‌طرفه
                             RealTimeEventDispatcher.notifyChatDeleted("private", targetId, List.of(currentUser.getInternal_uuid()));
                         }
-                        response = PrivateChatService.deletePrivateChat(currentUser.getInternal_uuid(), targetId, both);
+
+                        // فراخوانی متد حذف چت
+                        response = handleDeleteChat(requestJson);
                         break;
                     }
+
 
 
                     case "get_group_permissions": {
@@ -2025,8 +2032,6 @@ public class ClientHandler implements Runnable {
 
 
 
-
-
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);
                 }
@@ -2085,6 +2090,7 @@ public class ClientHandler implements Runnable {
 
 
     private ResponseModel handleSendMessage(JSONObject json) {
+
         try {
             if (currentUser == null)
                 return new ResponseModel("error", "Unauthorized. Please login first.");
@@ -2093,8 +2099,12 @@ public class ClientHandler implements Runnable {
             UUID senderId = currentUser.getInternal_uuid();
             String receiverType = json.getString("receiver_type");
             UUID receiverId;
-
             receiverId = UUID.fromString(json.getString("receiver_id"));
+
+            if(Objects.equals(receiverType, "private")){
+                PrivateChatDatabase.clearDeletedFlag(senderId, receiverId);
+            }
+
 
             String content = json.optString("content", "");
             String messageType = json.optString("message_type", "TEXT");
@@ -2161,6 +2171,43 @@ public class ClientHandler implements Runnable {
                 return ChannelDatabase.getSubscriberUUIDs(receiverId);
             default:
                 return new ArrayList<>();
+        }
+    }
+
+
+    private ResponseModel handleDeleteChat(JSONObject json) {
+        try {
+            if (currentUser == null)
+                return new ResponseModel("error", "Unauthorized");
+
+            UUID chatId = UUID.fromString(json.getString("chat_id"));
+            boolean bothSides = json.optBoolean("both_sides", false);
+
+            PrivateChat chat = PrivateChatDatabase.findById(chatId);
+            if (chat == null) return new ResponseModel("error", "Chat not found.");
+
+            UUID self = currentUser.getInternal_uuid();
+            UUID other = chat.getUser1_id().equals(self) ? chat.getUser2_id() : chat.getUser1_id();
+
+            if (bothSides) {
+                PrivateChatDatabase.markBothDeleted(chatId);
+                MessageDatabase.markGloballyDeleted(chatId);
+                MessageDatabase.logDeletedMessagesFor(chatId, self);
+                MessageDatabase.logDeletedMessagesFor(chatId, other);
+                return new ResponseModel("success", "Chat deleted for both sides.");
+            } else {
+                if (chat.getUser1_id().equals(self))
+                    PrivateChatDatabase.markUser1Deleted(chatId);
+                else
+                    PrivateChatDatabase.markUser2Deleted(chatId);
+
+                MessageDatabase.logDeletedMessagesFor(chatId, self);
+                return new ResponseModel("success", "Chat deleted (one-sided).");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseModel("error", "Exception while deleting chat.");
         }
     }
 

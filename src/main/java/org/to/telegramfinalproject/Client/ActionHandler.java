@@ -1237,6 +1237,7 @@ public class ActionHandler {
         return true;
     }
 
+
     private JSONObject getGroupPermissions(UUID groupId) {
         JSONObject req = new JSONObject();
         req.put("action", "get_group_permissions");
@@ -2013,7 +2014,7 @@ public class ActionHandler {
     private void deleteChat(UUID targetId, boolean both) {
         JSONObject req = new JSONObject();
         req.put("action", "delete_private_chat");
-        req.put("target_id", targetId.toString());
+        req.put("chat_id", targetId.toString());
         req.put("both", both);
         send(req);
 
