@@ -164,13 +164,12 @@ public class ClientHandler implements Runnable {
                                 User otherUser = userDatabase.findByInternalUUID(otherId);
                                 if (otherUser == null) continue;
 
-                                LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTimeBetween(
-                                        currentUser.getInternal_uuid(), otherId, "private"
-                                );
+                                LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTime(chat.getChat_id(), "private");
+
 
                                 ChatEntry entry = new ChatEntry(
-                                        chat.getChat_id(),                      // 🔹 real private chat_id
-                                        otherUser.getUser_id(),                // نمایش عمومی طرف مقابل
+                                        chat.getChat_id(),
+                                        otherUser.getUser_id(),
                                         otherUser.getProfile_name(),
                                         otherUser.getImage_url(),
                                         "private",
@@ -690,13 +689,12 @@ public class ClientHandler implements Runnable {
                             User otherUser = userDatabase.findByInternalUUID(otherId);
                             if (otherUser == null) continue;
 
-                            LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTimeBetween(
-                                    currentUser.getInternal_uuid(), otherId, "private"
-                            );
+                            LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTime(chat.getChat_id(), "private");
+
 
                             ChatEntry entry = new ChatEntry(
-                                    chat.getChat_id(),                      // 🔹 real private chat_id
-                                    otherUser.getUser_id(),                // نمایش عمومی طرف مقابل
+                                    chat.getChat_id(),
+                                    otherUser.getUser_id(),
                                     otherUser.getProfile_name(),
                                     otherUser.getImage_url(),
                                     "private",
@@ -1260,15 +1258,16 @@ public class ClientHandler implements Runnable {
 
                             switch (receiverType) {
                                 case "private" -> {
-                                    List<UUID> members = PrivateChatDatabase.getMembers(UUID.fromString(receiverId));
-                                    if (members.size() != 2) {
-                                        response = new ResponseModel("error", "Invalid private chat.");
+                                    UUID chatId = UUID.fromString(receiverId);
+                                    List<UUID> members = PrivateChatDatabase.getMembers(chatId);
+                                    if (!members.contains(currentUser.getInternal_uuid())) {
+                                        response = new ResponseModel("error", "You're not a member of this private chat.");
                                         break;
                                     }
 
-                                    UUID otherUserId = members.get(0).equals(currentUser.getInternal_uuid()) ? members.get(1) : members.get(0);
-                                    messages = MessageDatabase.privateChatHistory(currentUser.getInternal_uuid(), otherUserId);
+                                    messages = MessageDatabase.privateChatHistory(chatId);
                                 }
+
 
                                 case "group" -> {
                                     Group group = GroupDatabase.findByInternalUUID(UUID.fromString(receiverId));
@@ -2083,6 +2082,8 @@ public class ClientHandler implements Runnable {
 
 
     }
+
+
     private ResponseModel handleSendMessage(JSONObject json) {
         try {
             if (currentUser == null)
@@ -2093,12 +2094,8 @@ public class ClientHandler implements Runnable {
             String receiverType = json.getString("receiver_type");
             UUID receiverId;
 
-            if (receiverType.equals("private")) {
-                UUID receiverUserId = UUID.fromString(json.getString("receiver_user_id"));
-                receiverId = PrivateChatDatabase.getOrCreateChat(senderId, receiverUserId);
-            } else {
-                receiverId = UUID.fromString(json.getString("receiver_id")); // group یا channel
-            }
+            receiverId = UUID.fromString(json.getString("receiver_id"));
+
             String content = json.optString("content", "");
             String messageType = json.optString("message_type", "TEXT");
 
@@ -2123,15 +2120,13 @@ public class ClientHandler implements Runnable {
                     return new ResponseModel("error", "Message inserted but failed to attach files.");
             }
 
-
-
+            // Send real-time message
             Message msg = new Message(messageId, senderId, receiverId, receiverType, content, messageType, LocalDateTime.now());
             List<UUID> receivers = getReceiversForChat(receiverId, receiverType);
             receivers.remove(senderId);
-
             RealTimeEventDispatcher.sendNewMessage(msg, receivers);
 
-
+            // Update chat list (last_message_time)
             JSONObject chatUpdate = new JSONObject();
             chatUpdate.put("chat_id", receiverId.toString());
             chatUpdate.put("chat_type", receiverType);
@@ -2145,7 +2140,6 @@ public class ClientHandler implements Runnable {
                 RealTimeEventDispatcher.sendToUser(receiver, chatPayload);
             }
 
-
             JSONObject data = new JSONObject();
             data.put("message_id", messageId.toString());
             return new ResponseModel("success", "Message sent successfully.", data);
@@ -2155,6 +2149,7 @@ public class ClientHandler implements Runnable {
             return new ResponseModel("error", "Exception occurred while sending message.");
         }
     }
+
 
     private List<UUID> getReceiversForChat(UUID receiverId, String receiverType) {
         switch (receiverType) {

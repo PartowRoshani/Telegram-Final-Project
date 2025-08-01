@@ -258,25 +258,18 @@ public class MessageDatabase {
         return result;
     }
 
-    public static List<Message> privateChatHistory(UUID user1, UUID user2) {
+    public static List<Message> privateChatHistory(UUID chatId) {
         List<Message> result = new ArrayList<>();
         String sql = """
         SELECT * FROM messages 
         WHERE receiver_type = 'private'
-        AND (
-            (sender_id = ? AND receiver_id = ?)
-            OR (sender_id = ? AND receiver_id = ?)
-        )
+        AND receiver_id = ?
         ORDER BY send_at
     """;
 
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, user1);
-            stmt.setObject(2, user2);
-            stmt.setObject(3, user2);
-            stmt.setObject(4, user1);
-
+            stmt.setObject(1, chatId);
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 result.add(extractMessage(rs));
@@ -286,6 +279,7 @@ public class MessageDatabase {
         }
         return result;
     }
+
 
 
 

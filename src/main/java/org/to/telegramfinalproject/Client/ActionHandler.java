@@ -1140,6 +1140,21 @@ public class ActionHandler {
             return false;
         }
 
+
+            JSONObject reqTarget = new JSONObject();
+            reqTarget.put("action", "get_private_chat_target");
+            reqTarget.put("chat_id", chat.getId());
+
+            JSONObject resTarget = sendWithResponse(reqTarget);
+            if (resTarget == null || !resTarget.getString("status").equals("success")) {
+                System.out.println("❌ Failed to fetch target user for private chat.");
+                return false;
+            }
+
+            String otherUserId = resTarget.getJSONObject("data").getString("target_id");
+            chat.setOtherUserId(UUID.fromString(otherUserId));
+
+
         JSONObject req = new JSONObject();
         req.put("action", "view_profile");
         req.put("target_id", chat.getOtherUserId());  // internal UUID
@@ -1173,7 +1188,7 @@ public class ActionHandler {
         String input = scanner.nextLine();
         switch (input) {
             case "1" -> sendMessage(chat.getId(), "private");
-            case "2" -> toggleBlock(chat.getId());
+            case "2" -> toggleBlock(chat.getOtherUserId());
             case "3" -> {
                 deleteChat(chat.getId(), false);
                 return false;
@@ -2013,6 +2028,8 @@ public class ActionHandler {
 
 
     private void toggleBlock(UUID userId) {
+
+
         JSONObject req = new JSONObject();
         req.put("action", "toggle_block");
         req.put("user_id", Session.getUserUUID());
@@ -3142,7 +3159,7 @@ public class ActionHandler {
 
 
 
-    public void sendMessage(UUID receiverId, String receiverType) {
+    public void sendMessage(UUID chatId, String receiverType) {
         Scanner scanner = new Scanner(System.in);
 
         System.out.print("Enter your message: ");
@@ -3163,11 +3180,11 @@ public class ActionHandler {
                 System.out.print("File URL: ");
                 String fileUrl = scanner.nextLine();
                 System.out.print("File Type (IMAGE / VIDEO / FILE): ");
-                String fileType = scanner.nextLine();
+                String fileType = scanner.nextLine().toUpperCase();
 
                 JSONObject fileJson = new JSONObject();
                 fileJson.put("file_url", fileUrl);
-                fileJson.put("file_type", fileType.toUpperCase());
+                fileJson.put("file_type", fileType);
                 attachmentsArray.put(fileJson);
 
                 System.out.print("Add another file? (yes/no): ");
@@ -3175,27 +3192,11 @@ public class ActionHandler {
             }
         }
 
-        // ------------------------ GET receiver_id if private ------------------------
-        UUID actualReceiverId = receiverId;
-        if (receiverType.equals("private")) {
-            JSONObject req = new JSONObject();
-            req.put("action", "get_or_create_private_chat");
-            req.put("user1", Session.currentPrivateChatUserId.toString());
-            req.put("user2", receiverId.toString());
-
-            JSONObject chatResponse = sendWithResponse(req);
-            if (chatResponse == null || !chatResponse.getString("status").equals("success")) {
-                System.out.println("❌ Failed to fetch private chat ID.");
-                return;
-            }
-            actualReceiverId = UUID.fromString(chatResponse.getJSONObject("data").getString("chat_id"));
-        }
-
-        // ------------------------ SEND MESSAGE ------------------------
+        // 🔹 فقط ارسال پیام با chat_id و receiver_type
         JSONObject messageJson = new JSONObject();
         messageJson.put("action", "send_message");
         messageJson.put("receiver_type", receiverType);
-        messageJson.put("receiver_id", actualReceiverId.toString());
+        messageJson.put("receiver_id", chatId.toString());
         messageJson.put("content", content);
         messageJson.put("message_type", messageType);
 
@@ -3210,6 +3211,7 @@ public class ActionHandler {
             System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "No response"));
         }
     }
+
 
 
 
