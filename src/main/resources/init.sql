@@ -42,9 +42,13 @@ CREATE TABLE IF NOT EXISTS private_chat (
      chat_id UUID PRIMARY KEY,
     user1_id UUID REFERENCES users(internal_uuid) ON DELETE SET NULL,
     user2_id UUID REFERENCES users(internal_uuid) ON DELETE SET NULL,
+    user1_deleted BOOLEAN DEFAULT FALSE,
+    user2_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_users UNIQUE (user1_id, user2_id)
     );
+
+
 CREATE TABLE IF NOT EXISTS groups (
     internal_uuid UUID PRIMARY KEY,
     group_id VARCHAR(70) UNIQUE,
