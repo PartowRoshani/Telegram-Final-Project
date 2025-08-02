@@ -1778,6 +1778,17 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "get_saved_messages": {
+                        UUID user_Id = UUID.fromString(requestJson.getString("user_id"));
+                        response = SidebarService.handleGetSavedMessages(user_Id);
+                        break;
+                    }
+
+                    case "send_message": {
+                        response = SidebarService.handleSendMessage(requestJson);
+                        break;
+                    }
+
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);
                 }

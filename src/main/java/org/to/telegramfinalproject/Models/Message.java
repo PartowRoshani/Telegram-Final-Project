@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public class Message {
-    private UUID message_id;
+    private final UUID message_id;
     private UUID sender_id;
     private String receiver_type; // private, group, channel
     private UUID receiver_id;

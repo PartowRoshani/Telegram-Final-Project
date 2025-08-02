@@ -1,10 +1,16 @@
 package org.to.telegramfinalproject.Server;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
+import org.to.telegramfinalproject.Database.MessageDatabase;
+import org.to.telegramfinalproject.Database.PrivateChatDatabase;
 import org.to.telegramfinalproject.Database.userDatabase;
+import org.to.telegramfinalproject.Models.Message;
 import org.to.telegramfinalproject.Models.ResponseModel;
 import org.to.telegramfinalproject.Models.User;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -147,6 +153,81 @@ public class SidebarService {
         } else {
             user.setProfile_name(oldName);
             return new ResponseModel("error", "Failed to update profile name.");
+        }
+    }
+
+    // Get saved messages data
+    public static ResponseModel handleGetSavedMessages(UUID userId) {
+        try {
+
+            UUID chatId = PrivateChatDatabase.getOrCreateSavedMessagesChat(userId);
+            if (chatId == null) {
+                return new ResponseModel("error", "Failed to create or find saved messages chat.");
+            }
+
+            List<Message> messages = MessageDatabase.privateChatHistory(userId, userId);
+
+            JSONArray messageArray = new JSONArray();
+            if (!messages.isEmpty()) {
+                for (Message msg : messages) {
+                    JSONObject msgJson = new JSONObject();
+                    msgJson.put("message_id", msg.getMessage_id().toString());
+                    msgJson.put("sender_id", msg.getSender_id().toString());
+                    msgJson.put("receiver_type", msg.getReceiver_type());
+                    msgJson.put("receiver_id", msg.getReceiver_id().toString());
+                    msgJson.put("content", msg.getContent());
+                    msgJson.put("message_type", msg.getMessage_type());
+                    msgJson.put("file_url", msg.getFile_url() != null ? msg.getFile_url() : JSONObject.NULL);
+                    msgJson.put("send_at", msg.getSend_at().toString()); // LocalDateTime
+                    msgJson.put("status", msg.getStatus());
+                    msgJson.put("reply_to_id", msg.getReply_to_id() != null ? msg.getReply_to_id().toString() : JSONObject.NULL);
+                    msgJson.put("is_edited", msg.isIs_edited());
+                    msgJson.put("original_message_id", msg.getOriginal_message_id() != null ? msg.getOriginal_message_id().toString() : JSONObject.NULL);
+                    msgJson.put("forwarded_by", msg.getForwarded_by() != null ? msg.getForwarded_by().toString() : JSONObject.NULL);
+                    msgJson.put("forwarded_from", msg.getForwarded_from() != null ? msg.getForwarded_from().toString() : JSONObject.NULL);
+
+                    messageArray.put(msgJson);
+                }
+            }
+
+            JSONObject data = new JSONObject();
+            data.put("chat_id", chatId.toString());
+            data.put("messages", messageArray);
+
+            return new ResponseModel("success", "Saved messages retrieved successfully", data);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseModel("error", "Unexpected server error.");
+        }
+    }
+
+    // Save messages to DB
+    public static ResponseModel handleSendMessage(JSONObject requestJson) {
+        try {
+            Message message = new Message(
+                    UUID.fromString(requestJson.getString("message_id")),
+                    UUID.fromString(requestJson.getString("sender_id")),
+                    requestJson.getString("receiver_type"),
+                    UUID.fromString(requestJson.getString("receiver_id")),
+                    requestJson.optString("content", null),
+                    requestJson.optString("message_type", "TEXT"),
+                    requestJson.isNull("file_url") ? null : requestJson.getString("file_url"),
+                    LocalDateTime.now(), // send_at
+                    requestJson.optString("status", "SEND"),
+                    requestJson.isNull("reply_to_id") ? null : UUID.fromString(requestJson.getString("reply_to_id")),
+                    requestJson.optBoolean("is_edited", false),
+                    requestJson.isNull("original_message_id") ? null : UUID.fromString(requestJson.getString("original_message_id")),
+                    requestJson.isNull("forwarded_by") ? null : UUID.fromString(requestJson.getString("forwarded_by")),
+                    requestJson.isNull("forwarded_from") ? null : UUID.fromString(requestJson.getString("forwarded_from"))
+            );
+
+            MessageDatabase.save(message);
+            return new ResponseModel("success", "Message saved successfully.");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseModel("error", "Unexpected server error.");
         }
     }
 

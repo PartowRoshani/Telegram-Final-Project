@@ -1,17 +1,29 @@
 package org.to.telegramfinalproject.Client;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.to.telegramfinalproject.Models.Message;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
+import java.util.UUID;
+
+import static org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse;
 
 public class SidebarHandler {
     private final Scanner scanner;
     private final ActionHandler actionHandler;
+    private final String userUUID;
 
     public SidebarHandler(Scanner scanner, ActionHandler actionHandler) {
         this.scanner = scanner;
         this.actionHandler = actionHandler;
+        this.userUUID = Session.getUserUUID();
+
     }
 
     public void handleSidebarAction(SidebarAction action) {
@@ -29,7 +41,7 @@ public class SidebarHandler {
                 showContacts();
                 break;
             case SAVED_MESSAGES:
-                showSavedMessages();
+                getSavedMessagesData(userUUID);
                 break;
             case SETTINGS:
                 openSettings();
@@ -48,7 +60,7 @@ public class SidebarHandler {
         JSONObject request = new JSONObject();
         request.put("action", "get_user_profile");
 
-        JSONObject response = ActionHandler.sendWithResponse(request);
+        JSONObject response = sendWithResponse(request);
         if (response == null || !response.optString("status", "fail").equals("success")) {
             System.out.println("Failed to load profile information.");
             return;
@@ -127,7 +139,7 @@ public class SidebarHandler {
         request.put("new_profile_name", newProfileName);
 
         // Step 3: Send request and receive response
-        JSONObject response = ActionHandler.sendWithResponse(request);
+        JSONObject response = sendWithResponse(request);
 
         // Step 4: Handle response
         if (response == null || !response.optString("status", "fail").equals("success")) {
@@ -161,7 +173,7 @@ public class SidebarHandler {
             JSONObject request = new JSONObject();
             request.put("action", "edit_user_id");
             request.put("new_user_id", newUserId);
-            JSONObject response = ActionHandler.sendWithResponse(request);
+            JSONObject response = sendWithResponse(request);
 
             if (response.getString("status").equals("success")) {
                 System.out.println("User ID updated successfully.");
@@ -187,7 +199,7 @@ public class SidebarHandler {
         request.put("action", "edit_bio");
         request.put("new_bio", newBio);
 
-        JSONObject response = ActionHandler.sendWithResponse(request);
+        JSONObject response = sendWithResponse(request);
 
         if (response.getString("status").equals("success")) {
             System.out.println("Bio updated successfully.");
@@ -214,7 +226,7 @@ public class SidebarHandler {
             JSONObject request = new JSONObject();
             request.put("action", "edit_profile_picture");
             request.put("new_image_url", newImageUrl);
-            JSONObject response = ActionHandler.sendWithResponse(request);
+            JSONObject response = sendWithResponse(request);
 
             if (response.getString("status").equals("success")) {
                 System.out.println("Bio updated successfully.");
@@ -237,8 +249,139 @@ public class SidebarHandler {
         System.out.println("📇 Showing contacts...");
     }
 
-    private void showSavedMessages() {
-        System.out.println("💾 Showing saved messages...");
+    public void getSavedMessagesData(String userId) {
+        try {
+            // Step 1: Create the request
+            JSONObject request = new JSONObject();
+            request.put("action", "get_saved_messages");
+            request.put("user_id", userId);
+
+            // Step 2: Send request and wait for response
+            JSONObject response = ActionHandler.sendWithResponse(request);
+
+            // Step 3: Check the response
+            if (!response.optString("status", "fail").equals("success")) {
+                System.out.println("Failed to open Saved Messages chat: " + response.optString("message", "Unknown error"));
+                return;
+            }
+
+            // Step 4: Extract "data" object
+            JSONObject data = response.getJSONObject("data");
+            UUID chatId = UUID.fromString(data.getString("chat_id"));
+            JSONArray messagesArray = data.getJSONArray("messages");
+
+            // Step 5: Parse messages
+            List<Message> messages = new ArrayList<>();
+            if (!messagesArray.isEmpty()) {
+                for (int i = 0; i < messagesArray.length(); i++) {
+                    JSONObject msgJson = messagesArray.getJSONObject(i);
+
+                    // Safely extract optional UUIDs
+                    UUID replyToId = null;
+                    String replyToIdStr = msgJson.optString("reply_to_id", null);
+                    if (replyToIdStr != null && !replyToIdStr.equals("null")) {
+                        replyToId = UUID.fromString(replyToIdStr);
+                    }
+
+                    UUID originalMessageId = null;
+                    String originalMessageIdStr = msgJson.optString("original_message_id", null);
+                    if (originalMessageIdStr != null && !originalMessageIdStr.equals("null")) {
+                        originalMessageId = UUID.fromString(originalMessageIdStr);
+                    }
+
+                    UUID forwardedBy = null;
+                    String forwardedByStr = msgJson.optString("forwarded_by", null);
+                    if (forwardedByStr != null && !forwardedByStr.equals("null")) {
+                        forwardedBy = UUID.fromString(forwardedByStr);
+                    }
+
+                    UUID forwardedFrom = null;
+                    String forwardedFromStr = msgJson.optString("forwarded_from", null);
+                    if (forwardedFromStr != null && !forwardedFromStr.equals("null")) {
+                        forwardedFrom = UUID.fromString(forwardedFromStr);
+                    }
+
+                    Message msg = new Message(
+                            UUID.fromString(msgJson.getString("message_id")),
+                            UUID.fromString(msgJson.getString("sender_id")),
+                            msgJson.getString("receiver_type"),
+                            UUID.fromString(msgJson.getString("receiver_id")),
+                            msgJson.getString("content"),
+                            msgJson.getString("message_type"),
+                            msgJson.optString("file_url", null),
+                            LocalDateTime.parse(msgJson.getString("send_at").replace(" ", "T")),
+                            msgJson.getString("status"),
+                            replyToId,
+                            msgJson.getBoolean("is_edited"),
+                            originalMessageId,
+                            forwardedBy,
+                            forwardedFrom
+                    );
+
+                    messages.add(msg);
+                }
+            }
+
+            // Step 6: Show chat
+            showSavedMessages(chatId, messages);
+
+        } catch (Exception e) {
+            System.out.println("An error occurred while retrieving Saved Messages.");
+            e.printStackTrace();
+        }
+    }
+
+    private void showSavedMessages(UUID chatId, List<Message> messages) {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.println("==== Saved Messages ====");
+
+        // Show previous messages
+        if (messages.isEmpty()) {
+            System.out.println("No messages yet.");
+        } else {
+            for (Message msg : messages) {
+                System.out.println("[" + msg.getSend_at() + "] " + msg.getContent());
+            }
+        }
+
+        System.out.println("\n(Type your message below, or type 0 to exit)");
+
+        while (true) {
+            System.out.print("You: ");
+            String content = scanner.nextLine().trim();
+
+            if (content.equals("0")) {
+                System.out.println("Exiting Saved Messages.");
+                break;
+            }
+
+            // Prepare the request JSON
+            JSONObject request = new JSONObject();
+            request.put("action", "send_message");
+            request.put("message_id", UUID.randomUUID().toString());
+            request.put("sender_id", userUUID);
+            request.put("receiver_type", "private");
+            request.put("receiver_id", userUUID); // saved messages = to yourself
+            request.put("content", content);
+            request.put("message_type", "TEXT");
+            request.put("file_url", JSONObject.NULL);
+            request.put("status", "READ");
+            request.put("reply_to_id", JSONObject.NULL);
+            request.put("is_edited", false);
+            request.put("original_message_id", JSONObject.NULL);
+            request.put("forwarded_by", JSONObject.NULL);
+            request.put("forwarded_from", JSONObject.NULL);
+
+            // Send the message and wait for response
+            JSONObject response = ActionHandler.sendWithResponse(request);
+
+            if (!response.optString("status", "fail").equals("success")) {
+                System.out.println("Failed to send message: " + response.optString("message", "Unknown error"));
+            } else {
+                System.out.println("Message sent.");
+            }
+        }
     }
 
     private void openSettings() {
