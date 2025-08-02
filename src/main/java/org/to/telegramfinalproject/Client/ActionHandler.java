@@ -1191,11 +1191,11 @@ public class ActionHandler {
             case "2" -> toggleBlock(chat.getOtherUserId());
             case "3" -> {
                 deleteChat(chat.getId(), false);
-                return false;
+                return true;
             }
             case "4" -> {
                 deleteChat(chat.getId(), true);
-                return false;
+                return true;
             }
             case "5" -> {
                 JSONObject reqProfile = new JSONObject();

@@ -231,26 +231,25 @@ public class PrivateChatDatabase {
     }
 
 
-    public static void clearDeletedFlag(UUID senderId, UUID receiverId) {
+    public static void clearDeletedFlag(UUID senderId, UUID chatId) {
         String sql = """
         UPDATE private_chat
-        SET user1_deleted = CASE WHEN user1_id = ? THEN false ELSE user1_deleted END,
-        user2_deleted = CASE WHEN user2_id = ? THEN false ELSE user2_deleted END
-        WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)
-        """;
+        SET user1_deleted = CASE WHEN user1_id = ? THEN FALSE ELSE user1_deleted END,
+            user2_deleted = CASE WHEN user2_id = ? THEN FALSE ELSE user2_deleted END
+        WHERE chat_id = ?
+    """;
 
         try (Connection conn = ConnectionDb.connect(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setObject(1, senderId);
             ps.setObject(2, senderId);
-            ps.setObject(3, senderId);
-            ps.setObject(4, receiverId);
-            ps.setObject(5, receiverId);
-            ps.setObject(6, senderId);
-            ps.executeUpdate();
+            ps.setObject(3, chatId);
+            int rows = ps.executeUpdate();
+            System.out.println("✅ clearDeletedFlag updated rows = " + rows);
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+
 
 
 

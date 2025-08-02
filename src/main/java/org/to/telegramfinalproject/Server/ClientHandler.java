@@ -2181,8 +2181,7 @@ public class ClientHandler implements Runnable {
                 return new ResponseModel("error", "Unauthorized");
 
             UUID chatId = UUID.fromString(json.getString("chat_id"));
-            boolean bothSides = json.optBoolean("both_sides", false);
-
+            boolean bothSides = json.optBoolean("both_sides", json.optBoolean("both", false));
             PrivateChat chat = PrivateChatDatabase.findById(chatId);
             if (chat == null) return new ResponseModel("error", "Chat not found.");
 

@@ -66,7 +66,7 @@ public class MessageDatabase {
     }
 
     public static void markGloballyDeleted(UUID chatId) {
-        String sql = "UPDATE messages SET deleted_globally = true WHERE receiver_id = ? AND receiver_type = 'private'";
+        String sql = "UPDATE messages SET is_deleted_globally = true WHERE receiver_id = ? AND receiver_type = 'private'";
         try (Connection conn = ConnectionDb.connect(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setObject(1, chatId);
             ps.executeUpdate();
