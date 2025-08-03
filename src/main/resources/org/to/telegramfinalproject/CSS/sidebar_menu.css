@@ -1,0 +1,11 @@
+.menu-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 6 10 6 10;
+}
+
+.menu-button:hover {
+    -fx-background-color: #2c3e50;
+}
