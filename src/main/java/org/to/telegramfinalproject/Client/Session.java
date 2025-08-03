@@ -3,7 +3,9 @@ package org.to.telegramfinalproject.Client;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.ChatEntry;
+import org.to.telegramfinalproject.Models.ContactEntry;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -15,7 +17,7 @@ public class Session {
     public static List<ChatEntry> chatList = new ArrayList<>();
     public static List<ChatEntry> archivedChats = new ArrayList<>();
     public static List<ChatEntry> activeChats = new ArrayList<>();
-
+    public static UUID currentPrivateChatUserId = null;
     public static volatile boolean forceRefreshChatList = false;
     public static volatile boolean backToChatList = false;
     public static boolean inChatListMenu = false;
@@ -24,7 +26,7 @@ public class Session {
     public static volatile boolean refreshCurrentChatMenu = false;
     public static String currentChatId = null;
     public static ChatEntry currentChatEntry = null;
-
+    public static List<ContactEntry> contactEntries = new ArrayList<>();
 
 
 
@@ -36,24 +38,65 @@ public class Session {
         throw new RuntimeException("❌ No UUID found in currentUser!");
     }
 
+//    public static void updateChatList(JSONArray chatArray) {
+//        chatList.clear();
+//        for (int i = 0; i < chatArray.length(); i++) {
+//            JSONObject obj = chatArray.getJSONObject(i);
+//            ChatEntry entry = new ChatEntry(
+//                    UUID.fromString(obj.getString("internal_id")),
+//                    obj.optString("id", ""),  // displayId
+//                    obj.optString("name", ""),  // name
+//                    obj.optString("image_url", ""),
+//                    obj.getString("type"),
+//                    null,  // last message time (if needed, parse it)
+//                    obj.optBoolean("is_owner", false),
+//                    obj.optBoolean("is_admin", false)
+//            );
+//            entry.setPermissions(obj.optJSONObject("permissions"));
+//            chatList.add(entry);
+//        }
+//    }
+
+
     public static void updateChatList(JSONArray chatArray) {
         chatList.clear();
         for (int i = 0; i < chatArray.length(); i++) {
             JSONObject obj = chatArray.getJSONObject(i);
+
+            LocalDateTime lastMessageTime = null;
+            if (obj.has("last_message_time") && !obj.isNull("last_message_time")) {
+                String timeStr = obj.getString("last_message_time");
+                if (!timeStr.isBlank()) {
+                    lastMessageTime = LocalDateTime.parse(timeStr);
+                }
+            }
+
             ChatEntry entry = new ChatEntry(
                     UUID.fromString(obj.getString("internal_id")),
                     obj.optString("id", ""),  // displayId
                     obj.optString("name", ""),  // name
                     obj.optString("image_url", ""),
                     obj.getString("type"),
-                    null,  // last message time (if needed, parse it)
+                    lastMessageTime,
                     obj.optBoolean("is_owner", false),
                     obj.optBoolean("is_admin", false)
             );
-            entry.setPermissions(obj.optJSONObject("permissions")); // اگر permissions وجود داره
+
+            entry.setPermissions(obj.optJSONObject("permissions"));
             chatList.add(entry);
         }
+
+        chatList.sort((c1, c2) -> {
+            if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
+            if (c1.getLastMessageTime() == null) return 1;
+            if (c2.getLastMessageTime() == null) return -1;
+            return c2.getLastMessageTime().compareTo(c1.getLastMessageTime());
+        });
+
+        activeChats = chatList.stream().filter(c -> !c.isArchived()).toList();
+        archivedChats = chatList.stream().filter(ChatEntry::isArchived).toList();
     }
+
     public static List<ChatEntry> getChatList() {
         return chatList;
     }

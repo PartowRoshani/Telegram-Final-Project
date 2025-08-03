@@ -1,6 +1,7 @@
 package org.to.telegramfinalproject.Models;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public class Message {
@@ -10,7 +11,6 @@ public class Message {
     private UUID receiver_id;
     private String content;
     private String message_type; // TEXT, IMAGE, FILE, ...
-    private String file_url;
     private LocalDateTime send_at;
     private String status; // SENT, DELIVERED, READ
     private UUID reply_to_id;
@@ -18,9 +18,10 @@ public class Message {
     private UUID original_message_id;
     private UUID forwarded_by;
     private UUID forwarded_from;
+    private List<FileAttachment> attachments;
 
     public Message(UUID message_id, UUID sender_id, String receiver_type, UUID receiver_id, String content,
-                   String message_type, String file_url, LocalDateTime send_at, String status,
+                   String message_type, LocalDateTime send_at, String status,
                    UUID reply_to_id, boolean is_edited, UUID original_message_id,
                    UUID forwarded_by, UUID forwarded_from) {
         this.message_id = message_id;
@@ -29,7 +30,6 @@ public class Message {
         this.receiver_id = receiver_id;
         this.content = content;
         this.message_type = message_type;
-        this.file_url = file_url;
         this.send_at = send_at;
         this.status = status;
         this.reply_to_id = reply_to_id;
@@ -37,6 +37,16 @@ public class Message {
         this.original_message_id = original_message_id;
         this.forwarded_by = forwarded_by;
         this.forwarded_from = forwarded_from;
+    }
+
+    public Message(UUID messageId, UUID senderId, UUID receiverId, String receiverType, String content, String messageType, LocalDateTime now) {
+        this.message_id = messageId;
+        this.sender_id = senderId;
+        this.receiver_id = receiverId;
+        this.receiver_type = receiverType;
+        this.content = content;
+        this.message_type = messageType;
+        this.send_at =  now;
     }
 
 
@@ -83,14 +93,6 @@ public class Message {
 
     public void setMessage_type(String message_type) {
         this.message_type = message_type;
-    }
-
-    public String getFile_url() {
-        return file_url;
-    }
-
-    public void setFile_url(String file_url) {
-        this.file_url = file_url;
     }
 
     public LocalDateTime getSend_at() {
@@ -147,5 +149,12 @@ public class Message {
 
     public void setForwarded_from(UUID forwarded_from) {
         this.forwarded_from = forwarded_from;
+    }
+
+    public void setAttachments(List<FileAttachment> attachments) {
+        this.attachments = attachments;
+    }
+    public List<FileAttachment> getAttachments() {
+        return attachments;
     }
 }

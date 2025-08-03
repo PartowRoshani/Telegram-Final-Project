@@ -54,7 +54,6 @@ public class JsonUtil {
             obj.put("receiver_id", message.getReceiver_id().toString());
             obj.put("content", message.getContent());
             obj.put("message_type", message.getMessage_type());
-            obj.put("file_url", message.getFile_url());
             obj.put("send_at", message.getSend_at().toString());
             obj.put("status", message.getStatus());
             obj.put("reply_to_id", message.getReply_to_id() != null ? message.getReply_to_id().toString() : JSONObject.NULL);
