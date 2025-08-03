@@ -71,7 +71,7 @@ CREATE TABLE group_members (
 
 CREATE TABLE IF NOT EXISTS channels (
     channel_id VARCHAR(70) UNIQUE,
-    internal_uuid UUID PRIMARY KEY,,
+    internal_uuid UUID PRIMARY KEY,
     channel_name VARCHAR(100),
     creator_id UUID REFERENCES users(internal_uuid),
     image_url TEXT,
