@@ -12,8 +12,10 @@ public class ChatEntry {
     private String imageUrl;
     private String type;
     private LocalDateTime lastMessageTime;
+    private boolean archived = false;
+    private UUID otherUser;
 
-    // 🔹 نقش‌ها
+
     private boolean isOwner = false;
     private boolean isAdmin = false;
     private JSONObject permissions;
@@ -28,7 +30,6 @@ public class ChatEntry {
         this.lastMessageTime = lastMessageTime;
     }
 
-    // ✅ کانستراکتور اضافه‌شده برای پشتیبانی از نقش‌ها (اختیاری، برای استفاده‌های جدید)
     public ChatEntry(UUID internalId, String displayId, String name, String imageUrl, String type, LocalDateTime lastMessageTime, boolean isOwner, boolean isAdmin) {
         this(internalId, displayId, name, imageUrl, type, lastMessageTime);
         this.isOwner = isOwner;
@@ -41,7 +42,6 @@ public class ChatEntry {
 
     }
 
-    // 🟩 گتر و ستر جدید
     public boolean isOwner() {
         return isOwner;
     }
@@ -108,4 +108,36 @@ public class ChatEntry {
 
 
 
+    public boolean isArchived() {
+        return archived;
+    }
+
+    public void setArchived(boolean archived) {
+        this.archived = archived;
+    }
+
+//    public void setLastMessageTime(String newTime) {this.lastMessageTime = LocalDateTime.parse(newTime);
+//    }
+
+
+    public void setLastMessageTime(String newTime) {
+        if (newTime == null || newTime.isBlank()) {
+            this.lastMessageTime = null;
+            return;
+        }
+
+        try {
+            this.lastMessageTime = LocalDateTime.parse(newTime);
+        } catch (Exception e) {
+            System.out.println("❌ Failed to parse lastMessageTime: " + newTime);
+            this.lastMessageTime = null;
+        }
+    }
+
+    public void setOtherUserId(UUID otherId) {this.otherUser =  otherId;
+    }
+
+    public UUID getOtherUserId(){
+        return otherUser;
+    }
 }

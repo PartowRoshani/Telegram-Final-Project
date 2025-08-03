@@ -1,5 +1,6 @@
 package org.to.telegramfinalproject.Database;
 
+import org.to.telegramfinalproject.Models.FileAttachment;
 import org.to.telegramfinalproject.Models.Message;
 
 import java.sql.*;
@@ -12,40 +13,105 @@ import java.util.stream.Collectors;
 public class MessageDatabase {
 
 
-    public static void save(Message message) {
-        String sql = """
-        INSERT INTO messages (
-            message_id, sender_id, receiver_type, receiver_id, content,
-            message_type, file_url, send_at, status,
-            reply_to_id, is_edited, original_message_id, forwarded_by, forwarded_from
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """;
+
+
+
+    public static boolean insertMessage(UUID messageId, UUID senderId, UUID receiverId,
+                                        String receiverType, String content, String messageType) {
+        String sql = "INSERT INTO messages (message_id, sender_id, receiver_type, receiver_id, content, message_type) " +
+                "VALUES (?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = ConnectionDb.connect();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            stmt.setObject(1, message.getMessage_id());
-            stmt.setObject(2, message.getSender_id());
-            stmt.setString(3, message.getReceiver_type());
-            stmt.setObject(4, message.getReceiver_id());
-            stmt.setString(5, message.getContent());
-            stmt.setString(6, message.getMessage_type());
-            stmt.setString(7, message.getFile_url());
-            stmt.setObject(8, message.getSend_at());
-            stmt.setString(9, message.getStatus());
-            stmt.setObject(10, message.getReply_to_id());
-            stmt.setBoolean(11, message.isIs_edited());
-            stmt.setObject(12, message.getOriginal_message_id());
-            stmt.setObject(13, message.getForwarded_by());
-            stmt.setObject(14, message.getForwarded_from());
+            ps.setObject(1, messageId);
+            ps.setObject(2, senderId);
+            ps.setString(3, receiverType);
+            ps.setObject(4, receiverId);
+            ps.setString(5, content);
+            ps.setString(6, messageType);
 
-            stmt.executeUpdate();
+            return ps.executeUpdate() > 0;
 
         } catch (SQLException e) {
-            System.err.println("❌ Error saving message: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+
+    public static boolean insertAttachments(UUID messageId, List<FileAttachment> attachments) {
+        String sql = "INSERT INTO message_attachments (attachment_id, message_id, file_url, file_type) " +
+                "VALUES (?, ?, ?, ?)";
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            for (FileAttachment att : attachments) {
+                ps.setObject(1, UUID.randomUUID());
+                ps.setObject(2, messageId);
+                ps.setString(3, att.getFileUrl());
+                ps.setString(4, att.getFileType());
+                ps.addBatch();
+            }
+
+            ps.executeBatch();
+            return true;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static void markGloballyDeleted(UUID chatId) {
+        String sql = "UPDATE messages SET is_deleted_globally = true WHERE receiver_id = ? AND receiver_type = 'private'";
+        try (Connection conn = ConnectionDb.connect(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, chatId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+
+    public static void logDeletedMessagesFor(UUID chatId, UUID userId) {
+        List<Message> messages = MessageDatabase.privateChatHistory(chatId);
+        for (Message message : messages) {
+            if (!isMessageDeleted(message.getMessage_id(), userId)) {
+                String sql = """
+                INSERT INTO deleted_messages (message_id, user_id)
+                VALUES (?, ?)
+                ON CONFLICT (message_id, user_id) DO NOTHING
+                """;
+                try (Connection conn = ConnectionDb.connect();
+                     PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setObject(1, message.getMessage_id());
+                    ps.setObject(2, userId);
+                    ps.executeUpdate();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public static boolean isMessageDeleted(UUID messageId, UUID userId) {
+        String sql = "SELECT 1 FROM deleted_messages WHERE message_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, messageId);
+            ps.setObject(2, userId);
+            ResultSet rs = ps.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+
 
     public void markMessageAsRead(UUID messageId, UUID userId) {
         String sql = "INSERT INTO message_receipts (message_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
@@ -100,7 +166,6 @@ public class MessageDatabase {
                         UUID.fromString(rs.getString("receiver_id")),
                         rs.getString("content"),
                         rs.getString("message_type"),
-                        rs.getString("file_url"),
                         rs.getTimestamp("send_at").toLocalDateTime(),
                         rs.getString("status"),
                         rs.getObject("reply_to_id") != null ? UUID.fromString(rs.getString("reply_to_id")) : null,
@@ -117,6 +182,31 @@ public class MessageDatabase {
 
         return messages;
     }
+
+    public static List<FileAttachment> getAttachments(UUID messageId) {
+        List<FileAttachment> attachments = new ArrayList<>();
+        String sql = "SELECT file_url, file_type FROM message_attachments WHERE message_id = ?";
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, messageId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                attachments.add(new FileAttachment(
+                        rs.getString("file_url"),
+                        rs.getString("file_type")
+                ));
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return attachments;
+    }
+
 
 
     public static LocalDateTime getLastMessageTimeBetween(UUID user1, UUID user2, String type) {
@@ -177,7 +267,6 @@ public class MessageDatabase {
                 UUID.fromString(rs.getString("receiver_id")),
                 rs.getString("content"),
                 rs.getString("message_type"),
-                rs.getString("file_url"),
                 rs.getTimestamp("send_at").toLocalDateTime(),
                 rs.getString("status"),
                 (UUID) rs.getObject("reply_to_id"),
@@ -217,25 +306,18 @@ public class MessageDatabase {
         return result;
     }
 
-    public static List<Message> privateChatHistory(UUID user1, UUID user2) {
+    public static List<Message> privateChatHistory(UUID chatId) {
         List<Message> result = new ArrayList<>();
         String sql = """
         SELECT * FROM messages 
         WHERE receiver_type = 'private'
-        AND (
-            (sender_id = ? AND receiver_id = ?)
-            OR (sender_id = ? AND receiver_id = ?)
-        )
+        AND receiver_id = ?
         ORDER BY send_at
     """;
 
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, user1);
-            stmt.setObject(2, user2);
-            stmt.setObject(3, user2);
-            stmt.setObject(4, user1);
-
+            stmt.setObject(1, chatId);
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 result.add(extractMessage(rs));
@@ -245,6 +327,7 @@ public class MessageDatabase {
         }
         return result;
     }
+
 
 
 
@@ -357,6 +440,44 @@ public class MessageDatabase {
         }
 
         return result;
+    }
+
+
+    public List<Message> getMessagesForPrivateChat(UUID user1, UUID user2) {
+        UUID chatId = PrivateChatDatabase.findChatIdByUsers(user1, user2);
+        if (chatId == null) return new ArrayList<>();
+        return findByReceiver("private", chatId);
+    }
+
+    public static List<Message> findByReceiver(String receiverType, UUID receiverId) {
+        List<Message> messages = new ArrayList<>();
+        String sql = "SELECT * FROM messages WHERE receiver_type = ? AND receiver_id = ? ORDER BY send_at";
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, receiverType);
+            ps.setObject(2, receiverId);
+
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                UUID messageId = (UUID) rs.getObject("message_id");
+                UUID senderId = (UUID) rs.getObject("sender_id");
+                UUID recId = (UUID) rs.getObject("receiver_id");
+                String type = rs.getString("receiver_type");
+                String content = rs.getString("content");
+                String messageType = rs.getString("message_type");
+                LocalDateTime sendAt = rs.getTimestamp("send_at").toLocalDateTime();
+
+                Message message = new Message(messageId, senderId, recId, type, content, messageType, sendAt);
+                messages.add(message);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return messages;
     }
 
 

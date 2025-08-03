@@ -2,7 +2,9 @@ package org.to.telegramfinalproject.Client;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.to.telegramfinalproject.Database.PrivateChatDatabase;
 import org.to.telegramfinalproject.Models.ChatEntry;
+import org.to.telegramfinalproject.Models.ContactEntry;
 import org.to.telegramfinalproject.Models.SearchRequestModel;
 import org.to.telegramfinalproject.Models.SearchResultModel;
 
@@ -23,6 +25,8 @@ public class ActionHandler {
     private final Scanner scanner;
     public static volatile boolean forceExitChat = false;
     public static ActionHandler instance;
+
+
 
 
     private void handleRealTime(JSONObject json) throws IOException {
@@ -440,7 +444,11 @@ public class ActionHandler {
                     Session.currentUser = response.getJSONObject("data");
 
                     JSONArray chatListJson = Session.currentUser.getJSONArray("chat_list");
+                    JSONArray Archived = Session.currentUser.getJSONArray("archived_chat_list");
+                    JSONArray Active = Session.currentUser.getJSONArray("active_chat_list");
+                    JSONArray contactList = Session.currentUser.getJSONArray("contact_list");
                     List<ChatEntry> chatList = new ArrayList<>();
+
 
                     for (Object obj : chatListJson) {
                         JSONObject chat = (JSONObject) obj;
@@ -454,15 +462,80 @@ public class ActionHandler {
                                 chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
                                 chat.optBoolean("is_owner", false),
                                 chat.optBoolean("is_admin", false)
+
+
                         );
 
-
+                        if (chat.has("other_user_id")) {
+                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
+                        }
 
                         chatList.add(entry);
 
                     }
 
+                    List<ChatEntry> archivedChats = new ArrayList<>();
+                    for (Object obj : Archived){
+                        JSONObject chat = (JSONObject)  obj;
 
+                        ChatEntry entry = new ChatEntry(
+                                UUID.fromString(chat.getString("internal_id")),
+                                chat.getString("id"),
+                                chat.getString("name"),
+                                chat.optString("image_url", ""),
+                                chat.getString("type"),
+                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
+                                chat.optBoolean("is_owner", false),
+                                chat.optBoolean("is_admin", false)
+                        );
+                        if (chat.has("other_user_id")) {
+                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));  // 👈 اضافه کردن برای private chat
+                        }
+                        archivedChats.add(entry);
+
+                    }
+
+                    List<ChatEntry> activeChats = new ArrayList<>();
+                    for (Object obj : Active){
+                        JSONObject chat = (JSONObject)  obj;
+
+                        ChatEntry entry = new ChatEntry(
+                                UUID.fromString(chat.getString("internal_id")),
+                                chat.getString("id"),
+                                chat.getString("name"),
+                                chat.optString("image_url", ""),
+                                chat.getString("type"),
+                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
+                                chat.optBoolean("is_owner", false),
+                                chat.optBoolean("is_admin", false)
+                        );
+                        if (chat.has("other_user_id")) {
+                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));  // 👈 اضافه کردن برای private chat
+                        }
+
+                        activeChats.add(entry);
+
+                    }
+
+                    Session.contactEntries.clear();
+                    for (Object obj : contactList) {
+                        JSONObject c = (JSONObject) obj;
+
+                        ContactEntry entry = new ContactEntry(
+                                UUID.fromString(c.getString("contact_id")),
+                                c.getString("user_id"),
+                                c.getString("profile_name"),
+                                c.optString("image_url", ""),
+                                c.optBoolean("is_blocked", false)
+                        );
+                        Session.contactEntries.add(entry);
+                    }
+
+
+
+
+                    Session.activeChats = activeChats;
+                    Session.archivedChats = archivedChats;
                     Session.chatList = chatList;
                     break;
 
@@ -661,12 +734,14 @@ public class ActionHandler {
                     System.out.println("\n🔓 Messages fetched:");
                     System.out.println("─────────────────────────────────────────────");
                     for (int i = 0; i < messages.length(); i++) {
+
                         JSONObject m = messages.getJSONObject(i);
                         String senderId = m.getString("sender_id");
+                        String senderName = m.optString("sender_name", "Other");
                         String content = m.getString("content");
                         String time = m.getString("send_at");
 
-                        String label = senderId.equals(Session.currentUser.getString("internal_uuid")) ? "You" : "Other";
+                        String label = senderId.equals(Session.currentUser.getString("internal_uuid")) ? "You" : senderName;
                         System.out.println("[" + time + "] " + label + ": " + content);
                     }
                     System.out.println("─────────────────────────────────────────────");
@@ -703,8 +778,9 @@ public class ActionHandler {
             System.out.println("2. Search");
             System.out.println("3. Create Channel");
             System.out.println("4. Create group");
-            System.out.println("5. Show sidebar menu");
-            System.out.println("6. Logout");
+            System.out.println("5. View contacts");
+            System.out.println("6. Show sidebar menu");
+            System.out.println("7. Logout");
             System.out.print("Choose an option: ");
             String choice = scanner.nextLine();
 
@@ -717,8 +793,9 @@ public class ActionHandler {
                 case "2" -> search();
                 case "3" -> createChannel();
                 case "4" -> createGroup();
-                case "5" -> showSidebarMenu();
-                case "6" -> {
+                case "5" -> showContactList();
+                case "6" -> showSidebarMenu();
+                case "7" -> {
                     logout();
                     return;
                 }
@@ -727,39 +804,262 @@ public class ActionHandler {
         }
     }
 
-    public void showChatListAndSelect() {
-
-
-        List<ChatEntry> chatList = Session.getChatList();
-        if (chatList.isEmpty()) {
-            System.out.println("📭 You have no chats.");
+    public void showContactList() {
+        List<ContactEntry> contacts = Session.contactEntries;
+        if (contacts.isEmpty()) {
+            System.out.println("📭 You have no contacts.");
             return;
         }
 
-        System.out.println("\nYour Chats:");
-        for (int i = 0; i < chatList.size(); i++) {
-            ChatEntry entry = chatList.get(i);
-            String last = entry.getLastMessageTime() == null ? "No messages yet" : entry.getLastMessageTime().toString();
-            System.out.printf("%d. [%s] %s - Last: %s\n", i + 1, entry.getType(), entry.getName(), last);
+        System.out.println("👥 Your Contacts:");
+        for (int i = 0; i < contacts.size(); i++) {
+            System.out.println((i + 1) + ". " + contacts.get(i));
         }
 
-        System.out.print("Select a chat by number: ");
-        int choice = Integer.parseInt(scanner.nextLine());
-        if (choice < 1 || choice > chatList.size()) {
+        System.out.print("Select a contact (0 to go back): ");
+        int choice = scanner.nextInt();
+        scanner.nextLine();
+
+        if (choice == 0) return;
+        if (choice < 1 || choice > contacts.size()) {
             System.out.println("❌ Invalid choice.");
             return;
         }
 
-        openChat(chatList.get(choice - 1));
+        ContactEntry selected = contacts.get(choice - 1);
+        System.out.println("\n📇 What do you want to do with " + selected.getProfileName() + "?");
+        System.out.println("1. View Profile");
+        System.out.println("2. Send Message");
+        System.out.print("Enter your choice: ");
+        int action = scanner.nextInt();
+        scanner.nextLine();
+
+        switch (action) {
+            case 1 -> viewProfile(selected.getContactId());
+            case 2 -> startPrivateChat(selected);
+            default -> System.out.println("❌ Invalid option.");
+        }
+    }
+
+    private void viewProfile(UUID targetId) {
+        JSONObject req = new JSONObject();
+        req.put("action", "view_profile");
+        req.put("target_id", targetId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to fetch profile.");
+            return;
+        }
+
+        JSONObject data = res.getJSONObject("data");
+        String profileName = data.getString("profile_name");
+        String userId = data.getString("user_id");
+        String bio = data.optString("bio", "(no bio)");
+        String imageUrl = data.optString("image_url", "(no image)");
+        boolean isOnline = data.getBoolean("is_online");
+        String lastSeen = data.getString("last_seen");
+
+        System.out.println("\n📄 Profile Info:");
+        System.out.println("Name: " + profileName);
+        System.out.println("User ID: " + userId);
+        System.out.println("Bio: " + bio);
+        System.out.println("Image: " + imageUrl);
+        System.out.println("Status: " + (isOnline ? "🟢 Online" : "🔘 Last seen at " + lastSeen));
+    }
+
+
+    private void startPrivateChat(ContactEntry contact) {
+        UUID myId = UUID.fromString(Session.currentUser.getString("internal_uuid"));
+        UUID contactId = contact.getContactId();
+
+        JSONObject req = new JSONObject();
+        req.put("action", "get_or_create_private_chat");
+        req.put("user1", myId.toString());
+        req.put("user2", contactId.toString());
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to create or fetch private chat.");
+            return;
+        }
+
+        JSONObject data = res.getJSONObject("data");
+        UUID chatId = UUID.fromString(data.getString("chat_id"));
+
+        ChatEntry entry = new ChatEntry(
+                chatId,
+                contact.getUserId(),
+                contact.getProfileName(),
+                contact.getImageUrl(),
+                "private",
+                null,
+                false,
+                false
+        );
+        entry.setOtherUserId(contactId);
+
+        Session.chatList.add(0, entry); // اضافه به اول لیست
+        System.out.println("✅ Chat with " + contact.getProfileName() + " started.");
+
+        openChat(entry); // 👈 مستقیم وارد چت شو (اختیاری)
     }
 
 
 
+//    public void showChatListAndSelect() {
+//
+//
+//        List<ChatEntry> chatList = Session.getChatList();
+//        if (chatList.isEmpty()) {
+//            System.out.println("📭 You have no chats.");
+//            return;
+//        }
+//
+//        System.out.println("\nYour Chats:");
+//        for (int i = 0; i < chatList.size(); i++) {
+//            ChatEntry entry = chatList.get(i);
+//            String last = entry.getLastMessageTime() == null ? "No messages yet" : entry.getLastMessageTime().toString();
+//            System.out.printf("%d. [%s] %s - Last: %s\n", i + 1, entry.getType(), entry.getName(), last);
+//        }
+//
+//        System.out.print("Select a chat by number: ");
+//        int choice = Integer.parseInt(scanner.nextLine());
+//        if (choice < 1 || choice > chatList.size()) {
+//            System.out.println("❌ Invalid choice.");
+//            return;
+//        }
+//
+//        openChat(chatList.get(choice - 1));
+//    }
+
+
+    public void showChatListAndSelect() {
+        if (Session.activeChats == null || Session.activeChats.isEmpty()) {
+            System.out.println("No active chats.");
+            return;
+        }
+
+        System.out.println("\nYour Chats:");
+        System.out.println("0. 📦 Archived Chats");
+
+        for (int i = 0; i < Session.activeChats.size(); i++) {
+            ChatEntry entry = Session.activeChats.get(i);
+            String time = (entry.getLastMessageTime() == null)
+                    ? "No messages yet"
+                    : entry.getLastMessageTime().toString();
+            System.out.println((i + 1) + ". [" + entry.getType() + "] " +
+                    entry.getName() + " - Last: " + time);
+        }
+
+        System.out.print("Select a chat by number: ");
+        int choice = Integer.parseInt(scanner.nextLine());
+
+        if (choice == 0) {
+            showArchivedChats();
+            return;
+        }
+
+        int index = choice - 1;
+
+        if (index < 0 || index >= Session.activeChats.size()) {
+            System.out.println("Invalid selection.");
+            return;
+        }
+
+        ChatEntry selected = Session.activeChats.get(index);
+        openChat(selected);
+    }
+
+
+
+    private void showArchivedChats() {
+        if (Session.archivedChats == null || Session.archivedChats.isEmpty()) {
+            System.out.println("📭 No archived chats.");
+            return;
+        }
+
+        System.out.println("\n📦 Archived Chats:");
+        for (int i = 0; i < Session.archivedChats.size(); i++) {
+            ChatEntry entry = Session.archivedChats.get(i);
+            String time = (entry.getLastMessageTime() == null)
+                    ? "No messages yet"
+                    : entry.getLastMessageTime().toString();
+            System.out.println((i + 1) + ". [" + entry.getType() + "] " +
+                    entry.getName() + " - Last: " + time);
+        }
+
+        System.out.print("Select a chat by number (or 0 to return): ");
+        int choice = Integer.parseInt(scanner.nextLine());
+
+        if (choice == 0) {
+            System.out.println("🔙 Returning to main chat list...");
+            return;
+        }
+
+        int index = choice - 1;
+
+        if (index < 0 || index >= Session.archivedChats.size()) {
+            System.out.println("❌ Invalid selection.");
+            return;
+        }
+
+        ChatEntry selected = Session.archivedChats.get(index);
+        openChat(selected);
+    }
+
+
+
+
     private void openChat(ChatEntry chat) {
+
+        //for private chats only
+        if (chat.getType().equalsIgnoreCase("private")) {
+            JSONObject reqTarget = new JSONObject();
+            reqTarget.put("action", "get_private_chat_target");
+            reqTarget.put("chat_id", chat.getId());
+
+            JSONObject resTarget = sendWithResponse(reqTarget);
+            if (resTarget == null || !resTarget.getString("status").equals("success")) {
+                System.out.println("❌ Failed to fetch target user for private chat.");
+                return;
+            }
+            String otherUserId = resTarget.getJSONObject("data").getString("target_id");
+            chat.setOtherUserId(UUID.fromString(otherUserId));
+        }
+
+
+
         JSONObject req = new JSONObject();
         req.put("action", "get_messages");
-        req.put("receiver_id", chat.getId());
+        req.put("receiver_id",chat.getId());
         req.put("receiver_type", chat.getType());
+//        String type = chat.getType();
+//        UUID chatId = chat.getId();
+//        if (type.equals("private")) {
+//            UUID myId = UUID.fromString(Session.currentUser.getString("internal_uuid"));
+//            UUID otherUserId = chat.getId();
+//
+//            JSONObject getChatIdReq = new JSONObject();
+//            getChatIdReq.put("action", "get_or_create_private_chat");
+//            getChatIdReq.put("user1", myId.toString());
+//            getChatIdReq.put("user2", otherUserId.toString());
+//
+//            JSONObject chatIdRes = sendWithResponse(getChatIdReq);
+//            if (chatIdRes == null || !chatIdRes.getString("status").equals("success")) {
+//                System.out.println("❌ Failed to fetch private chat ID.");
+//                return;
+//            }
+//
+//            Session.currentPrivateChatUserId = otherUserId;
+//            chatId = UUID.fromString(chatIdRes.getJSONObject("data").getString("chat_id"));
+//            chat.setId(String.valueOf(chatId));
+//
+//        }
+
+
+
+
 
         JSONObject res = sendWithResponse(req);
         if (res == null || !res.getString("status").equals("success")) {
@@ -773,13 +1073,23 @@ public class ActionHandler {
         for (int i = 0; i < messages.length(); i++) {
             JSONObject m = messages.getJSONObject(i);
             String senderId = m.getString("sender_id");
+            String senderName = m.optString("sender_name", "Other");
             String content = m.getString("content");
             String time = m.getString("send_at");
 
-            String label = senderId.equals(Session.currentUser.getString("internal_uuid")) ? "You" : "Other";
+            String label = senderId.equals(Session.currentUser.getString("internal_uuid")) ? "You" : senderName;
             System.out.println("[" + time + "] " + label + ": " + content);
         }
         System.out.println("─────────────────────────────────────────────");
+
+        if (chat.getType().equals("private") && chat.getOtherUserId() == null) {
+            for (ContactEntry contact : Session.contactEntries) {
+                if (contact.getContactId().equals(chat.getId())) {
+                    chat.setOtherUserId(contact.getContactId());
+                    break;
+                }
+            }
+        }
 
         boolean stayInChat = true;
 
@@ -832,9 +1142,24 @@ public class ActionHandler {
             return false;
         }
 
+
+            JSONObject reqTarget = new JSONObject();
+            reqTarget.put("action", "get_private_chat_target");
+            reqTarget.put("chat_id", chat.getId());
+
+            JSONObject resTarget = sendWithResponse(reqTarget);
+            if (resTarget == null || !resTarget.getString("status").equals("success")) {
+                System.out.println("❌ Failed to fetch target user for private chat.");
+                return false;
+            }
+
+            String otherUserId = resTarget.getJSONObject("data").getString("target_id");
+            chat.setOtherUserId(UUID.fromString(otherUserId));
+
+
         JSONObject req = new JSONObject();
         req.put("action", "view_profile");
-        req.put("target_id", chat.getId());  // internal UUID
+        req.put("target_id", chat.getOtherUserId());  // internal UUID
 
         JSONObject res = sendWithResponse(req);
 
@@ -858,25 +1183,26 @@ public class ActionHandler {
         System.out.println("3. Delete chat (one-sided)");
         System.out.println("4. Delete chat (both sides)");
         System.out.println("5. View profile");
-        System.out.println("6. Back");
+        System.out.println("6. Archive/Unarchived");
+        System.out.println("7. Back");
 
 
         String input = scanner.nextLine();
         switch (input) {
-            case "1" -> sendMessageTo(chat.getId(), "private");
-            case "2" -> toggleBlock(chat.getId());
+            case "1" -> sendMessage(chat.getId(), "private");
+            case "2" -> toggleBlock(chat.getOtherUserId());
             case "3" -> {
                 deleteChat(chat.getId(), false);
-                return false;
+                return true;
             }
             case "4" -> {
                 deleteChat(chat.getId(), true);
-                return false;
+                return true;
             }
             case "5" -> {
                 JSONObject reqProfile = new JSONObject();
                 reqProfile.put("action", "view_profile");
-                reqProfile.put("target_id", chat.getId());
+                reqProfile.put("target_id", chat.getOtherUserId());
 
                 JSONObject resProfile = sendWithResponse(reqProfile);
 
@@ -899,13 +1225,20 @@ public class ActionHandler {
                 return true;
             }
 
-            case "6" -> {
+            case "6" ->{
+                toggleArchive(chat.getId() , "private");
+
+                return true;
+            }
+
+            case "7" -> {
                 return false;
             }
             default -> System.out.println("Invalid choice.");
         }
         return true;
     }
+
 
     private JSONObject getGroupPermissions(UUID groupId) {
         JSONObject req = new JSONObject();
@@ -963,11 +1296,13 @@ public class ActionHandler {
             System.out.println("11. Edit Admin Permissions");
         }
 
+        System.out.println("12. Archive/Unarchived");
+
         System.out.println("0. Back to Chat List");
 
         String input = scanner.nextLine();
         switch (input) {
-            case "1" -> sendMessageTo(chat.getId(), "group");
+            case "1" -> sendMessage(chat.getId(), "group");
             case "2" -> viewGroupMembers(chat.getId());
             case "3" -> {
                 if (isOwner || (isAdmin && perms.optBoolean("can_add_members", false)))
@@ -1010,6 +1345,10 @@ public class ActionHandler {
                 if (isOwner) {
                     editAdminPermissions(chat.getId(), "group");
                 }
+            }
+
+            case "12"->{
+                toggleArchive(chat.getId() , "group");
             }
 
             case "0" -> {
@@ -1078,13 +1417,14 @@ public class ActionHandler {
             System.out.println("11. Edit Admin Permissions");
         }
 
+        System.out.println("12. Archive/Unarchived");
         System.out.println("0. Back to Chat List");
 
         String input = scanner.nextLine();
         switch (input) {
             case "1" -> {
                 if (isOwner || (isAdmin && perms.optBoolean("can_post", false))) {
-                    sendMessageTo(chat.getId(), "channel");
+                    sendMessage(chat.getId(), "channel");
                 } else {
                     System.out.println("❌ You don't have permission to post.");
                 }
@@ -1155,6 +1495,10 @@ public class ActionHandler {
                 if (isOwner) {
                     editAdminPermissions(chat.getId(), "channel");
                 }
+            }
+
+            case "12"->{
+                toggleArchive(chat.getId() , "channel");
             }
 
 
@@ -1672,7 +2016,7 @@ public class ActionHandler {
     private void deleteChat(UUID targetId, boolean both) {
         JSONObject req = new JSONObject();
         req.put("action", "delete_private_chat");
-        req.put("target_id", targetId.toString());
+        req.put("chat_id", targetId.toString());
         req.put("both", both);
         send(req);
 
@@ -1687,6 +2031,8 @@ public class ActionHandler {
 
 
     private void toggleBlock(UUID userId) {
+
+
         JSONObject req = new JSONObject();
         req.put("action", "toggle_block");
         req.put("user_id", Session.getUserUUID());
@@ -1849,31 +2195,7 @@ public class ActionHandler {
 
 
 
-    private void sendMessageTo(UUID id, String type) {
-        System.out.print("Enter message: ");
-        String text = scanner.nextLine().trim();
 
-        if (text.isEmpty()) {
-            System.out.println("Message cannot be empty.");
-            return;
-        }
-
-        JSONObject req = new JSONObject();
-        req.put("action", "send_message");
-        req.put("sender_id", Session.getUserUUID());
-        req.put("receiver_id", id.toString());
-        req.put("receiver_type", type);
-        req.put("text", text);
-
-        JSONObject res = sendWithResponse(req);
-        if (res == null) return;
-
-        if (res.getBoolean("success")) {
-            System.out.println("✅ Message sent.");
-        } else {
-            System.out.println("❌ Failed to send message.");
-        }
-    }
 
     private void addMemberToGroup(UUID groupId, UUID userId) {
         JSONObject req = new JSONObject();
@@ -2328,6 +2650,9 @@ public class ActionHandler {
                 System.err.println("❌ Invalid request: missing action.");
                 return null;
             }
+            System.out.println("📤 Sending request to server: " + request.toString(2));
+            System.out.println("📤 [sendWithResponse] Action: " + request.optString("action", "unknown") + ", Full: " + request.toString(2));
+
 
             String requestId = UUID.randomUUID().toString();
             request.put("request_id", requestId);
@@ -2391,12 +2716,21 @@ public class ActionHandler {
             return;
         }
 
+
         System.out.println("\n💬 Your Chats:");
+        System.out.println("0. 📦 Archived chats");
+
         int index = 1;
-        for (ChatEntry chat : Session.chatList) {
-            System.out.printf("%d. [%s] %s (%s)\n", index++, chat.getType(), chat.getName(), chat.getDisplayId());
+        for (ChatEntry chat : Session.activeChats) {
+            String time = (chat.getLastMessageTime() == null)
+                    ? "No messages yet"
+                    : chat.getLastMessageTime().toString();
+
+            System.out.printf("%d. [%s] %s (%s) - Last: %s\n",
+                    index++, chat.getType(), chat.getName(), chat.getDisplayId(), time);
         }
     }
+
 
     public static class ChatStateMonitor implements Runnable {
         private final PrintWriter out;
@@ -2714,6 +3048,173 @@ public class ActionHandler {
         }
     }
 
+
+
+    public void toggleArchive(UUID chatId, String chatType) {
+        // پیدا کردن چت از Session.chatList
+        Optional<ChatEntry> optional = Session.chatList.stream()
+                .filter(c -> c.getId().equals(chatId))
+                .findFirst();
+
+        if (optional.isEmpty()) {
+            System.out.println("❌ Chat not found.");
+            return;
+        }
+
+        ChatEntry chat = optional.get();
+
+        if (chat.isArchived()) {
+            unarchiveChat(chatId, chatType);
+            chat.setArchived(false);
+            System.out.println("✅ Chat unarchived.");
+        } else {
+            archiveChat(chatId, chatType);
+            chat.setArchived(true);
+            System.out.println("✅ Chat archived.");
+        }
+
+        Session.refreshChatLists();
+    }
+
+
+    private void archiveChat(UUID chatId, String chatType) {
+        JSONObject req = new JSONObject();
+        req.put("action", "archive_chat");
+        req.put("chat_id", chatId.toString());
+        req.put("chat_type", chatType);
+        JSONObject res = sendWithResponse(req);
+        if (res != null) System.out.println(res.getString("message"));
+    }
+
+    private void unarchiveChat(UUID chatId, String chatType) {
+        JSONObject req = new JSONObject();
+        req.put("action", "unarchive_chat");
+        req.put("chat_id", chatId.toString());
+        req.put("chat_type", chatType);
+        JSONObject res = sendWithResponse(req);
+        if (res != null) System.out.println(res.getString("message"));
+    }
+
+
+//    public void sendMessage(UUID receiverId, String receiverType) {
+//        Scanner scanner = new Scanner(System.in);
+//
+//        System.out.print("Enter your message: ");
+//        String content = scanner.nextLine();
+//
+//        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE): ");
+//        String messageType = scanner.nextLine();
+//        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+//        while (!allowedTypes.contains(messageType.toUpperCase())) {
+//            System.out.println("❌ Invalid message type. Try again (TEXT / IMAGE / VIDEO / FILE): ");
+//            messageType = scanner.nextLine();
+//        }
+//        messageType = messageType.toUpperCase();
+//
+//        JSONArray attachmentsArray = new JSONArray();
+//
+//        System.out.print("Do you want to attach files? (yes/no): ");
+//        if (scanner.nextLine().equalsIgnoreCase("yes")) {
+//            while (true) {
+//                System.out.print("File URL: ");
+//                String fileUrl = scanner.nextLine();
+//
+//                System.out.print("File Type (IMAGE / VIDEO / FILE): ");
+//                String fileType = scanner.nextLine();
+//
+//                JSONObject fileJson = new JSONObject();
+//                fileJson.put("file_url", fileUrl);
+//                fileJson.put("file_type", fileType);
+//                attachmentsArray.put(fileJson);
+//
+//                System.out.print("Add another file? (yes/no): ");
+//                if (!scanner.nextLine().equalsIgnoreCase("yes")) {
+//                    break;
+//                }
+//            }
+//        }
+//
+//
+//
+//        JSONObject messageJson = new JSONObject();
+//        messageJson.put("action", "send_message");
+//        messageJson.put("receiver_type", receiverType);
+//        messageJson.put("content", content);
+//        messageJson.put("message_type", messageType);
+//        if (receiverType.equals("private")) {
+//            messageJson.put("receiver_user_id", receiverId.toString());
+//        } else {
+//            messageJson.put("receiver_id", receiverId.toString());
+//        }
+//
+//        if (!attachmentsArray.isEmpty()) {
+//            messageJson.put("attachments", attachmentsArray);
+//        }
+//
+//        JSONObject response = sendWithResponse(messageJson);
+//        if (response != null && response.getString("status").equals("success")) {
+//            System.out.println("✅ Message sent successfully! ID: " + response.getJSONObject("data").getString("message_id"));
+//        } else {
+//            System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "no response"));
+//        }
+//
+//    }
+
+
+
+    public void sendMessage(UUID chatId, String receiverType) {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("Enter your message: ");
+        String content = scanner.nextLine();
+
+        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE): ");
+        String messageType = scanner.nextLine().toUpperCase();
+        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+        while (!allowedTypes.contains(messageType)) {
+            System.out.print("❌ Invalid type. Try again (TEXT / IMAGE / VIDEO / FILE): ");
+            messageType = scanner.nextLine().toUpperCase();
+        }
+
+        JSONArray attachmentsArray = new JSONArray();
+        System.out.print("Do you want to attach files? (yes/no): ");
+        if (scanner.nextLine().equalsIgnoreCase("yes")) {
+            while (true) {
+                System.out.print("File URL: ");
+                String fileUrl = scanner.nextLine();
+                System.out.print("File Type (IMAGE / VIDEO / FILE): ");
+                String fileType = scanner.nextLine().toUpperCase();
+
+                JSONObject fileJson = new JSONObject();
+                fileJson.put("file_url", fileUrl);
+                fileJson.put("file_type", fileType);
+                attachmentsArray.put(fileJson);
+
+                System.out.print("Add another file? (yes/no): ");
+                if (!scanner.nextLine().equalsIgnoreCase("yes")) break;
+            }
+        }
+
+        // 🔹 فقط ارسال پیام با chat_id و receiver_type
+        JSONObject messageJson = new JSONObject();
+        messageJson.put("action", "send_message");
+        messageJson.put("receiver_type", receiverType);
+        messageJson.put("receiver_id", chatId.toString());
+        messageJson.put("content", content);
+        messageJson.put("message_type", messageType);
+
+        if (!attachmentsArray.isEmpty()) {
+            messageJson.put("attachments", attachmentsArray);
+        }
+
+        JSONObject response = sendWithResponse(messageJson);
+        if (response != null && response.getString("status").equals("success")) {
+            System.out.println("✅ Message sent! ID: " + response.getJSONObject("data").getString("message_id"));
+        } else {
+            System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "No response"));
+        }
+    }
+
     private void showSidebarMenu() {
         System.out.println("\n--- Sidebar Menu ---");
         System.out.println("1. View Profile");
@@ -2760,4 +3261,7 @@ public class ActionHandler {
             default -> System.out.println("Invalid action.");
         }
     }
+
 }
+
+

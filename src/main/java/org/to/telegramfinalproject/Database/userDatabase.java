@@ -313,6 +313,8 @@ public class userDatabase {
 
         return null;
     }
+
+
     public List<User> searchUsers(String keyword, UUID currentUserId) {
         String query = """
         SELECT * FROM users 
