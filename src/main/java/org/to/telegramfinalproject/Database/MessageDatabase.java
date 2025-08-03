@@ -480,5 +480,37 @@ public class MessageDatabase {
         return messages;
     }
 
+    public static List<Message> getMessages(UUID chatId, UUID userId) {
+        String sql = """
+        SELECT * FROM messages
+        WHERE receiver_id = ?
+          AND is_deleted_globally = false
+          AND message_id NOT IN (
+              SELECT message_id FROM deleted_messages
+              WHERE user_id = ?
+          )
+        ORDER BY send_at
+    """;
+
+        List<Message> messages = new ArrayList<>();
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setObject(1, chatId);
+            ps.setObject(2, userId);
+
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                Message m = extractMessage(rs);
+                messages.add(m);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return messages;
+    }
+
+
 
 }
