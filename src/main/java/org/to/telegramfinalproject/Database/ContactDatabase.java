@@ -1,6 +1,7 @@
 package org.to.telegramfinalproject.Database;
 
 import org.to.telegramfinalproject.Models.Contact;
+import org.to.telegramfinalproject.Models.ContactEntry;
 import org.to.telegramfinalproject.Models.User;
 
 import java.sql.*;
@@ -267,6 +268,40 @@ public class ContactDatabase {
             return false;
         }
     }
+
+    public static List<ContactEntry> getContactEntries(UUID userId) {
+        List<ContactEntry> entries = new ArrayList<>();
+
+        String sql = """
+        SELECT c.contact_id, c.is_blocked, u.user_id, u.profile_name, u.image_url
+        FROM contacts c
+        JOIN users u ON c.contact_id = u.internal_uuid
+        WHERE c.user_id = ?
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, userId);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                UUID contactId = UUID.fromString(rs.getString("contact_id"));
+                boolean isBlocked = rs.getBoolean("is_blocked");
+                String userIdStr = rs.getString("user_id");
+                String profileName = rs.getString("profile_name");
+                String imageUrl = rs.getString("image_url");
+
+                ContactEntry entry = new ContactEntry(contactId, userIdStr, profileName, imageUrl, isBlocked);
+                entries.add(entry);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return entries;
+    }
+
 
 
 }

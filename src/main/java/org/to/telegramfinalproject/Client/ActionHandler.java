@@ -2959,7 +2959,7 @@ public class ActionHandler {
                     }
                     case "2" -> {
                         addContact(chat.getId());
-                        refreshChatList();
+                        refreshContactList();
                     }
                     default -> System.out.println("Back...");
                 }
@@ -3213,6 +3213,59 @@ public class ActionHandler {
         }
     }
 
+    private void refreshContactList() {
+        JSONObject req = new JSONObject();
+        req.put("action", "get_contact_list");
+        req.put("user_id", Session.currentUser.getString("user_id"));
+        out.println(req.toString());
+
+        try {
+            JSONObject response = TelegramClient.responseQueue.take();
+
+            if (response != null && response.getString("status").equals("success")) {
+                if (response.has("data") && !response.isNull("data")) {
+                    JSONObject data = response.getJSONObject("data");
+
+                    if (!data.has("contact_list") || data.isNull("contact_list")) {
+                        System.out.println("❌ contact_list not found in response data.");
+                        return;
+                    }
+
+                    JSONArray contactListJson = data.getJSONArray("contact_list");
+                    List<ContactEntry> contactList = new ArrayList<>();
+
+                    for (Object obj : contactListJson) {
+                        JSONObject c = (JSONObject) obj;
+
+                        ContactEntry entry = new ContactEntry(
+                                UUID.fromString(c.getString("contact_id")),
+                                c.getString("user_id"),
+                                c.getString("profile_name"),
+                                c.optString("image_url", ""),
+                                c.optBoolean("is_blocked", false)
+                        );
+
+                        contactList.add(entry);
+                    }
+
+                    Session.contactEntries = contactList;
+                    System.out.println("✅ Contact list updated. Total: " + contactList.size());
+
+                } else {
+                    System.out.println("⚠️ Response has no data object.");
+                }
+            } else {
+                if (response.has("message") && !response.isNull("message")) {
+                    System.out.println("❌ Failed to refresh contact list: " + response.getString("message"));
+                } else {
+                    System.out.println("❌ Failed to refresh contact list.");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error during refreshContactList: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 
 
 

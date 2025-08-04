@@ -486,6 +486,7 @@ public class ClientHandler implements Runnable {
                                     currentUser.getImage_url(),
                                     contactUUID
                             );
+
                         }
 
                         response = success
@@ -1265,7 +1266,7 @@ public class ClientHandler implements Runnable {
                                         break;
                                     }
 
-                                    messages = MessageDatabase.privateChatHistory(chatId);
+                                    messages = MessageDatabase.privateChatHistory(chatId, currentUser.getInternal_uuid());
                                 }
 
 
@@ -1275,7 +1276,7 @@ public class ClientHandler implements Runnable {
                                         response = new ResponseModel("error", "Group not found.");
                                         break;
                                     }
-                                    messages = MessageDatabase.groupChatHistory(group.getInternal_uuid());
+                                    messages = MessageDatabase.groupChatHistory(group.getInternal_uuid(),currentUser.getInternal_uuid());
                                 }
 
 
@@ -1285,7 +1286,7 @@ public class ClientHandler implements Runnable {
                                         response = new ResponseModel("error", "Channel not found.");
                                         break;
                                     }
-                                    messages = MessageDatabase.channelChatHistory(channel.getInternal_uuid());
+                                    messages = MessageDatabase.channelChatHistory(channel.getInternal_uuid(),currentUser.getInternal_uuid());
                                 }
                                 default -> {
                                     response = new ResponseModel("error", "Invalid receiver type.");
@@ -1988,7 +1989,6 @@ public class ClientHandler implements Runnable {
                     }
                     break;
 
-
                     case "get_or_create_private_chat": {
                         if (currentUser == null) {
                             response = new ResponseModel("error", "Unauthorized. Please login first.");
@@ -1999,7 +1999,23 @@ public class ClientHandler implements Runnable {
                             UUID user1 = UUID.fromString(requestJson.getString("user1"));
                             UUID user2 = UUID.fromString(requestJson.getString("user2"));
 
+                            UUID oldChat = PrivateChatDatabase.findChatBetween(user1, user2);
                             UUID chatId = PrivateChatDatabase.getOrCreateChat(user1, user2);
+                            boolean isNew = oldChat == null;
+
+                            if (isNew) {
+                                JSONObject chatPayload = new JSONObject();
+                                chatPayload.put("action", "created_private_chat");
+
+                                JSONObject chatData = new JSONObject();
+                                chatData.put("chat_id", chatId.toString());
+                                chatData.put("chat_type", "private");
+                                chatData.put("last_message_time", LocalDateTime.now().toString());
+                                chatPayload.put("data", chatData);
+
+                                RealTimeEventDispatcher.sendToUser(user1, chatPayload);
+                                RealTimeEventDispatcher.sendToUser(user2, chatPayload);
+                            }
 
                             JSONObject data = new JSONObject();
                             data.put("chat_id", chatId.toString());
@@ -2011,6 +2027,7 @@ public class ClientHandler implements Runnable {
 
                         break;
                     }
+
 
 
 
@@ -2028,6 +2045,43 @@ public class ClientHandler implements Runnable {
                         }
                         break;
                     }
+
+                    case "get_contact_list": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+
+                        List<Contact> contacts = ContactDatabase.getContacts(currentUser.getInternal_uuid());
+                        List<ContactEntry> contactEntries = new ArrayList<>();
+
+                        for (Contact contact : contacts) {
+                            UUID contactId = contact.getContact_id();
+                            User contactUser = userDatabase.findByInternalUUID(contactId);
+                            if (contactUser == null) continue;
+
+                            ContactEntry entry = new ContactEntry(
+                                    contactId,
+                                    contactUser.getUser_id(),
+                                    contactUser.getProfile_name(),
+                                    contactUser.getImage_url(),
+                                    contact.getIs_blocked()
+                            );
+
+                            contactEntries.add(entry);
+                        }
+
+                        // Optional: sort alphabetically
+                        contactEntries.sort(Comparator.comparing(ContactEntry::getProfileName, String.CASE_INSENSITIVE_ORDER));
+
+                        JSONObject data = new JSONObject();
+                        data.put("contact_list", JsonUtil.contactEntryListToJson(contactEntries));
+
+                        response = new ResponseModel("success", "Contact list refreshed", data);
+                        break;
+                    }
+
+
 
 
 

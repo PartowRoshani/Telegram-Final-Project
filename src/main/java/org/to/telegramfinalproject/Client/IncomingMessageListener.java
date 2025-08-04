@@ -79,19 +79,19 @@ public class IncomingMessageListener implements Runnable {
                  "update_group_or_channel", "chat_deleted",
                  "blocked_by_user", "unblocked_by_user", "message_seen",
                  "removed_from_group", "removed_from_channel",
-                 "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated" -> true;
+                 "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated","created_private_chat" -> true;
             default -> false;
         };
     }
 
     void handleRealTimeEvent(JSONObject response) throws IOException {
         String action = response.getString("action");
-        JSONObject msg = response.getJSONObject("data");
+        JSONObject msg = response.has("data") ? response.getJSONObject("data") : new JSONObject();
 
 
         switch (action) {
             case "added_to_group", "added_to_channel",
-                 "removed_from_group", "removed_from_channel", "chat_deleted" -> {
+                 "removed_from_group", "removed_from_channel", "chat_deleted","created_private_chat" -> {
                 System.out.println("🔄 Chat list changed. Updating...");
                 Session.forceRefreshChatList = true;
                 System.out.println("🧪 Calling requestChatList() after being added");
@@ -133,10 +133,6 @@ public class IncomingMessageListener implements Runnable {
                     }
                 }).start();
             }
-
-
-//
-
 
 
             default -> displayRealTimeMessage(action, msg);
