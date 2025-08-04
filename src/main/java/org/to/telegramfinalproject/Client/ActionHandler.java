@@ -268,34 +268,45 @@ public class ActionHandler {
                 if (response.has("data") && !response.isNull("data")) {
                     JSONObject data = response.getJSONObject("data");
 
-                    //is chat list available
-                    if (!data.has("chat_list") || data.isNull("chat_list")) {
-                        System.out.println("❌ chat_list not found in response data.");
+                    if ((!data.has("active_chat_list") || data.isNull("active_chat_list")) &&
+                            (!data.has("archived_chat_list") || data.isNull("archived_chat_list"))) {
+                        System.out.println("❌ No chat list found in response data.");
                         return;
                     }
 
-                    JSONArray chatListJson = data.getJSONArray("chat_list");
-                    List<ChatEntry> chatList = new ArrayList<>();
+                    List<ChatEntry> activeChats = new ArrayList<>();
+                    List<ChatEntry> archivedChats = new ArrayList<>();
 
-                    for (Object obj : chatListJson) {
-                        JSONObject chat = (JSONObject) obj;
-
-                        ChatEntry entry = new ChatEntry(
-                                UUID.fromString(chat.getString("internal_id")),
-                                chat.getString("id"),
-                                chat.getString("name"),
-                                chat.optString("image_url", ""),
-                                chat.getString("type"),
-                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
-                                chat.optBoolean("is_owner", false),
-                                chat.optBoolean("is_admin", false)
-                        );
-
-                        chatList.add(entry);
+                    // 📁 Parse active chat list
+                    if (data.has("active_chat_list") && !data.isNull("active_chat_list")) {
+                        JSONArray activeJson = data.getJSONArray("active_chat_list");
+                        for (Object obj : activeJson) {
+                            JSONObject chat = (JSONObject) obj;
+                            ChatEntry entry = parseChatEntry(chat);
+                            activeChats.add(entry);
+                        }
                     }
 
-                    Session.chatList = chatList;
-                    System.out.println("✅ Chat list updated. Total: " + chatList.size());
+                    // 📁 Parse archived chat list
+                    if (data.has("archived_chat_list") && !data.isNull("archived_chat_list")) {
+                        JSONArray archivedJson = data.getJSONArray("archived_chat_list");
+                        for (Object obj : archivedJson) {
+                            JSONObject chat = (JSONObject) obj;
+                            ChatEntry entry = parseChatEntry(chat);
+                            archivedChats.add(entry);
+                        }
+                    }
+
+                    Session.chatList = new ArrayList<>();
+                    Session.chatList.addAll(activeChats);
+                    Session.chatList.addAll(archivedChats);
+
+                    Session.activeChats = activeChats;
+                    Session.archivedChats = archivedChats;
+
+                    System.out.println("✅ Chat list updated.");
+                    System.out.println("📂 Active Chats: " + activeChats.size());
+                    System.out.println("📁 Archived Chats: " + archivedChats.size());
                 } else {
                     System.out.println("⚠️ Response has no data object.");
                 }
@@ -311,6 +322,26 @@ public class ActionHandler {
             e.printStackTrace();
         }
     }
+
+    private ChatEntry parseChatEntry(JSONObject chat) {
+        ChatEntry entry = new ChatEntry(
+                UUID.fromString(chat.getString("internal_id")),
+                chat.getString("id"),
+                chat.getString("name"),
+                chat.optString("image_url", ""),
+                chat.getString("type"),
+                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
+                chat.optBoolean("is_owner", false),
+                chat.optBoolean("is_admin", false)
+        );
+
+        if (chat.has("other_user_id") && !chat.isNull("other_user_id")) {
+            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
+        }
+
+        return entry;
+    }
+
 
 
     public void createGroup() {

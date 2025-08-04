@@ -397,6 +397,8 @@ public class MessageDatabase {
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, groupId);
+            stmt.setObject(2, userId);
+
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 result.add(extractMessage(rs));
@@ -431,7 +433,7 @@ public class MessageDatabase {
 //    }
 
 
-    public static List<Message> channelChatHistory(UUID channelId,UUID userId) {
+    public static List<Message> channelChatHistory(UUID channelId, UUID userId) {
         List<Message> result = new ArrayList<>();
         String sql = """
         SELECT * FROM messages
@@ -446,7 +448,10 @@ public class MessageDatabase {
 
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+
             stmt.setObject(1, channelId);
+            stmt.setObject(2, userId);
+
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 result.add(extractMessage(rs));
