@@ -173,8 +173,9 @@ public class MessageDatabase {
                         rs.getObject("original_message_id") != null ? UUID.fromString(rs.getString("original_message_id")) : null,
                         rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
                         rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null,
-                        rs.getBoolean("is_deleted_globally")
-                ));
+                        rs.getBoolean("is_deleted_globally"),
+                        rs.getTimestamp("edited_at").toLocalDateTime()
+                        ));
             }
 
         } catch (SQLException e) {
@@ -275,8 +276,9 @@ public class MessageDatabase {
                 (UUID) rs.getObject("original_message_id"),
                 (UUID) rs.getObject("forwarded_by"),
                 (UUID) rs.getObject("forwarded_from"),
-                rs.getBoolean("is_deleted_globally")
-        );
+                rs.getBoolean("is_deleted_globally"),
+                rs.getTimestamp("edited_at").toLocalDateTime()
+                );
     }
 
 
@@ -483,7 +485,8 @@ public class MessageDatabase {
     }
 
     public static boolean insertSavedMessage(Message message) {
-        String sql = "INSERT INTO messages (message_id, sender_id, receiver_type, receiver_id, content, message_type, status) " +
+        String sql = "INSERT INTO messages (message_id, sender_id, receiver_type, receiver_id, content, message_type, status, reply_to_id, is_edited, original_message_id," +
+                " forwarded_by, forwarded_from, is_deleted_globally) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = ConnectionDb.connect();

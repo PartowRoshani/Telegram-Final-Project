@@ -20,11 +20,12 @@ public class Message {
     private UUID forwarded_from;
     private List<FileAttachment> attachments;
     private boolean is_deleted_globally;
+    private LocalDateTime edited_at;
 
     public Message(UUID message_id, UUID sender_id, String receiver_type, UUID receiver_id, String content,
                    String message_type, LocalDateTime send_at, String status,
                    UUID reply_to_id, boolean is_edited, UUID original_message_id,
-                   UUID forwarded_by, UUID forwarded_from,boolean is_deleted_globally) {
+                   UUID forwarded_by, UUID forwarded_from,boolean is_deleted_globally, LocalDateTime edited_at) {
         this.message_id = message_id;
         this.sender_id = sender_id;
         this.receiver_type = receiver_type;
@@ -39,6 +40,7 @@ public class Message {
         this.forwarded_by = forwarded_by;
         this.forwarded_from = forwarded_from;
         this.is_deleted_globally = is_deleted_globally;
+        this.edited_at = edited_at;
     }
 
     public Message(UUID messageId, UUID senderId, UUID receiverId, String receiverType, String content, String messageType, LocalDateTime now) {
@@ -165,5 +167,13 @@ public class Message {
     }
     public boolean getIs_deleted_globally() {
         return is_deleted_globally;
+    }
+
+    public void setEdited_at(LocalDateTime edited_at) {
+        this.edited_at = edited_at;
+    }
+
+    public LocalDateTime getEdited_at() {
+        return edited_at;
     }
 }
