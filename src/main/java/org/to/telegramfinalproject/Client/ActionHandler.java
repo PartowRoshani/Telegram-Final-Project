@@ -607,12 +607,24 @@ public class ActionHandler {
                             String type = item.getString("type");
 
                             if (type.equals("message")) {
-                                System.out.println((i + 1) + ". [message] \"" + item.getString("content") + "\""
-                                        + " (from: " + item.optString("sender", "N/A") + ", at: " + item.getString("time") + ")");
+                                String senderName = item.optString("sender_name", item.optString("sender", "Unknown"));
+                                String time = item.optString("time", "Unknown time");
+                                String content = item.optString("content", "[No content]");
+                                String context = "";
+
+                                if (item.has("group_name")) {
+                                    context = " in group: " + item.getString("group_name");
+                                } else if (item.has("channel_name")) {
+                                    context = " in channel: " + item.getString("channel_name");
+                                }
+
+                                System.out.println((i + 1) + ". [message] \"" + content + "\""
+                                        + " (from: " + senderName + context + ", at: " + time + ")");
                             } else {
                                 System.out.println((i + 1) + ". [" + type + "] "
                                         + item.getString("name") + " (ID: " + item.getString("id") + ")");
                             }
+
                         }
 
                         System.out.print("Select a result number to interact (or 0 to exit): ");
@@ -714,6 +726,22 @@ public class ActionHandler {
                             case "message" -> {
                                 String receiverId = selected.getString("receiver_id");
                                 String receiverType = selected.getString("receiver_type");
+                                String senderName = selected.optString("sender_name", "Unknown");
+                                String content = selected.optString("content", "[No content]");
+                                String time = selected.optString("time", "Unknown time");
+
+                                String context = "";
+                                if (receiverType.equals("group")) {
+                                    context = "in group: " + selected.optString("group_name", "Unknown group");
+                                } else if (receiverType.equals("channel")) {
+                                    context = "in channel: " + selected.optString("channel_name", "Unknown channel");
+                                }
+
+                                System.out.println("📩 Message preview:");
+                                System.out.println("From: " + senderName);
+                                if (!context.isEmpty()) System.out.println(context);
+                                System.out.println("Time: " + time);
+                                System.out.println("Content: \"" + content + "\"");
 
                                 System.out.println("🔍 Looking for chat with displayId='" + receiverId + "' type='" + receiverType + "'");
 
@@ -724,6 +752,7 @@ public class ActionHandler {
 
                                 openChat(chat);
                             }
+
 
                             default -> System.out.println("No interaction available for type: " + type);
                         }

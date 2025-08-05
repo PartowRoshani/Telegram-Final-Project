@@ -6,6 +6,7 @@ import org.to.telegramfinalproject.Models.Message;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -128,38 +129,43 @@ public class MessageDatabase {
 
 
 
-
     public static List<Message> getUnreadMessages(UUID userId) {
         List<Message> messages = new ArrayList<>();
 
         String sql = """
-        SELECT m.* FROM messages m
+        SELECT m.*
+        FROM messages m
         LEFT JOIN message_receipts r ON m.message_id = r.message_id AND r.user_id = ?
+        LEFT JOIN deleted_messages d ON m.message_id = d.message_id AND d.user_id = ?
         WHERE r.user_id IS NULL
-        AND (
-            (m.receiver_type = 'private' AND m.receiver_id = ?)
-            OR
-            (m.receiver_type = 'group' AND EXISTS (
-                SELECT 1 FROM group_members gm WHERE gm.group_id = m.receiver_id AND gm.user_id = ?
-            ))
-            OR
-            (m.receiver_type = 'channel' AND EXISTS (
-                SELECT 1 FROM channel_subscribers cs WHERE cs.channel_id = m.receiver_id AND cs.user_id = ?
-            ))
-        )
+          AND d.message_id IS NULL
+          AND m.is_deleted_globally = FALSE
+          AND (
+              (m.receiver_type = 'private' AND m.receiver_id = ?)
+              OR
+              (m.receiver_type = 'group' AND EXISTS (
+                  SELECT 1 FROM group_members gm WHERE gm.group_id = m.receiver_id AND gm.user_id = ?
+              ))
+              OR
+              (m.receiver_type = 'channel' AND EXISTS (
+                  SELECT 1 FROM channel_subscribers cs WHERE cs.channel_id = m.receiver_id AND cs.user_id = ?
+              ))
+          )
+        ORDER BY m.send_at DESC
     """;
 
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setObject(1, userId);
-            stmt.setObject(2, userId);
-            stmt.setObject(3, userId);
-            stmt.setObject(4, userId);
+            stmt.setObject(1, userId); // for message_receipts
+            stmt.setObject(2, userId); // for deleted_messages
+            stmt.setObject(3, userId); // for private messages
+            stmt.setObject(4, userId); // for group members
+            stmt.setObject(5, userId); // for channel subscribers
 
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
-                messages.add(new Message(
+                Message message = new Message(
                         UUID.fromString(rs.getString("message_id")),
                         rs.getObject("sender_id") != null ? UUID.fromString(rs.getString("sender_id")) : null,
                         rs.getString("receiver_type"),
@@ -170,10 +176,13 @@ public class MessageDatabase {
                         rs.getString("status"),
                         rs.getObject("reply_to_id") != null ? UUID.fromString(rs.getString("reply_to_id")) : null,
                         rs.getBoolean("is_edited"),
+                        rs.getBoolean("is_deleted_globally"),
                         rs.getObject("original_message_id") != null ? UUID.fromString(rs.getString("original_message_id")) : null,
                         rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
                         rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null
-                ));
+                );
+
+                messages.add(message);
             }
 
         } catch (SQLException e) {
@@ -182,6 +191,8 @@ public class MessageDatabase {
 
         return messages;
     }
+
+
 
     public static List<FileAttachment> getAttachments(UUID messageId) {
         List<FileAttachment> attachments = new ArrayList<>();
@@ -271,6 +282,7 @@ public class MessageDatabase {
                 rs.getString("status"),
                 (UUID) rs.getObject("reply_to_id"),
                 rs.getBoolean("is_edited"),
+                rs.getBoolean("is_deleted_globally"),
                 (UUID) rs.getObject("original_message_id"),
                 (UUID) rs.getObject("forwarded_by"),
                 (UUID) rs.getObject("forwarded_from")
@@ -279,32 +291,89 @@ public class MessageDatabase {
 
 
 
+
+//    public static List<Message> searchMessagesForUser(UUID userId, String keyword) {
+//        List<Message> result = new ArrayList<>();
+//        String sql = """
+//        SELECT * FROM messages
+//        WHERE receiver_type = 'private'
+//          AND (sender_id = ? OR receiver_id = ?)
+//          AND content ILIKE ?
+//        ORDER BY send_at DESC
+//    """;
+//
+//        try (Connection conn = ConnectionDb.connect();
+//             PreparedStatement stmt = conn.prepareStatement(sql)) {
+//            stmt.setObject(1, userId);
+//            stmt.setObject(2, userId);
+//            stmt.setString(3, "%" + keyword + "%");
+//
+//            ResultSet rs = stmt.executeQuery();
+//            while (rs.next()) {
+//                result.add(extractMessage(rs));
+//            }
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//        }
+//
+//        return result;
+//    }
+
     public static List<Message> searchMessagesForUser(UUID userId, String keyword) {
-        List<Message> result = new ArrayList<>();
         String sql = """
-        SELECT * FROM messages
-        WHERE receiver_type = 'private'
-          AND (sender_id = ? OR receiver_id = ?)
-          AND content ILIKE ?
-        ORDER BY send_at DESC
-    """;
+        SELECT * FROM messages m
+        WHERE m.receiver_type = 'private'
+          AND m.content ILIKE ?
+          AND m.is_deleted_globally = FALSE
+          AND (m.sender_id = ? OR m.receiver_id = ?)
+          AND NOT EXISTS (
+              SELECT 1 FROM deleted_messages d
+              WHERE d.message_id = m.message_id AND d.user_id = ?
+          )
+        ORDER BY m.send_at DESC
+        """;
 
         try (Connection conn = ConnectionDb.connect();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, userId);
-            stmt.setObject(2, userId);
-            stmt.setString(3, "%" + keyword + "%");
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ResultSet rs = stmt.executeQuery();
+            ps.setString(1, "%" + keyword + "%");
+            ps.setObject(2, userId); // m.sender_id
+            ps.setObject(3, userId); // m.receiver_id
+            ps.setObject(4, userId); // deleted_messages
+
+            ResultSet rs = ps.executeQuery();
+            List<Message> messages = new ArrayList<>();
             while (rs.next()) {
-                result.add(extractMessage(rs));
+                messages.add(mapResultSetToMessage(rs));
             }
+            return messages;
+
         } catch (SQLException e) {
             e.printStackTrace();
+            return Collections.emptyList();
         }
-
-        return result;
     }
+
+    private static Message mapResultSetToMessage(ResultSet rs) throws SQLException {
+        return new Message(
+                UUID.fromString(rs.getString("message_id")),
+                rs.getObject("sender_id") != null ? UUID.fromString(rs.getString("sender_id")) : null,
+                rs.getString("receiver_type"),
+                UUID.fromString(rs.getString("receiver_id")),
+                rs.getString("content"),
+                rs.getString("message_type"),
+                rs.getTimestamp("send_at").toLocalDateTime(),
+                rs.getString("status"),
+                rs.getObject("reply_to_id") != null ? UUID.fromString(rs.getString("reply_to_id")) : null,
+                rs.getBoolean("is_edited"),
+                rs.getBoolean("is_deleted_globally"),
+                rs.getObject("original_message_id") != null ? UUID.fromString(rs.getString("original_message_id")) : null,
+                rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
+                rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null
+        );
+    }
+
+
 
 //    public static List<Message> privateChatHistory(UUID chatId) {
 //        List<Message> result = new ArrayList<>();
@@ -464,32 +533,74 @@ public class MessageDatabase {
 
 
 
-    public static List<Message> searchMessagesInGroups(List<UUID> groupIds, String keyword) {
+//    public static List<Message> searchMessagesInGroups(List<UUID> groupIds, String keyword) {
+//        List<Message> result = new ArrayList<>();
+//        if (groupIds.isEmpty()) return result;
+//
+//        String placeholders = groupIds.stream().map(id -> "?").collect(Collectors.joining(", "));
+//        String sql = """
+//        SELECT * FROM messages
+//        WHERE receiver_type = 'group'
+//        AND receiver_id IN (%s)
+//        AND content ILIKE ?
+//        ORDER BY send_at DESC
+//    """.formatted(placeholders);
+//
+//        try (Connection conn = ConnectionDb.connect();
+//             PreparedStatement stmt = conn.prepareStatement(sql)) {
+//
+//            int i = 1;
+//            for (UUID id : groupIds) {
+//                stmt.setObject(i++, id);
+//            }
+//            stmt.setString(i, "%" + keyword + "%");
+//
+//            ResultSet rs = stmt.executeQuery();
+//            while (rs.next()) {
+//                result.add(extractMessage(rs));
+//            }
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//        }
+//
+//        return result;
+//    }
+
+
+
+    public static List<Message> searchMessagesInGroups(List<UUID> groupIds, String keyword, UUID userId) {
         List<Message> result = new ArrayList<>();
         if (groupIds.isEmpty()) return result;
 
         String placeholders = groupIds.stream().map(id -> "?").collect(Collectors.joining(", "));
         String sql = """
-        SELECT * FROM messages
-        WHERE receiver_type = 'group'
-        AND receiver_id IN (%s)
-        AND content ILIKE ?
-        ORDER BY send_at DESC
+        SELECT m.*
+        FROM messages m
+        LEFT JOIN deleted_messages d ON m.message_id = d.message_id AND d.user_id = ?
+        WHERE m.receiver_type = 'group'
+          AND m.receiver_id IN (%s)
+          AND d.message_id IS NULL
+          AND m.is_deleted_globally = FALSE
+          AND m.content ILIKE ?
+        ORDER BY m.send_at DESC
     """.formatted(placeholders);
 
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             int i = 1;
-            for (UUID id : groupIds) {
-                stmt.setObject(i++, id);
+            stmt.setObject(i++, userId);
+            for (UUID groupId : groupIds) {
+                stmt.setObject(i++, groupId);
             }
+
             stmt.setString(i, "%" + keyword + "%");
 
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
-                result.add(extractMessage(rs));
+                result.add(mapResultSetToMessage(rs));
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -498,32 +609,71 @@ public class MessageDatabase {
     }
 
 
+//    public static List<Message> searchMessagesInChannels(List<UUID> channelIds, String keyword) {
+//        List<Message> result = new ArrayList<>();
+//        if (channelIds.isEmpty()) return result;
+//
+//        String placeholders = channelIds.stream().map(id -> "?").collect(Collectors.joining(", "));
+//        String sql = """
+//        SELECT * FROM messages
+//        WHERE receiver_type = 'channel'
+//        AND receiver_id IN (%s)
+//        AND content ILIKE ?
+//        ORDER BY send_at DESC
+//    """.formatted(placeholders);
+//
+//        try (Connection conn = ConnectionDb.connect();
+//             PreparedStatement stmt = conn.prepareStatement(sql)) {
+//
+//            int i = 1;
+//            for (UUID id : channelIds) {
+//                stmt.setObject(i++, id);
+//            }
+//            stmt.setString(i, "%" + keyword + "%");
+//
+//            ResultSet rs = stmt.executeQuery();
+//            while (rs.next()) {
+//                result.add(extractMessage(rs));
+//            }
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//        }
+//
+//        return result;
+//    }
+
+
+
     public static List<Message> searchMessagesInChannels(List<UUID> channelIds, String keyword) {
         List<Message> result = new ArrayList<>();
         if (channelIds.isEmpty()) return result;
 
         String placeholders = channelIds.stream().map(id -> "?").collect(Collectors.joining(", "));
         String sql = """
-        SELECT * FROM messages
-        WHERE receiver_type = 'channel'
-        AND receiver_id IN (%s)
-        AND content ILIKE ?
-        ORDER BY send_at DESC
+        SELECT m.*
+        FROM messages m
+        WHERE m.receiver_type = 'channel'
+          AND m.receiver_id IN (%s)
+          AND m.is_deleted_globally = FALSE
+          AND m.content ILIKE ?
+        ORDER BY m.send_at DESC
     """.formatted(placeholders);
 
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             int i = 1;
-            for (UUID id : channelIds) {
-                stmt.setObject(i++, id);
+            for (UUID channelId : channelIds) {
+                stmt.setObject(i++, channelId);
             }
+
             stmt.setString(i, "%" + keyword + "%");
 
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
-                result.add(extractMessage(rs));
+                result.add(mapResultSetToMessage(rs));
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }

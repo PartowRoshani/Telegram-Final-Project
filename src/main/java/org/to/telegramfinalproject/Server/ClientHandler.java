@@ -419,10 +419,14 @@ public class ClientHandler implements Runnable {
                             JSONObject obj = new JSONObject();
                             obj.put("type", "message");
                             obj.put("content", m.getContent());
-                            obj.put("sender", m.getSender_id().toString());
                             obj.put("time", m.getSend_at().toString());
+                            obj.put("sender", m.getSender_id() != null ? m.getSender_id().toString() : "N/A");
                             obj.put("receiver_id", m.getReceiver_id().toString());
                             obj.put("receiver_type", m.getReceiver_type());
+                            User senderUser = userDatabase.findByInternalUUID(m.getSender_id());
+                            String senderName = senderUser != null ? senderUser.getProfile_name() : "Unknown";
+                            obj.put("sender_name", senderName);
+
                             results.add(obj);
                         }
 
@@ -439,13 +443,23 @@ public class ClientHandler implements Runnable {
                         }
 
 
-                        List<Message> groupMessages = MessageDatabase.searchMessagesInGroups(groupIds, keyword);
+                        List<Message> groupMessages = MessageDatabase.searchMessagesInGroups(groupIds, keyword, currentUser.getInternal_uuid());
                         for (Message m : groupMessages) {
                             JSONObject obj = new JSONObject();
                             obj.put("type", "message");
                             obj.put("from", "group");
                             obj.put("content", m.getContent());
                             obj.put("time", m.getSend_at().toString());
+                            obj.put("sender", m.getSender_id() != null ? m.getSender_id().toString() : "N/A");
+                            obj.put("receiver_id", m.getReceiver_id().toString());
+                            obj.put("receiver_type", "group");
+                            Group senderGroup = GroupDatabase.findByInternalUUID(m.getReceiver_id());
+                            String groupName = senderGroup != null ? senderGroup.getGroup_name() : "Unknown";
+                            obj.put("group_name", groupName);
+                            User senderUser = userDatabase.findByInternalUUID(m.getSender_id());
+                            String senderName = senderUser != null ? senderUser.getProfile_name() : "Unknown";
+                            obj.put("sender_name", senderName);
+
                             results.add(obj);
                         }
 
@@ -456,6 +470,15 @@ public class ClientHandler implements Runnable {
                             obj.put("from", "channel");
                             obj.put("content", m.getContent());
                             obj.put("time", m.getSend_at().toString());
+                            obj.put("sender", m.getSender_id() != null ? m.getSender_id().toString() : "N/A");
+                            obj.put("receiver_id", m.getReceiver_id().toString());
+                            obj.put("receiver_type", "channel");
+                            Channel SenderChannel = ChannelDatabase.findByInternalUUID(m.getReceiver_id());
+                            String channelName = SenderChannel != null ? SenderChannel.getChannel_name() : "Unknown";
+                            obj.put("channel_name", channelName);
+                            User senderUser = userDatabase.findByInternalUUID(m.getSender_id());
+                            String senderName = senderUser != null ? senderUser.getProfile_name() : "Unknown";
+                            obj.put("sender_name", senderName);
                             results.add(obj);
                         }
 
