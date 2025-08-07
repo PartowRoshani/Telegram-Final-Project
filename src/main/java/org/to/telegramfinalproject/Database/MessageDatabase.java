@@ -153,7 +153,12 @@ public class MessageDatabase {
                             rs.getBoolean("is_deleted_globally"),
                             rs.getObject("original_message_id") != null ? UUID.fromString(rs.getString("original_message_id")) : null,
                             rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
-                            rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null
+                            rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null,
+                            rs.getTimestamp("edited_at") != null
+                                    ? rs.getTimestamp("edited_at").toLocalDateTime()
+                                    : null
+
+
                     );
 
                     messages.add(msg);
@@ -221,6 +226,26 @@ public class MessageDatabase {
             return false;
         }
     }
+
+    public static boolean updateContentAndMarkEdited(UUID messageId, String newContent) {
+        String sql = """
+        UPDATE messages
+        SET content = ?, is_edited = TRUE, edited_at = CURRENT_TIMESTAMP
+        WHERE message_id = ?
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newContent);
+            ps.setObject(2, messageId);
+
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 
 
     public void markMessageAsRead(UUID messageId, UUID userId) {

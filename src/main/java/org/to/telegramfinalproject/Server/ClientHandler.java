@@ -2107,8 +2107,8 @@ public class ClientHandler implements Runnable {
                     case "get_chat_messages" : {
                         UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
                         String chatType = requestJson.getString("chat_type");
-                        int offset = requestJson.optInt("offset", 0);  // پیش‌فرض 0
-                        int limit = requestJson.optInt("limit", 10);   // پیش‌فرض 10
+                        int offset = requestJson.optInt("offset", 0);
+                        int limit = requestJson.optInt("limit", 10);
 
                         List<Message> messages = MessageDatabase.getMessagesForChat(chatId, chatType, currentUser.getInternal_uuid(), offset, limit);
 
@@ -2147,6 +2147,8 @@ public class ClientHandler implements Runnable {
                             obj.put("time", m.getSend_at().toString());
                             obj.put("is_edited", m.isIs_edited());
                             obj.put("is_deleted_globally", m.isIs_deleted_globally());
+                            obj.put("edited_at", m.getEdited_at() != null ? m.getEdited_at().toString() : JSONObject.NULL);
+
 
                             result.put(obj);
                         }
@@ -2210,6 +2212,30 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "edit_message" : {
+                        UUID msgId = UUID.fromString(requestJson.getString("message_id"));
+                        String newContent = requestJson.getString("new_content");
+
+                        Message msg = MessageDatabase.findById(msgId);
+                        if (msg == null) {
+                            response = new ResponseModel("error", "Message not found.");
+                            break;
+                        }
+
+                        //Only sender can edit
+                        if (!msg.getSender_id().equals(currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "You can only edit your own messages.");
+                            break;
+                        }
+
+                        boolean success = MessageDatabase.updateContentAndMarkEdited(msgId, newContent);
+                        if (!success) {
+                            response = new ResponseModel("error", "Failed to update message.");
+                        } else {
+                            response = new ResponseModel("success", "Message edited.");
+                        }
+                        break;
+                    }
 
 
 

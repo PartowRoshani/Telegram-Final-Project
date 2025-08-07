@@ -1,6 +1,7 @@
 package org.to.telegramfinalproject.Models;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,6 +23,8 @@ public class Message {
     private List<FileAttachment> attachments;
     private transient String sender_name;
     private transient String receiver_name;
+    private LocalDateTime edited_at;
+
 
 
     // ✅ Full Constructor
@@ -56,6 +59,33 @@ public class Message {
         this.message_type = messageType;
         this.send_at = sendAt;
     }
+
+
+
+    public Message(UUID messageId, UUID senderId, String receiverType, UUID receiverId,
+                   String content, String messageType, LocalDateTime sendAt, String status,
+                   UUID replyToId, boolean isEdited, boolean isDeletedGlobally,
+                   UUID originalMessageId, UUID forwardedBy, UUID forwardedFrom,
+                   LocalDateTime editedAt) {
+
+        this.message_id = messageId;
+        this.sender_id = senderId;
+        this.receiver_type = receiverType;
+        this.receiver_id = receiverId;
+        this.content = content;
+        this.message_type = messageType;
+        this.send_at = sendAt;
+        this.status = status;
+        this.reply_to_id = replyToId;
+        this.is_edited = isEdited;
+        this.is_deleted_globally = isDeletedGlobally;
+        this.original_message_id = originalMessageId;
+        this.forwarded_by = forwardedBy;
+        this.forwarded_from = forwardedFrom;
+        this.edited_at = editedAt;
+    }
+
+
 
     // ✅ Getters & Setters
     public UUID getMessage_id() { return message_id; }
@@ -119,5 +149,14 @@ public class Message {
     public void setReceiver_name(String receiver_name) {
         this.receiver_name = receiver_name;
     }
+
+    public LocalDateTime getEdited_at() {
+        return edited_at;
+    }
+
+    public void setEdited_at(LocalDateTime edited_at) {
+        this.edited_at = edited_at;
+    }
+
 
 }

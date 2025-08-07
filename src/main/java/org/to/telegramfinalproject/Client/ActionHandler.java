@@ -3375,7 +3375,8 @@ public class ActionHandler {
                 String content = msg.optString("content", "(no content)");
                 String time = msg.optString("time", "");
                 boolean isEdited = msg.optBoolean("is_edited", false);
-                String label = isEdited ? "🖊️ (edited)" : "";
+                String editedAt = msg.optString("edited_at", "");
+                String label = isEdited ? "🖊️ (edited at: " + editedAt + ")" : "";
                 System.out.printf("[%d] [%s] %s: %s %s\n", i + 1, time, senderName, content, label);
             }
             System.out.println("─────────────────────────────────────────────");
@@ -3474,10 +3475,29 @@ public class ActionHandler {
         }
     }
 
-    private String editMessage(UUID messageId) {
-        return "not ready";
+    private void editMessage(UUID messageId) {
+        System.out.print("📝 Enter new content: ");
+        String newContent = scanner.nextLine().trim();
 
+        if (newContent.isEmpty()) {
+            System.out.println("❌ Content cannot be empty.");
+            return;
+        }
+
+        JSONObject req = new JSONObject();
+        req.put("action", "edit_message");
+        req.put("message_id", messageId.toString());
+        req.put("new_content", newContent);
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to edit message.");
+            return;
+        }
+
+        System.out.println("✅ Message updated successfully.");
     }
+
 
     private String reactToMessage(UUID messageId) {
         return "not ready";
