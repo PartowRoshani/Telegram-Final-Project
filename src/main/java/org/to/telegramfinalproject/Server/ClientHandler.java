@@ -2104,7 +2104,111 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "get_chat_messages" : {
+                        UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
+                        String chatType = requestJson.getString("chat_type");
+                        int offset = requestJson.optInt("offset", 0);  // پیش‌فرض 0
+                        int limit = requestJson.optInt("limit", 10);   // پیش‌فرض 10
 
+                        List<Message> messages = MessageDatabase.getMessagesForChat(chatId, chatType, currentUser.getInternal_uuid(), offset, limit);
+
+                        JSONArray result = new JSONArray();
+                        for (Message m : messages) {
+                            JSONObject obj = new JSONObject();
+                            obj.put("message_id", m.getMessage_id().toString());
+                            obj.put("sender_id", m.getSender_id().toString());
+
+                            User sender = userDatabase.findByInternalUUID(m.getSender_id());
+                            obj.put("sender_name", sender != null ? sender.getProfile_name() : "Unknown");
+
+                            obj.put("receiver_id", m.getReceiver_id().toString());
+                            obj.put("receiver_type", m.getReceiver_type());
+
+                            String receiverName = switch (m.getReceiver_type()) {
+                                case "group" -> {
+                                    Group g = GroupDatabase.findByInternalUUID(m.getReceiver_id());
+                                    yield g != null ? g.getGroup_name() : "Unknown group";
+                                }
+                                case "channel" -> {
+                                    Channel c = ChannelDatabase.findByInternalUUID(m.getReceiver_id());
+                                    yield c != null ? c.getChannel_name() : "Unknown channel";
+                                }
+                                case "private" -> {
+                                    UUID otherId = m.getSender_id().equals(currentUser.getInternal_uuid()) ? m.getReceiver_id() : m.getSender_id();
+                                    User other = userDatabase.findByInternalUUID(otherId);
+                                    yield other != null ? other.getProfile_name() : "Unknown user";
+                                }
+                                default -> "Unknown";
+                            };
+                            obj.put("receiver_name", receiverName);
+
+                            obj.put("content", m.getContent());
+                            obj.put("message_type", m.getMessage_type());
+                            obj.put("time", m.getSend_at().toString());
+                            obj.put("is_edited", m.isIs_edited());
+                            obj.put("is_deleted_globally", m.isIs_deleted_globally());
+
+                            result.put(obj);
+                        }
+
+                        JSONObject data = new JSONObject();
+                        data.put("get_chat_messages", result);
+
+                        response = new ResponseModel("success", "get messages ", data);
+                        break;
+                    }
+
+                    case "delete_message" : {
+                        UUID messageId = UUID.fromString(requestJson.getString("message_id"));
+                        String deleteType = requestJson.getString("delete_type");
+
+                        Message msg = MessageDatabase.findById(messageId);
+                        if (msg == null) {
+                            response = new ResponseModel("error", "Message not found.");
+                            break;
+                        }
+
+                        UUID currentUserId = currentUser.getInternal_uuid();
+
+                        if (deleteType.equals("one-sided")) {
+                            boolean success = MessageDatabase.markAsDeletedForUser(messageId, currentUserId);
+                            if (success)
+                                response = new ResponseModel("success", "Message deleted for current user.");
+                            else
+                                response = new ResponseModel("error", "Failed to delete message for user.");
+                            break;
+                        }
+
+                        //If allowed to delete the message
+                        if (deleteType.equals("global")) {
+                            boolean allowed = false;
+
+                            String type = msg.getReceiver_type();
+                            UUID chatId = msg.getReceiver_id();
+
+                            if (type.equals("private") || type.equals("group")) {
+                                allowed = msg.getSender_id().equals(currentUserId);
+                            } else if (type.equals("channel")) {
+                                //Only owner and admins can delete messages
+                                allowed = ChannelPermissionUtil.canDeleteMessage(chatId, currentUserId);
+                            }
+
+                            if (!allowed) {
+                                response = new ResponseModel("error", "You are not allowed to delete this message globally.");
+                                break;
+                            }
+
+                            boolean success = MessageDatabase.markAsGloballyDeleted(messageId);
+                            if (success)
+                                response = new ResponseModel("success", "Message deleted globally.");
+                            else
+                                response = new ResponseModel("error", "Failed to delete message globally.");
+                            break;
+                        }
+
+                        response = new ResponseModel("error", "Invalid delete_type.");
+                        break;
+                    }
 
 
 
@@ -2286,6 +2390,8 @@ public class ClientHandler implements Runnable {
             return new ResponseModel("error", "Exception while deleting chat.");
         }
     }
+
+
 
 
 

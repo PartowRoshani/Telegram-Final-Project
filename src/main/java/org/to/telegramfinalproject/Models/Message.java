@@ -20,6 +20,9 @@ public class Message {
     private UUID forwarded_by;
     private UUID forwarded_from;
     private List<FileAttachment> attachments;
+    private transient String sender_name;
+    private transient String receiver_name;
+
 
     // ✅ Full Constructor
     public Message(UUID message_id, UUID sender_id, String receiver_type, UUID receiver_id, String content,
@@ -101,4 +104,20 @@ public class Message {
 
     public List<FileAttachment> getAttachments() { return attachments; }
     public void setAttachments(List<FileAttachment> attachments) { this.attachments = attachments; }
+    public String getSender_name() {
+        return sender_name;
+    }
+
+    public void setSender_name(String sender_name) {
+        this.sender_name = sender_name;
+    }
+
+    public String getReceiver_name() {
+        return receiver_name;
+    }
+
+    public void setReceiver_name(String receiver_name) {
+        this.receiver_name = receiver_name;
+    }
+
 }

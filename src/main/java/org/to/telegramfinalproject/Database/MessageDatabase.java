@@ -111,7 +111,116 @@ public class MessageDatabase {
         }
     }
 
+    public static List<Message> getMessagesForChat(UUID chatId, String chatType, UUID currentUserId, int offset, int limit) {
+        List<Message> messages = new ArrayList<>();
 
+        String sql = """
+        SELECT * FROM messages m
+        WHERE m.receiver_type = ?
+          AND m.receiver_id = ?
+          AND m.is_deleted_globally = FALSE
+          AND NOT EXISTS (
+              SELECT 1 FROM deleted_messages d
+              WHERE d.message_id = m.message_id
+                AND d.user_id = ?
+          )
+        ORDER BY m.send_at DESC
+        LIMIT ? OFFSET ?
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, chatType);
+            ps.setObject(2, chatId);
+            ps.setObject(3, currentUserId);
+            ps.setInt(4, limit);
+            ps.setInt(5, offset);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Message msg = new Message(
+                            UUID.fromString(rs.getString("message_id")),
+                            UUID.fromString(rs.getString("sender_id")),
+                            rs.getString("receiver_type"),
+                            UUID.fromString(rs.getString("receiver_id")),
+                            rs.getString("content"),
+                            rs.getString("message_type"),
+                            rs.getTimestamp("send_at").toLocalDateTime(),
+                            rs.getString("status"),
+                            rs.getObject("reply_to_id") != null ? UUID.fromString(rs.getString("reply_to_id")) : null,
+                            rs.getBoolean("is_edited"),
+                            rs.getBoolean("is_deleted_globally"),
+                            rs.getObject("original_message_id") != null ? UUID.fromString(rs.getString("original_message_id")) : null,
+                            rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
+                            rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null
+                    );
+
+                    messages.add(msg);
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return messages;
+    }
+
+    public static Message findById(UUID messageId) {
+        String sql = "SELECT * FROM messages WHERE message_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, messageId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return new Message(
+                        UUID.fromString(rs.getString("message_id")),
+                        UUID.fromString(rs.getString("sender_id")),
+                        rs.getString("receiver_type"),
+                        UUID.fromString(rs.getString("receiver_id")),
+                        rs.getString("content"),
+                        rs.getString("message_type"),
+                        rs.getTimestamp("send_at").toLocalDateTime(),
+                        rs.getString("status"),
+                        rs.getObject("reply_to_id") != null ? UUID.fromString(rs.getString("reply_to_id")) : null,
+                        rs.getBoolean("is_edited"),
+                        rs.getBoolean("is_deleted_globally"),
+                        rs.getObject("original_message_id") != null ? UUID.fromString(rs.getString("original_message_id")) : null,
+                        rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
+                        rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null
+                );
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static boolean markAsDeletedForUser(UUID messageId, UUID userId) {
+        String sql = "INSERT INTO deleted_messages (message_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, messageId);
+            ps.setObject(2, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static boolean markAsGloballyDeleted(UUID messageId) {
+        String sql = "UPDATE messages SET is_deleted_globally = true WHERE message_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, messageId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
 
     public void markMessageAsRead(UUID messageId, UUID userId) {
@@ -749,6 +858,8 @@ public class MessageDatabase {
 
         return messages;
     }
+
+
 
 
 

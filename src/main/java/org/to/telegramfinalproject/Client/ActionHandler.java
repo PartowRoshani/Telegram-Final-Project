@@ -1242,7 +1242,8 @@ public class ActionHandler {
         System.out.println("4. Delete chat (both sides)");
         System.out.println("5. View profile");
         System.out.println("6. Archive/Unarchived");
-        System.out.println("7. Back");
+        System.out.println("7. View messages");
+        System.out.println("8. Back");
 
 
         String input = scanner.nextLine();
@@ -1288,8 +1289,11 @@ public class ActionHandler {
 
                 return true;
             }
+            case "7" ->{
+                viewMessagesInChat(chat);
+            }
 
-            case "7" -> {
+            case "8" -> {
                 return false;
             }
             default -> System.out.println("Invalid choice.");
@@ -1355,6 +1359,7 @@ public class ActionHandler {
         }
 
         System.out.println("12. Archive/Unarchived");
+        System.out.println("13. View messages");
 
         System.out.println("0. Back to Chat List");
 
@@ -1407,6 +1412,10 @@ public class ActionHandler {
 
             case "12"->{
                 toggleArchive(chat.getId() , "group");
+            }
+
+            case "13" ->{
+                viewMessagesInChat(chat);
             }
 
             case "0" -> {
@@ -1476,6 +1485,7 @@ public class ActionHandler {
         }
 
         System.out.println("12. Archive/Unarchived");
+        System.out.println("13. View messages");
         System.out.println("0. Back to Chat List");
 
         String input = scanner.nextLine();
@@ -1558,7 +1568,9 @@ public class ActionHandler {
             case "12"->{
                 toggleArchive(chat.getId() , "channel");
             }
-
+            case "13" ->{
+                viewMessagesInChat(chat);
+            }
 
             case "0" -> {
                 return false;
@@ -3327,8 +3339,173 @@ public class ActionHandler {
         }
     }
 
+    private void viewMessagesInChat(ChatEntry chat) {
+        int offset = 0;
+        int limit = 10;
 
+        while (true) {
+            JSONObject req = new JSONObject();
+            req.put("action", "get_chat_messages");
+            req.put("chat_id", chat.getId());
+            req.put("chat_type", chat.getType());
+            req.put("offset", offset);
+            req.put("limit", limit);
 
+            JSONObject res = sendWithResponse(req);
+            if (res == null || !res.getString("status").equals("success")) {
+                System.out.println("❌ Failed to fetch messages.");
+                return;
+            }
+
+            JSONArray messages = res.getJSONObject("data").getJSONArray("get_chat_messages");
+
+            if (messages.isEmpty()) {
+                if (offset == 0)
+                    System.out.println("📭 No messages in this chat.");
+                else
+                    System.out.println("📭 No more messages.");
+                return;
+            }
+
+            System.out.println("\n📥 Messages:");
+            System.out.println("─────────────────────────────────────────────");
+            for (int i = 0; i < messages.length(); i++) {
+                JSONObject msg = messages.getJSONObject(i);
+                String senderName = msg.optString("sender_name", "Unknown");
+                String content = msg.optString("content", "(no content)");
+                String time = msg.optString("time", "");
+                boolean isEdited = msg.optBoolean("is_edited", false);
+                String label = isEdited ? "🖊️ (edited)" : "";
+                System.out.printf("[%d] [%s] %s: %s %s\n", i + 1, time, senderName, content, label);
+            }
+            System.out.println("─────────────────────────────────────────────");
+
+            System.out.print("""
+                💬 Options:
+                [number] - Interact with message
+                N - Next page (older messages)
+                0 - Back to chat menu
+                ➤ Choice: """);
+
+            String input = scanner.nextLine().trim();
+
+            if (input.equals("0")) return;
+            if (input.equalsIgnoreCase("N")) {
+                offset += limit;
+                continue;
+            }
+
+            try {
+                int index = Integer.parseInt(input);
+                if (index < 1 || index > messages.length()) {
+                    System.out.println("❌ Invalid message number.");
+                    continue;
+                }
+
+                JSONObject selected = messages.getJSONObject(index - 1);
+                UUID messageId = UUID.fromString(selected.getString("message_id"));
+                UUID senderId = UUID.fromString(selected.getString("sender_id"));
+
+                System.out.println("\n🎯 Selected message by " + selected.getString("sender_name"));
+                System.out.println("1. Reply");
+                System.out.println("2. Forward");
+                System.out.println("3. React");
+
+                if (senderId.toString().equals(Session.currentUser.getString("internal_uuid"))) {
+                    System.out.println("4. Edit");
+                    System.out.println("5. Delete");
+                }
+
+                System.out.println("0. Back to message list");
+
+                String choice = scanner.nextLine().trim();
+                switch (choice) {
+                    case "1" -> replyToMessage(messageId);
+                    case "2" -> forwardMessage(messageId);
+                    case "3" -> reactToMessage(messageId);
+                    case "4" -> {
+                        if (senderId.toString().equals(Session.currentUser.getString("internal_uuid")))
+                            editMessage(messageId);
+                    }
+                    case "5" -> {
+                        if (senderId.toString().equals(Session.currentUser.getString("internal_uuid")))
+                            deleteMessage(messageId);
+                    }
+                    case "0" -> {}
+                    default -> System.out.println("❌ Invalid option.");
+                }
+
+            } catch (NumberFormatException e) {
+                System.out.println("❌ Please enter a valid number or command.");
+            }
+        }
+    }
+
+    private String editMessage(UUID messageId) {
+        return "not ready";
+
+    }
+
+    private String reactToMessage(UUID messageId) {
+        return "not ready";
+
+    }
+
+    private String forwardMessage(UUID messageId) {
+        return "not ready";
+    }
+
+    private String replyToMessage(UUID messageId) {
+        return "not ready";
+    }
+
+    private void deleteMessage(UUID messageId) {
+        System.out.println("\n🗑️ Delete Message Options:");
+        System.out.println("1. Delete for yourself (one-sided)");
+        System.out.println("2. Delete for everyone (global) [only if allowed]");
+        System.out.println("0. Cancel");
+
+        String choice = scanner.nextLine().trim();
+
+        switch (choice) {
+            case "1" -> {
+                JSONObject req = new JSONObject();
+                req.put("action", "delete_message");
+                req.put("message_id", messageId.toString());
+                req.put("delete_type", "one-sided");
+
+                JSONObject res = sendWithResponse(req);
+                if (res != null && res.getString("status").equals("success")) {
+                    System.out.println("✅ Message deleted for you.");
+                } else {
+                    System.out.println("❌ Failed to delete message.");
+                }
+            }
+
+            case "2" -> {
+                JSONObject req = new JSONObject();
+                req.put("action", "delete_message");
+                req.put("message_id", messageId.toString());
+                req.put("delete_type", "global");
+
+                JSONObject res = sendWithResponse(req);
+                if (res != null && res.getString("status").equals("success")) {
+                    System.out.println("✅ Message deleted for everyone.");
+                } else {
+                    System.out.println("❌ Failed to delete message globally.");
+                    if (res != null) System.out.println("⚠️ " + res.optString("message"));
+                }
+            }
+
+            case "0" -> {
+                System.out.println("❎ Delete canceled.");
+            }
+
+            default -> {
+                System.out.println("❌ Invalid option.");
+            }
+        }
+    }
 
 
 
