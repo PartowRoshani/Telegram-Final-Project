@@ -3381,11 +3381,11 @@ public class ActionHandler {
             System.out.println("─────────────────────────────────────────────");
 
             System.out.print("""
-                💬 Options:
-                [number] - Interact with message
-                N - Next page (older messages)
-                0 - Back to chat menu
-                ➤ Choice: """);
+            💬 Options:
+            [number] - Interact with message
+            N - Next page (older messages)
+            0 - Back to chat menu
+            ➤ Choice: """);
 
             String input = scanner.nextLine().trim();
 
@@ -3405,31 +3405,64 @@ public class ActionHandler {
                 JSONObject selected = messages.getJSONObject(index - 1);
                 UUID messageId = UUID.fromString(selected.getString("message_id"));
                 UUID senderId = UUID.fromString(selected.getString("sender_id"));
+                boolean isSender = senderId.toString().equals(Session.currentUser.getString("internal_uuid"));
+                boolean isChannel = chat.getType().equals("channel");
+                boolean isOwnerOrAdmin = chat.isOwner() || chat.isAdmin();
 
                 System.out.println("\n🎯 Selected message by " + selected.getString("sender_name"));
-                System.out.println("1. Reply");
-                System.out.println("2. Forward");
-                System.out.println("3. React");
 
-                if (senderId.toString().equals(Session.currentUser.getString("internal_uuid"))) {
-                    System.out.println("4. Edit");
-                    System.out.println("5. Delete");
+                // ✔ Show interaction menu based on access
+                System.out.println("2. Forward");
+
+                if (isChannel) {
+                    if (isOwnerOrAdmin) {
+                        System.out.println("1. Reply");
+                        System.out.println("3. React");
+                        if (isSender) {
+                            System.out.println("4. Edit");
+                        }
+                        System.out.println("5. Delete");
+                    }
+                } else {
+                    System.out.println("1. Reply");
+                    System.out.println("3. React");
+                    if (isSender) {
+                        System.out.println("4. Edit");
+                    }
+                    if (isSender || isOwnerOrAdmin) {
+                        System.out.println("5. Delete");
+                    }
                 }
 
                 System.out.println("0. Back to message list");
-
+                System.out.print("➤ Select an action: ");
                 String choice = scanner.nextLine().trim();
+
                 switch (choice) {
-                    case "1" -> replyToMessage(messageId);
+                    case "1" -> {
+                        if (!isChannel || isOwnerOrAdmin)
+                            replyToMessage(messageId);
+                        else
+                            System.out.println("❌ You are not allowed to reply.");
+                    }
                     case "2" -> forwardMessage(messageId);
-                    case "3" -> reactToMessage(messageId);
+                    case "3" -> {
+                        if (!isChannel || isOwnerOrAdmin)
+                            reactToMessage(messageId);
+                        else
+                            System.out.println("❌ You are not allowed to react.");
+                    }
                     case "4" -> {
-                        if (senderId.toString().equals(Session.currentUser.getString("internal_uuid")))
+                        if (isSender)
                             editMessage(messageId);
+                        else
+                            System.out.println("❌ You can only edit your own messages.");
                     }
                     case "5" -> {
-                        if (senderId.toString().equals(Session.currentUser.getString("internal_uuid")))
+                        if (!isChannel || isOwnerOrAdmin || isSender)
                             deleteMessage(messageId);
+                        else
+                            System.out.println("❌ You are not allowed to delete this message.");
                     }
                     case "0" -> {}
                     default -> System.out.println("❌ Invalid option.");
