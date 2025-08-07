@@ -2149,7 +2149,7 @@ public class ClientHandler implements Runnable {
                             obj.put("is_deleted_globally", m.isIs_deleted_globally());
                             obj.put("edited_at", m.getEdited_at() != null ? m.getEdited_at().toString() : JSONObject.NULL);
 
-                            //for reply
+                            //For reply messages
                             if (m.getReply_to_id() != null) {
                                 Message replied = MessageDatabase.findById(m.getReply_to_id());
                                 if (replied != null) {
@@ -2160,8 +2160,25 @@ public class ClientHandler implements Runnable {
                                 }
                             }
 
+                            //  For forwarded messages
+                            if (m.getOriginal_message_id() != null && m.getForwarded_from() != null) {
+                                User originalSender = userDatabase.findByInternalUUID(m.getForwarded_from());
+                                obj.put("is_forwarded", true);
+                                obj.put("forwarded_from_id", m.getForwarded_from().toString());
+                                obj.put("forwarded_from_name", originalSender != null ? originalSender.getProfile_name() : "Unknown");
+                            } else {
+                                obj.put("is_forwarded", false);
+                            }
+
+                            //For reactions
+                            List<String> reactions = MessageReactionDatabase.getReactions(m.getMessage_id());
+                            obj.put("reactions", new JSONArray(reactions));
+
+
                             result.put(obj);
                         }
+
+
 
                         JSONObject data = new JSONObject();
                         data.put("get_chat_messages", result);
@@ -2270,6 +2287,58 @@ public class ClientHandler implements Runnable {
                         response = saved ?
                                 new ResponseModel("success", "Reply sent") :
                                 new ResponseModel("error", "Failed to send reply");
+                        break;
+                    }
+
+                    case "forward_message" : {
+                        UUID originalMessageId = UUID.fromString(requestJson.getString("original_message_id"));
+                        UUID targetChatId = UUID.fromString(requestJson.getString("target_chat_id"));
+                        String targetChatType = requestJson.getString("target_chat_type");
+
+                        // original message
+                        Message original = MessageDatabase.findById(originalMessageId);
+                        if (original == null) {
+                            response = new ResponseModel("error", "Original message not found.");
+                            break;
+                        }
+
+                        //make forwarded message
+                        Message forwarded = new Message(
+                                UUID.randomUUID(),
+                                currentUser.getInternal_uuid(),
+                                targetChatType,
+                                targetChatId,
+                                original.getContent(),
+                                original.getMessage_type(),
+                                LocalDateTime.now(),
+                                "SEND",
+                                null,           // reply_to_id
+                                false,          // is_edited
+                                false,          // is_deleted_globally
+                                original.getMessage_id(), //original message id
+                                currentUser.getInternal_uuid(),       // forwarded_by
+                                original.getSender_id(),              // forwarded_from
+                                null                                   // edited_at
+                        );
+
+                        boolean success = MessageDatabase.saveForwardedMessage(forwarded);
+                        if (success) {
+                            response = new ResponseModel("success", "Message forwarded.");
+                            // (اختیاری) ارسال ریل تایم به اعضای چت مقصد
+                        } else {
+                            response = new ResponseModel("error", "Failed to forward message.");
+                        }
+                        break;
+                    }
+
+                    case "react_to_message": {
+                        UUID messageId = UUID.fromString(requestJson.getString("message_id"));
+                        String reaction = requestJson.getString("reaction");
+                        boolean success = MessageReactionDatabase.saveOrUpdateReaction(messageId, currentUser.getInternal_uuid(), reaction);
+
+                        response = success
+                                ? new ResponseModel("success", "Reaction saved.")
+                                : new ResponseModel("error", "Failed to save reaction.");
                         break;
                     }
 

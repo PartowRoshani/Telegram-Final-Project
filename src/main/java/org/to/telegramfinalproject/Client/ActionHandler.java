@@ -3378,16 +3378,37 @@ public class ActionHandler {
                 String editedAt = msg.optString("edited_at", "");
                 String label = isEdited ? "🖊️ (edited at: " + editedAt + ")" : "";
 
-                //for reply
-                if (msg.has("reply_to_sender") && msg.has("reply_to_content")) {
-                    String replySender = msg.optString("reply_to_sender", "Unknown");
-                    String replyContent = msg.optString("reply_to_content", "(no content)");
-                    System.out.printf(" ↪️ Replying to [%s]: %s\n", replySender, replyContent);
+                // ✅ Forwarded info
+                String forwardLabel = "";
+                if (msg.optBoolean("is_forwarded", false)) {
+                    String forwardFrom = msg.optString("forwarded_from_name", "Unknown");
+                    forwardLabel = "🔁 Forwarded from " + forwardFrom;
                 }
 
-                System.out.printf("[%d] [%s] %s: %s %s\n", i + 1, time, senderName, content, label);
+                //for reply
+                String replyLabel = "";
+                if (msg.has("reply_to_id")) {
+                    String repliedSender = msg.optString("reply_to_sender", "Unknown");
+                    String repliedContent = msg.optString("reply_to_content", "...");
+                    replyLabel = "↪️ Reply to " + repliedSender + ": \"" + repliedContent + "\"";
+                }
+
+                JSONArray reactions = msg.optJSONArray("reactions");
+                if (reactions != null && !reactions.isEmpty()) {
+                    System.out.print(" 💬 Reactions: ");
+                    for (int j = 0; j < reactions.length(); j++) {
+                        System.out.print(reactions.getString(j) + " ");
+                    }
+                    System.out.println();
+                }
+
+
+                System.out.printf("[%d] [%s] %s: \n", i + 1, time, senderName);
+                if (!forwardLabel.isEmpty()) System.out.println(forwardLabel);
+                if (!replyLabel.isEmpty()) System.out.println(replyLabel);
+                System.out.printf("%s %s\n", content, label);
+                System.out.println("─────────────────────────────────────────────");
             }
-            System.out.println("─────────────────────────────────────────────");
 
             System.out.print("""
             💬 Options:
@@ -3507,14 +3528,72 @@ public class ActionHandler {
     }
 
 
-    private String reactToMessage(UUID messageId) {
-        return "not ready";
+    private void reactToMessage(UUID messageId) {
+        System.out.print("😊 Enter your reaction (e.g., ❤️, 👍, 😂): ");
+        String reaction = scanner.nextLine().trim();
 
+        if (reaction.isEmpty()) {
+            System.out.println("⚠️ Empty reaction discarded.");
+            return;
+        }
+
+        JSONObject req = new JSONObject();
+        req.put("action", "react_to_message");
+        req.put("message_id", messageId.toString());
+        req.put("reaction", reaction);
+
+        JSONObject res = sendWithResponse(req);
+        if (res != null && res.getString("status").equals("success")) {
+            System.out.println("✅ Reaction sent.");
+        } else {
+            System.out.println("❌ Failed to react to message.");
+        }
     }
 
-    private String forwardMessage(UUID messageId) {
-        return "not ready";
+
+    private void forwardMessage(UUID originalMessageId) {
+        System.out.println("\n📤 Select a chat to forward this message to:");
+
+        List<ChatEntry> chatList = Session.chatList;
+        for (int i = 0; i < chatList.size(); i++) {
+            ChatEntry c = chatList.get(i);
+            System.out.printf("%d. [%s] %s\n", i + 1, c.getType(), c.getName());
+        }
+        System.out.println("0. Cancel");
+
+        System.out.print("➤ Enter chat number: ");
+        String input = scanner.nextLine().trim();
+
+        if (input.equals("0")) return;
+
+        try {
+            int choice = Integer.parseInt(input);
+            if (choice < 1 || choice > chatList.size()) {
+                System.out.println("❌ Invalid choice.");
+                return;
+            }
+
+            ChatEntry target = chatList.get(choice - 1);
+
+            JSONObject req = new JSONObject();
+            req.put("action", "forward_message");
+            req.put("target_chat_id", target.getId());
+            req.put("target_chat_type", target.getType());
+            req.put("original_message_id", originalMessageId.toString());
+            req.put("forwarded_by", Session.currentUser.getString("internal_uuid"));
+
+            JSONObject res = sendWithResponse(req);
+            if (res != null && res.getString("status").equals("success")) {
+                System.out.println("✅ Message forwarded successfully.");
+            } else {
+                System.out.println("❌ Failed to forward the message.");
+            }
+
+        } catch (NumberFormatException e) {
+            System.out.println("❌ Invalid input.");
+        }
     }
+
 
     private void replyToMessage(UUID messageId) {
         System.out.print("💬 Enter your reply: ");

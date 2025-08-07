@@ -282,6 +282,42 @@ public class MessageDatabase {
         }
     }
 
+    public static boolean saveForwardedMessage(Message message) {
+        String sql = """
+        INSERT INTO messages (
+            message_id, sender_id, receiver_type, receiver_id,
+            content, message_type, send_at, status,
+            reply_to_id, is_edited, is_deleted_globally,
+            original_message_id, forwarded_by, forwarded_from
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setObject(1, message.getMessage_id());
+            ps.setObject(2, message.getSender_id());
+            ps.setString(3, message.getReceiver_type());
+            ps.setObject(4, message.getReceiver_id());
+            ps.setString(5, message.getContent());
+            ps.setString(6, message.getMessage_type());
+            ps.setTimestamp(7, Timestamp.valueOf(message.getSend_at()));
+            ps.setString(8, message.getStatus());
+            ps.setObject(9, message.getReply_to_id());
+            ps.setBoolean(10, message.isIs_edited());
+            ps.setBoolean(11, message.isIs_deleted_globally());
+            ps.setObject(12, message.getOriginal_message_id()); //original id
+            ps.setObject(13, message.getForwarded_by());       //forwarded by
+            ps.setObject(14, message.getForwarded_from());      //forwarded from
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 
 
     public void markMessageAsRead(UUID messageId, UUID userId) {
