@@ -2149,6 +2149,16 @@ public class ClientHandler implements Runnable {
                             obj.put("is_deleted_globally", m.isIs_deleted_globally());
                             obj.put("edited_at", m.getEdited_at() != null ? m.getEdited_at().toString() : JSONObject.NULL);
 
+                            //for reply
+                            if (m.getReply_to_id() != null) {
+                                Message replied = MessageDatabase.findById(m.getReply_to_id());
+                                if (replied != null) {
+                                    User repliedSender = userDatabase.findByInternalUUID(replied.getSender_id());
+                                    obj.put("reply_to_id", replied.getMessage_id().toString());
+                                    obj.put("reply_to_sender", repliedSender != null ? repliedSender.getProfile_name() : "Unknown");
+                                    obj.put("reply_to_content", replied.getContent());
+                                }
+                            }
 
                             result.put(obj);
                         }
@@ -2236,6 +2246,33 @@ public class ClientHandler implements Runnable {
                         }
                         break;
                     }
+
+                    case "send_reply_message" : {
+                        UUID senderId = currentUser.getInternal_uuid();
+                        String content = requestJson.getString("content");
+                        String receiverType = requestJson.getString("receiver_type");
+                        UUID receiverId = UUID.fromString(requestJson.getString("receiver_id"));
+                        UUID replyToId = UUID.fromString(requestJson.getString("reply_to_id"));
+
+                        Message message = new Message(
+                                UUID.randomUUID(),
+                                senderId,
+                                receiverType,
+                                receiverId,
+                                content,
+                                "TEXT",
+                                LocalDateTime.now(),
+                                "SEND",
+                                replyToId
+                        );
+
+                        boolean saved = MessageDatabase.saveReplyMessage(message);
+                        response = saved ?
+                                new ResponseModel("success", "Reply sent") :
+                                new ResponseModel("error", "Failed to send reply");
+                        break;
+                    }
+
 
 
 

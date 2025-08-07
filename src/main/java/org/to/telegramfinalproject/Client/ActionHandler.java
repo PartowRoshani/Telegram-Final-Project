@@ -3377,6 +3377,14 @@ public class ActionHandler {
                 boolean isEdited = msg.optBoolean("is_edited", false);
                 String editedAt = msg.optString("edited_at", "");
                 String label = isEdited ? "🖊️ (edited at: " + editedAt + ")" : "";
+
+                //for reply
+                if (msg.has("reply_to_sender") && msg.has("reply_to_content")) {
+                    String replySender = msg.optString("reply_to_sender", "Unknown");
+                    String replyContent = msg.optString("reply_to_content", "(no content)");
+                    System.out.printf(" ↪️ Replying to [%s]: %s\n", replySender, replyContent);
+                }
+
                 System.out.printf("[%d] [%s] %s: %s %s\n", i + 1, time, senderName, content, label);
             }
             System.out.println("─────────────────────────────────────────────");
@@ -3508,9 +3516,34 @@ public class ActionHandler {
         return "not ready";
     }
 
-    private String replyToMessage(UUID messageId) {
-        return "not ready";
+    private void replyToMessage(UUID messageId) {
+        System.out.print("💬 Enter your reply: ");
+        String content = scanner.nextLine().trim();
+
+        if (content.isEmpty()) {
+            System.out.println("⚠️ Empty reply discarded.");
+            return;
+        }
+
+        UUID chatId = UUID.fromString(Session.currentChatId);
+        String chatType = Session.currentChatType;
+
+        JSONObject req = new JSONObject();
+        req.put("action", "send_reply_message");
+        req.put("receiver_type", chatType);
+        req.put("receiver_id", chatId.toString());
+        req.put("content", content);
+        req.put("reply_to_id", messageId.toString());
+
+        JSONObject res = sendWithResponse(req);
+
+        if (res != null && res.getString("status").equals("success")) {
+            System.out.println("✅ Reply sent.");
+        } else {
+            System.out.println("❌ Failed to send reply.");
+        }
     }
+
 
     private void deleteMessage(UUID messageId) {
         System.out.println("\n🗑️ Delete Message Options:");

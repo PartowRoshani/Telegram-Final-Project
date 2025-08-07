@@ -48,7 +48,9 @@ public class Message {
         this.forwarded_from = forwarded_from;
     }
 
-    // ✅ Short Constructor
+
+    // ✅ Short Constructors
+    //for normal messages
     public Message(UUID messageId, UUID senderId, UUID receiverId, String receiverType,
                    String content, String messageType, LocalDateTime sendAt) {
         this.message_id = messageId;
@@ -59,6 +61,24 @@ public class Message {
         this.message_type = messageType;
         this.send_at = sendAt;
     }
+
+    //for reply messages
+    public Message(UUID messageId, UUID senderId, String receiverType, UUID receiverId,
+                   String content, String messageType, LocalDateTime sendAt, String status,
+                   UUID replyToId) {
+        this.message_id = messageId;
+        this.sender_id = senderId;
+        this.receiver_type = receiverType;
+        this.receiver_id = receiverId;
+        this.content = content;
+        this.message_type = messageType;
+        this.send_at = sendAt;
+        this.status = status;
+        this.reply_to_id = replyToId;
+        this.is_edited = false;
+        this.is_deleted_globally = false;
+    }
+
 
 
 
