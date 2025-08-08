@@ -2283,6 +2283,12 @@ public class ClientHandler implements Runnable {
                         String content = requestJson.getString("content");
                         String receiverType = requestJson.getString("receiver_type");
                         UUID receiverId = UUID.fromString(requestJson.getString("receiver_id"));
+                        //For block
+                        if ("private".equals(receiverType) && !canSendToPrivate(receiverId, senderId)) {
+                            response = new ResponseModel("error", "You can't message this user (blocked).");
+                            break;
+                        }
+
                         UUID replyToId = UUID.fromString(requestJson.getString("reply_to_id"));
 
                         Message message = new Message(
@@ -2305,7 +2311,9 @@ public class ClientHandler implements Runnable {
                                 .put("excerpt", excerpt));
 
                         List<UUID> receivers = Receivers.resolveFor(receiverType, receiverId, senderId);
-                        RealTimeEventDispatcher.sendNewMessage(message, receivers, "reply", meta);
+                        //RealTimeEventDispatcher.sendNewMessage(message, receivers, "reply", meta);
+                        RealTimeEventDispatcher.sendNewMessageFiltered(message, receivers, senderId, "reply", meta);
+
 
                         response = saved ?
                                 new ResponseModel("success", "Reply sent") :
@@ -2314,9 +2322,16 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "forward_message" : {
+                        UUID senderId = currentUser.getInternal_uuid();
                         UUID originalMessageId = UUID.fromString(requestJson.getString("original_message_id"));
                         UUID targetChatId = UUID.fromString(requestJson.getString("target_chat_id"));
                         String targetChatType = requestJson.getString("target_chat_type");
+
+                        //For block
+                        if ("private".equals(targetChatType) && !canSendToPrivate(targetChatId, senderId)) {
+                            response = new ResponseModel("error", "You can't message this user (blocked).");
+                            break;
+                        }
 
                         // original message
                         Message original = MessageDatabase.findById(originalMessageId);
@@ -2355,7 +2370,9 @@ public class ClientHandler implements Runnable {
                                     .put("sender_name", userDatabase.findByInternalUUID(original.getSender_id()).getProfile_name()));
 
                             List<UUID> receivers = Receivers.resolveFor(targetChatType, targetChatId, currentUser.getInternal_uuid());
-                            RealTimeEventDispatcher.sendNewMessage(forwarded, receivers, "forward", meta);
+                            //RealTimeEventDispatcher.sendNewMessage(forwarded, receivers, "forward", meta);
+                            RealTimeEventDispatcher.sendNewMessageFiltered(forwarded, receivers, senderId, "forward", meta);
+
                         } else {
                             response = new ResponseModel("error", "Failed to forward message.");
                         }
@@ -2466,6 +2483,13 @@ public class ClientHandler implements Runnable {
 
             if(Objects.equals(receiverType, "private")){
                 PrivateChatDatabase.clearDeletedFlag(senderId, receiverId);
+                UUID other = PrivateChatDatabase.getOtherParticipant(receiverId, senderId);
+                if (other == null) {
+                    return new ResponseModel("error", "Invalid private chat.");
+                }
+                if (ContactDatabase.isBlocked(senderId, other) || ContactDatabase.isBlocked(other, senderId)) {
+                    return new ResponseModel("error", "You can't message this user (blocked).");
+                }
             }
 
 
@@ -2573,6 +2597,12 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    // helper
+    private boolean canSendToPrivate(UUID chatId, UUID senderId) {
+        UUID other = PrivateChatDatabase.getOtherParticipant(chatId, senderId);
+        if (other == null) return false;
+        return !(ContactDatabase.isBlocked(senderId, other) || ContactDatabase.isBlocked(other, senderId));
+    }
 
 
 

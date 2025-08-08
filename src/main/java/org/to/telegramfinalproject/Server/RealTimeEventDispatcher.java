@@ -2,6 +2,7 @@ package org.to.telegramfinalproject.Server;
 
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.ChannelDatabase;
+import org.to.telegramfinalproject.Database.ContactDatabase;
 import org.to.telegramfinalproject.Database.GroupDatabase;
 import org.to.telegramfinalproject.Database.userDatabase;
 import org.to.telegramfinalproject.Models.Message;
@@ -120,6 +121,31 @@ public class RealTimeEventDispatcher {
         payload.put("data", data);
         for (UUID userId : receivers) sendToUser(userId, payload);
     }
+
+    public static void sendNewMessageFiltered(Message m, List<UUID> receivers, UUID senderId, String kind, JSONObject meta) {
+        JSONObject payload = new JSONObject()
+                .put("action", "new_message")
+                .put("data", new JSONObject()
+                        .put("id", m.getMessage_id().toString())
+                        .put("message_id", m.getMessage_id().toString())
+                        .put("sender_id", m.getSender_id().toString())
+                        .put("sender_name", userDatabase.findByInternalUUID(m.getSender_id()).getProfile_name())
+                        .put("receiver_id", m.getReceiver_id().toString())
+                        .put("receiver_type", m.getReceiver_type())
+                        .put("content", m.getContent())
+                        .put("message_type", m.getMessage_type())
+                        .put("send_at", m.getSend_at().toString())
+                        .put("kind", kind)
+                        .put("meta", meta != null ? meta : JSONObject.NULL)
+                );
+
+        for (UUID uid : receivers) {
+            //If receiver blocked
+            if ("private".equalsIgnoreCase(m.getReceiver_type()) && ContactDatabase.isBlocked(uid, senderId)) continue;
+            sendToUser(uid, payload);
+        }
+    }
+
 
     public static void notifyMessageDeletedGlobal(UUID chatId, UUID messageId, List<UUID> receivers) {
         JSONObject data = new JSONObject();
@@ -388,6 +414,13 @@ public class RealTimeEventDispatcher {
 
         for (UUID userId : receivers) {
             sendToUser(userId, payload);
+        }
+
+
+        for (UUID uid : receivers) {
+            //If receiver blocked
+            if ("private".equalsIgnoreCase(message.getReceiver_type()) && ContactDatabase.isBlocked(uid, message.getSender_id())) continue;
+            sendToUser(uid, payload);
         }
     }
 
