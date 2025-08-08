@@ -974,8 +974,6 @@ public class ActionHandler {
             return;
         }
 
-        boolean isSavedMessage = false;
-
         System.out.println("\nYour Chats:");
         System.out.println("0. 📦 Archived Chats");
 
