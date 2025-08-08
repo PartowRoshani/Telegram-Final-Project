@@ -268,34 +268,45 @@ public class ActionHandler {
                 if (response.has("data") && !response.isNull("data")) {
                     JSONObject data = response.getJSONObject("data");
 
-                    //is chat list available
-                    if (!data.has("chat_list") || data.isNull("chat_list")) {
-                        System.out.println("❌ chat_list not found in response data.");
+                    if ((!data.has("active_chat_list") || data.isNull("active_chat_list")) &&
+                            (!data.has("archived_chat_list") || data.isNull("archived_chat_list"))) {
+                        System.out.println("❌ No chat list found in response data.");
                         return;
                     }
 
-                    JSONArray chatListJson = data.getJSONArray("chat_list");
-                    List<ChatEntry> chatList = new ArrayList<>();
+                    List<ChatEntry> activeChats = new ArrayList<>();
+                    List<ChatEntry> archivedChats = new ArrayList<>();
 
-                    for (Object obj : chatListJson) {
-                        JSONObject chat = (JSONObject) obj;
-
-                        ChatEntry entry = new ChatEntry(
-                                UUID.fromString(chat.getString("internal_id")),
-                                chat.getString("id"),
-                                chat.getString("name"),
-                                chat.optString("image_url", ""),
-                                chat.getString("type"),
-                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
-                                chat.optBoolean("is_owner", false),
-                                chat.optBoolean("is_admin", false)
-                        );
-
-                        chatList.add(entry);
+                    // 📁 Parse active chat list
+                    if (data.has("active_chat_list") && !data.isNull("active_chat_list")) {
+                        JSONArray activeJson = data.getJSONArray("active_chat_list");
+                        for (Object obj : activeJson) {
+                            JSONObject chat = (JSONObject) obj;
+                            ChatEntry entry = parseChatEntry(chat);
+                            activeChats.add(entry);
+                        }
                     }
 
-                    Session.chatList = chatList;
-                    System.out.println("✅ Chat list updated. Total: " + chatList.size());
+                    // 📁 Parse archived chat list
+                    if (data.has("archived_chat_list") && !data.isNull("archived_chat_list")) {
+                        JSONArray archivedJson = data.getJSONArray("archived_chat_list");
+                        for (Object obj : archivedJson) {
+                            JSONObject chat = (JSONObject) obj;
+                            ChatEntry entry = parseChatEntry(chat);
+                            archivedChats.add(entry);
+                        }
+                    }
+
+                    Session.chatList = new ArrayList<>();
+                    Session.chatList.addAll(activeChats);
+                    Session.chatList.addAll(archivedChats);
+
+                    Session.activeChats = activeChats;
+                    Session.archivedChats = archivedChats;
+
+                    System.out.println("✅ Chat list updated.");
+                    System.out.println("📂 Active Chats: " + activeChats.size());
+                    System.out.println("📁 Archived Chats: " + archivedChats.size());
                 } else {
                     System.out.println("⚠️ Response has no data object.");
                 }
@@ -310,6 +321,25 @@ public class ActionHandler {
             System.err.println("❌ Error during refreshChatList: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private ChatEntry parseChatEntry(JSONObject chat) {
+        ChatEntry entry = new ChatEntry(
+                UUID.fromString(chat.getString("internal_id")),
+                chat.getString("id"),
+                chat.getString("name"),
+                chat.optString("image_url", ""),
+                chat.getString("type"),
+                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
+                chat.optBoolean("is_owner", false),
+                chat.optBoolean("is_admin", false)
+        );
+
+        if (chat.has("other_user_id") && !chat.isNull("other_user_id")) {
+            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
+        }
+
+        return entry;
     }
 
 
@@ -468,6 +498,10 @@ public class ActionHandler {
 
                         if (chat.has("other_user_id")) {
                             entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
+                        }
+
+                        if (chat.has("is_saved_messages")) {
+                            entry.setSavedMessages(chat.getBoolean("is_saved_messages"));
                         }
 
                         chatList.add(entry);
@@ -940,16 +974,40 @@ public class ActionHandler {
             return;
         }
 
+        boolean isSavedMessage = false;
+
         System.out.println("\nYour Chats:");
         System.out.println("0. 📦 Archived Chats");
 
+        // Track index dynamically
+        int index = 1;
+
+        // Check if Saved Messages exists in the list
+        int savedMessagesIndex = -1;
         for (int i = 0; i < Session.activeChats.size(); i++) {
             ChatEntry entry = Session.activeChats.get(i);
+
+            if (entry.isSavedMessages()) {
+                savedMessagesIndex = index;
+                System.out.println(index + ". 📦 Saved Messages Chat");
+                index++;
+                break;
+            }
+        }
+
+        // Print the rest of the chats
+        for (int i = 0; i < Session.activeChats.size(); i++) {
+            ChatEntry entry = Session.activeChats.get(i);
+            if (entry.isSavedMessages()) {
+                continue; // Already printed above
+            }
+
             String time = (entry.getLastMessageTime() == null)
                     ? "No messages yet"
                     : entry.getLastMessageTime().toString();
-            System.out.println((i + 1) + ". [" + entry.getType() + "] " +
+            System.out.println(index + ". [" + entry.getType() + "] " +
                     entry.getName() + " - Last: " + time);
+            index++;
         }
 
         System.out.print("Select a chat by number: ");
@@ -960,14 +1018,33 @@ public class ActionHandler {
             return;
         }
 
-        int index = choice - 1;
+        if (choice == savedMessagesIndex) {
+            new SidebarHandler(scanner, this).getSavedMessagesData(Session.getUserUUID());
+            return;
+        }
 
-        if (index < 0 || index >= Session.activeChats.size()) {
+        // Adjust for Saved Messages if it was in the list
+        int baseIndex = (savedMessagesIndex != -1 && choice > savedMessagesIndex) ? 1 : 0;
+        int chatIndex = choice - 1 - baseIndex;
+
+        if (chatIndex < 0 || chatIndex >= Session.activeChats.size()) {
             System.out.println("Invalid selection.");
             return;
         }
 
-        ChatEntry selected = Session.activeChats.get(index);
+        // Find the actual index of the chat, skipping the saved_messages entry
+        int actualIndex = 0;
+        for (int i = 0; i < Session.activeChats.size(); i++) {
+            if (Session.activeChats.get(i).getType().equalsIgnoreCase("saved_messages")) {
+                continue; // Skip saved_messages
+            }
+            if (actualIndex == chatIndex) {
+                break;
+            }
+            actualIndex++;
+        }
+
+        ChatEntry selected = Session.activeChats.get(actualIndex);
         openChat(selected);
     }
 
@@ -3168,11 +3245,11 @@ public class ActionHandler {
         System.out.print("Enter your message: ");
         String content = scanner.nextLine();
 
-        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE): ");
+        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE / AUDIO): ");
         String messageType = scanner.nextLine().toUpperCase();
         Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
         while (!allowedTypes.contains(messageType)) {
-            System.out.print("❌ Invalid type. Try again (TEXT / IMAGE / VIDEO / FILE): ");
+            System.out.print("❌ Invalid type. Try again (TEXT / IMAGE / VIDEO / FILE / AUDIO): ");
             messageType = scanner.nextLine().toUpperCase();
         }
 
@@ -3182,8 +3259,31 @@ public class ActionHandler {
             while (true) {
                 System.out.print("File URL: ");
                 String fileUrl = scanner.nextLine();
-                System.out.print("File Type (IMAGE / VIDEO / FILE): ");
+
+                // URL validation
+                if (fileUrl.isEmpty()) {
+                    System.out.print("URL can not be empty. Try again.");
+                    continue;
+                }
+
+                if (fileUrl.contains(" ")) {
+                    System.out.println("URL cannot contain spaces. Try again.");
+                    continue;
+                }
+
+                if (!fileUrl.isEmpty() && !fileUrl.matches("^(http|https)://.*$")) {
+                    System.out.println("Invalid URL format. Please enter a valid HTTP/HTTPS link.");
+                    continue;
+                }
+
+                System.out.print("File Type (IMAGE / VIDEO / FILE / AUDIO): ");
                 String fileType = scanner.nextLine().toUpperCase();
+
+                Set<String> allowedFileTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+                while (!allowedFileTypes.contains(fileType)) {
+                    System.out.print("❌ Invalid type. Try again (IMAGE / VIDEO / FILE / AUDIO): ");
+                    fileType = scanner.nextLine().toUpperCase();
+                }
 
                 JSONObject fileJson = new JSONObject();
                 fileJson.put("file_url", fileUrl);

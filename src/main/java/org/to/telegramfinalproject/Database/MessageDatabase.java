@@ -174,7 +174,7 @@ public class MessageDatabase {
                         rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
                         rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null,
                         rs.getBoolean("is_deleted_globally"),
-                        rs.getTimestamp("edited_at").toLocalDateTime()
+                        rs.getTimestamp("edited_at") != null ? rs.getTimestamp("edited_at").toLocalDateTime() : null
                         ));
             }
 
@@ -485,13 +485,49 @@ public class MessageDatabase {
     }
 
     public static boolean insertSavedMessage(Message message) {
-        String sql = "INSERT INTO messages (message_id, sender_id, receiver_type, receiver_id, content, message_type, status, reply_to_id, is_edited, original_message_id," +
-                " forwarded_by, forwarded_from, is_deleted_globally) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO messages (message_id, sender_id, receiver_type, receiver_id, content, message_type, send_at, status, reply_to_id, is_edited, edited_at," +
+                " original_message_id, forwarded_by, forwarded_from, is_deleted_globally) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
+            ps.setObject(1, message.getMessage_id());                        // message_id
+            ps.setObject(2, message.getSender_id());                         // sender_id
+            ps.setString(3, message.getReceiver_type());                     // receiver_type (private)
+            ps.setObject(4, message.getReceiver_id());                       // receiver_id (same as sender_id for saved messages)
+            ps.setString(5, message.getContent());                          // content
+            ps.setString(6, message.getMessage_type());                      // message_type
+            ps.setTimestamp(7, Timestamp.valueOf(message.getSend_at()));     // send_at
+            ps.setString(8, message.getStatus());                           // status
+            if (message.getReply_to_id() != null)
+                ps.setObject(9, message.getReply_to_id());                    // reply_to_id
+            else
+                ps.setNull(9, Types.OTHER);
+
+            ps.setBoolean(10, message.isIs_edited());                          // is_edited
+
+            if (message.getEdited_at() != null)
+                ps.setTimestamp(11, Timestamp.valueOf(message.getEdited_at())); // edited_at
+            else
+                ps.setNull(11, Types.TIMESTAMP);
+
+            if (message.getOriginal_message_id() != null)
+                ps.setObject(12, message.getOriginal_message_id());           // original_message_id
+            else
+                ps.setNull(12, Types.OTHER);
+
+            if (message.getForwarded_by() != null)
+                ps.setObject(13, message.getForwarded_by());                 // forwarded_by
+            else
+                ps.setNull(13, Types.OTHER);
+
+            if (message.getForwarded_from() != null)
+                ps.setObject(14, message.getForwarded_from());               // forwarded_from
+            else
+                ps.setNull(14, Types.OTHER);
+
+            ps.setBoolean(15, message.getIs_deleted_globally());                 // is_deleted_globally
 
             return ps.executeUpdate() > 0;
 

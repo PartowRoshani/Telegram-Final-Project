@@ -9,7 +9,9 @@ import org.to.telegramfinalproject.Models.Message;
 import org.to.telegramfinalproject.Models.ResponseModel;
 import org.to.telegramfinalproject.Models.User;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -165,7 +167,7 @@ public class SidebarService {
                 return new ResponseModel("error", "Failed to create or find saved messages chat.");
             }
 
-            List<Message> messages = MessageDatabase.privateChatHistory(userId, userId);
+            List<Message> messages = MessageDatabase.privateChatHistory(chatId);
 
             JSONArray messageArray = new JSONArray();
             if (!messages.isEmpty()) {
@@ -177,7 +179,6 @@ public class SidebarService {
                     msgJson.put("receiver_id", msg.getReceiver_id().toString());
                     msgJson.put("content", msg.getContent());
                     msgJson.put("message_type", msg.getMessage_type());
-                    msgJson.put("file_url", msg.getFile_url() != null ? msg.getFile_url() : JSONObject.NULL);
                     msgJson.put("send_at", msg.getSend_at().toString()); // LocalDateTime
                     msgJson.put("status", msg.getStatus());
                     msgJson.put("reply_to_id", msg.getReply_to_id() != null ? msg.getReply_to_id().toString() : JSONObject.NULL);
@@ -212,17 +213,22 @@ public class SidebarService {
                     UUID.fromString(requestJson.getString("receiver_id")),
                     requestJson.optString("content", null),
                     requestJson.optString("message_type", "TEXT"),
-                    requestJson.isNull("file_url") ? null : requestJson.getString("file_url"),
                     LocalDateTime.now(), // send_at
                     requestJson.optString("status", "SEND"),
                     requestJson.isNull("reply_to_id") ? null : UUID.fromString(requestJson.getString("reply_to_id")),
                     requestJson.optBoolean("is_edited", false),
                     requestJson.isNull("original_message_id") ? null : UUID.fromString(requestJson.getString("original_message_id")),
                     requestJson.isNull("forwarded_by") ? null : UUID.fromString(requestJson.getString("forwarded_by")),
-                    requestJson.isNull("forwarded_from") ? null : UUID.fromString(requestJson.getString("forwarded_from"))
-            );
+                    requestJson.isNull("forwarded_from") ? null : UUID.fromString(requestJson.getString("forwarded_from")),
+                    requestJson.optBoolean("is_deleted_globally", false),
+                    requestJson.isNull("edited_at") ? null :
+                            LocalDateTime.ofInstant(
+                                    Instant.ofEpochMilli(requestJson.getLong("edited_at")),
+                                    ZoneId.systemDefault()
+                            )
+                    );
 
-            MessageDatabase.save(message);
+            MessageDatabase.insertSavedMessage(message);
             return new ResponseModel("success", "Message saved successfully.");
 
         } catch (Exception e) {

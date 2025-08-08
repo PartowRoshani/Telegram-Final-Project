@@ -3,13 +3,11 @@ package org.to.telegramfinalproject.Client;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Models.Message;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
-import java.util.UUID;
+import java.util.*;
 
 import static org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse;
 
@@ -212,6 +210,7 @@ public class SidebarHandler {
             System.out.println("Enter new profile picture URL (or leave empty to remove):");
             String newImageUrl = scanner.nextLine().trim();
 
+            // URL validation
             if (newImageUrl.contains(" ")) {
                 System.out.println("URL cannot contain spaces.");
                 continue;
@@ -245,7 +244,7 @@ public class SidebarHandler {
     }
 
     private void showContacts() {
-        System.out.println("📇 Showing contacts...");
+        actionHandler.showContactList();
     }
 
     public void getSavedMessagesData(String userId) {
@@ -307,21 +306,38 @@ public class SidebarHandler {
                             UUID.fromString(msgJson.getString("receiver_id")),
                             msgJson.getString("content"),
                             msgJson.getString("message_type"),
-                            msgJson.optString("file_url", null),
                             LocalDateTime.parse(msgJson.getString("send_at").replace(" ", "T")),
                             msgJson.getString("status"),
                             replyToId,
                             msgJson.getBoolean("is_edited"),
                             originalMessageId,
                             forwardedBy,
-                            forwardedFrom
+                            forwardedFrom,
+                            msgJson.getBoolean("is_deleted_globally"),
+                            LocalDateTime.parse(msgJson.getString("edited_at").replace(" ", "T"))
                     );
 
                     messages.add(msg);
                 }
             }
 
-            // Step 6: Show chat
+            // Step 6: Add to active chats if not already present
+            boolean alreadyExists = Session.activeChats.stream()
+                    .anyMatch(entry -> entry.getId().equals(chatId));
+            if (!alreadyExists) {
+                ChatEntry savedEntry = new ChatEntry(
+                        chatId,
+                        "Saved-Messages",
+                        "Saved Messages",
+                        "📌", // or use a URL string if you have an icon for saved messages
+                        "private",
+                        messages.isEmpty() ? null : messages.get(messages.size() - 1).getSend_at()
+                );
+                savedEntry.setSavedMessages(true);
+                Session.activeChats.add(savedEntry);
+            }
+
+            // Step 7: Show chat
             showSavedMessages(chatId, messages);
 
         } catch (Exception e) {
@@ -355,22 +371,74 @@ public class SidebarHandler {
                 break;
             }
 
+            System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE / AUDIO): ");
+            String messageType = scanner.nextLine().toUpperCase();
+            Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+            while (!allowedTypes.contains(messageType)) {
+                System.out.print("Invalid type. Try again (TEXT / IMAGE / VIDEO / FILE / AUDIO): ");
+                messageType = scanner.nextLine().toUpperCase();
+            }
+
+            // Attaching Files
+            JSONArray attachmentsArray = new JSONArray();
+            System.out.print("Do you want to attach files? (yes/no): ");
+            if (scanner.nextLine().equalsIgnoreCase("yes")) {
+                while (true) {
+                    System.out.print("File URL: ");
+                    String fileUrl = scanner.nextLine();
+
+                    // URL validation
+                    if (fileUrl.isEmpty()) {
+                        System.out.print("URL can not be empty. Try again.");
+                        continue;
+                    }
+
+                    if (fileUrl.contains(" ")) {
+                        System.out.println("URL cannot contain spaces. Try again.");
+                        continue;
+                    }
+
+                    if (!fileUrl.isEmpty() && !fileUrl.matches("^(http|https)://.*$")) {
+                        System.out.println("Invalid URL format. Please enter a valid HTTP/HTTPS link.");
+                        continue;
+                    }
+
+                    System.out.print("File Type (IMAGE / VIDEO / FILE / AUDIO): ");
+                    String fileType = scanner.nextLine().toUpperCase();
+
+                    Set<String> allowedFileTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+                    while (!allowedFileTypes.contains(fileType)) {
+                        System.out.print("Invalid type. Try again (IMAGE / VIDEO / FILE / AUDIO): ");
+                        fileType = scanner.nextLine().toUpperCase();
+                    }
+
+                    JSONObject fileJson = new JSONObject();
+                    fileJson.put("file_url", fileUrl);
+                    fileJson.put("file_type", fileType);
+                    attachmentsArray.put(fileJson);
+
+                    System.out.print("Add another file? (yes/no): ");
+                    if (!scanner.nextLine().equalsIgnoreCase("yes")) break;
+                }
+            }
+
             // Prepare the request JSON
             JSONObject request = new JSONObject();
-            request.put("action", "send_message");
+            request.put("action", "send_saved_messages");
             request.put("message_id", UUID.randomUUID().toString());
             request.put("sender_id", userUUID);
             request.put("receiver_type", "private");
             request.put("receiver_id", userUUID); // saved messages = to yourself
             request.put("content", content);
             request.put("message_type", "TEXT");
-            request.put("file_url", JSONObject.NULL);
             request.put("status", "READ");
             request.put("reply_to_id", JSONObject.NULL);
             request.put("is_edited", false);
             request.put("original_message_id", JSONObject.NULL);
             request.put("forwarded_by", JSONObject.NULL);
             request.put("forwarded_from", JSONObject.NULL);
+            request.put("is_deleted_globally", JSONObject.NULL);
+            request.put("edited_at", JSONObject.NULL);
 
             // Send the message and wait for response
             JSONObject response = ActionHandler.sendWithResponse(request);

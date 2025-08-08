@@ -179,6 +179,10 @@ public class ClientHandler implements Runnable {
                                 );
                                 entry.setOtherUserId(otherId);
 
+                                if (currentUser.getInternal_uuid() == otherId) {
+                                    entry.setSavedMessages(true);
+                                }
+
                                 if (archivedChatIds.contains(chat.getChat_id())) {
                                     archivedChatList.add(entry);
                                     chatList.add(entry);
@@ -691,6 +695,8 @@ public class ClientHandler implements Runnable {
 
                             LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTime(chat.getChat_id(), "private");
 
+                            boolean isSavedMessages = chat.getUser1_id().equals(currentUser.getInternal_uuid())
+                                    && chat.getUser2_id().equals(currentUser.getInternal_uuid());
 
                             ChatEntry entry = new ChatEntry(
                                     chat.getChat_id(),
@@ -703,6 +709,11 @@ public class ClientHandler implements Runnable {
                                     false
                             );
                             entry.setOtherUserId(otherId);
+
+                            // Mark it as saved messages if it's the special self-chat
+                            if (isSavedMessages) {
+                                entry.setSavedMessages(true);
+                            }
 
                             if (archivedChatIds.contains(chat.getChat_id())) {
                                 archivedChatList.add(entry);
@@ -2106,9 +2117,9 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
-                    case "send_message": {
-                        response = SidebarService.handleSendMessage(requestJson);
-                        break;
+                    case "send_saved_messages": {
+                       response = SidebarService.handleSendMessage(requestJson);
+                       break;
                     }
 
                     default:
