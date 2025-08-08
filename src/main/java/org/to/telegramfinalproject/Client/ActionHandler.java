@@ -520,7 +520,7 @@ public class ActionHandler {
                                 chat.optBoolean("is_admin", false)
                         );
                         if (chat.has("other_user_id")) {
-                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));  // 👈 اضافه کردن برای private chat
+                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
                         }
                         archivedChats.add(entry);
 
@@ -541,7 +541,7 @@ public class ActionHandler {
                                 chat.optBoolean("is_admin", false)
                         );
                         if (chat.has("other_user_id")) {
-                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));  // 👈 اضافه کردن برای private chat
+                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
                         }
 
                         activeChats.add(entry);
@@ -3415,6 +3415,7 @@ public class ActionHandler {
             [number] - Interact with message
             N - Next page (older messages)
             0 - Back to chat menu
+            S - Send message
             ➤ Choice: """);
 
             String input = scanner.nextLine().trim();
@@ -3425,6 +3426,9 @@ public class ActionHandler {
                 continue;
             }
 
+            if(input.equalsIgnoreCase("S")){
+                sendMessage(chat.getId(), chat.getType());
+            }
             try {
                 int index = Integer.parseInt(input);
                 if (index < 1 || index > messages.length()) {

@@ -318,6 +318,52 @@ public class MessageDatabase {
         }
     }
 
+    public static String getExcerpt(UUID messageId) {
+        return getExcerpt(messageId, 80);
+    }
+
+    public static String getExcerpt(UUID messageId, int maxLen) {
+        String sql = "SELECT content, message_type, is_deleted_globally FROM messages WHERE message_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setObject(1, messageId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return "Message isn't available";
+
+                String content = rs.getString("content");
+                String type = rs.getString("message_type"); // e.g. TEXT, IMAGE, VIDEO, AUDIO, FILE, STICKER...
+                boolean deleted = rs.getBoolean("is_deleted_globally");
+
+                if (deleted) return "This message was deleted";
+
+                if (type == null || type.equalsIgnoreCase("TEXT")) {
+                    if (content == null || content.isBlank()) return "(empty)";
+                    return shorten(content, maxLen);
+                }
+
+                //for media
+                switch (type.toUpperCase()) {
+                    case "IMAGE":  return "[Photo]";
+                    case "VIDEO":  return "[Video]";
+                    case "AUDIO":  return "[Audio]";
+                    case "VOICE":  return "[Voice]";
+                    case "FILE":   return "[File]";
+                    case "STICKER":return "[Sticker]";
+                    default:       return "[" + type + "]";
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return "Error";
+        }
+    }
+
+    private static String shorten(String s, int maxLen) {
+        if (s.length() <= maxLen) return s;
+        return s.substring(0, Math.max(0, maxLen - 1)).trim() + "…";
+    }
+
 
 
     public void markMessageAsRead(UUID messageId, UUID userId) {

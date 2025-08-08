@@ -2134,10 +2134,14 @@ public class ClientHandler implements Runnable {
                                     yield c != null ? c.getChannel_name() : "Unknown channel";
                                 }
                                 case "private" -> {
-                                    UUID otherId = m.getSender_id().equals(currentUser.getInternal_uuid()) ? m.getReceiver_id() : m.getSender_id();
+                                    UUID otherId = PrivateChatDatabase.getOtherParticipant(
+                                            m.getReceiver_id(),             // chat_id
+                                            currentUser.getInternal_uuid()  // my user uuid
+                                    );
                                     User other = userDatabase.findByInternalUUID(otherId);
                                     yield other != null ? other.getProfile_name() : "Unknown user";
                                 }
+
                                 default -> "Unknown";
                             };
                             obj.put("receiver_name", receiverName);
@@ -2228,10 +2232,16 @@ public class ClientHandler implements Runnable {
                             }
 
                             boolean success = MessageDatabase.markAsGloballyDeleted(messageId);
-                            if (success)
+                            if (success) {
                                 response = new ResponseModel("success", "Message deleted globally.");
-                            else
+                                Message updated = MessageDatabase.findById(messageId);
+                                List<UUID> receivers = Receivers.resolveFor(updated.getReceiver_type(), updated.getReceiver_id(), null);
+                                RealTimeEventDispatcher.notifyMessageDeletedGlobal(updated.getReceiver_id(), messageId, receivers);
+
+                            }
+                            else{
                                 response = new ResponseModel("error", "Failed to delete message globally.");
+                            }
                             break;
                         }
 
@@ -2260,6 +2270,10 @@ public class ClientHandler implements Runnable {
                             response = new ResponseModel("error", "Failed to update message.");
                         } else {
                             response = new ResponseModel("success", "Message edited.");
+                            Message updated = MessageDatabase.findById(msgId);
+                            List<UUID> receivers = Receivers.resolveFor(updated.getReceiver_type(), updated.getReceiver_id(), null);
+                            RealTimeEventDispatcher.notifyMessageEdited(updated.getReceiver_id(), updated.getMessage_id(), newContent, LocalDateTime.now(), receivers);
+
                         }
                         break;
                     }
@@ -2284,6 +2298,15 @@ public class ClientHandler implements Runnable {
                         );
 
                         boolean saved = MessageDatabase.saveReplyMessage(message);
+
+                        String excerpt = MessageDatabase.getExcerpt(replyToId);
+                        JSONObject meta = new JSONObject().put("reply_to", new JSONObject()
+                                .put("id", replyToId.toString())
+                                .put("excerpt", excerpt));
+
+                        List<UUID> receivers = Receivers.resolveFor(receiverType, receiverId, senderId);
+                        RealTimeEventDispatcher.sendNewMessage(message, receivers, "reply", meta);
+
                         response = saved ?
                                 new ResponseModel("success", "Reply sent") :
                                 new ResponseModel("error", "Failed to send reply");
@@ -2322,9 +2345,17 @@ public class ClientHandler implements Runnable {
                         );
 
                         boolean success = MessageDatabase.saveForwardedMessage(forwarded);
+
                         if (success) {
                             response = new ResponseModel("success", "Message forwarded.");
-                            // (اختیاری) ارسال ریل تایم به اعضای چت مقصد
+                            JSONObject meta = new JSONObject().put("forwarded_from", new JSONObject()
+                                    .put("chat_id", original.getReceiver_id().toString())
+                                    .put("message_id", original.getMessage_id().toString())
+                                    .put("sender_id", original.getSender_id().toString())
+                                    .put("sender_name", userDatabase.findByInternalUUID(original.getSender_id()).getProfile_name()));
+
+                            List<UUID> receivers = Receivers.resolveFor(targetChatType, targetChatId, currentUser.getInternal_uuid());
+                            RealTimeEventDispatcher.sendNewMessage(forwarded, receivers, "forward", meta);
                         } else {
                             response = new ResponseModel("error", "Failed to forward message.");
                         }
@@ -2336,9 +2367,28 @@ public class ClientHandler implements Runnable {
                         String reaction = requestJson.getString("reaction");
                         boolean success = MessageReactionDatabase.saveOrUpdateReaction(messageId, currentUser.getInternal_uuid(), reaction);
 
-                        response = success
-                                ? new ResponseModel("success", "Reaction saved.")
-                                : new ResponseModel("error", "Failed to save reaction.");
+
+                        if (success) {
+                            Message msg = MessageDatabase.findById(messageId);
+
+                            JSONObject counts = MessageReactionDatabase.getCountsAsJson(messageId);
+
+                            List<UUID> receivers = Receivers.resolveFor(msg.getReceiver_type(), msg.getReceiver_id(), null);
+
+                            RealTimeEventDispatcher.notifyReactionAdded(
+                                    msg.getReceiver_id(),           // chatId
+                                    messageId,                       // messageId
+                                    reaction,                        // emoji
+                                    counts.optInt(reaction, 0),
+                                    counts,
+                                    receivers
+                            );
+
+                            response = new ResponseModel("success", "Reaction saved.");
+                        } else {
+                            response = new ResponseModel("error", "Failed to save reaction.");
+                        }
+
                         break;
                     }
 

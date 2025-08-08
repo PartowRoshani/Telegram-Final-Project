@@ -81,32 +81,93 @@ public class RealTimeEventDispatcher {
 
 
 
-    public static void notifyMessageEdited(UUID messageId, String newContent, List<UUID> receivers) {
-
-        String editTime = LocalDateTime.now().toString();
+    public static void notifyMessageEdited(UUID chatId, UUID messageId, String newContent, LocalDateTime editedAt, List<UUID> receivers) {
         JSONObject data = new JSONObject();
+        data.put("chat_id", chatId.toString());
         data.put("message_id", messageId.toString());
         data.put("new_content", newContent);
-        data.put("edited_at", editTime);
+        data.put("edited_at", editedAt.toString());
 
         JSONObject event = new JSONObject();
-        event.put("action", "edit_message");
+        event.put("action", "message_edited");
         event.put("data", data);
 
         broadcastToUsers(receivers, event);
     }
 
 
-    public static void notifyMessageDeleted(UUID messageId, List<UUID> receivers) {
+
+    public static void sendNewMessage(Message message, List<UUID> receivers, String kind, JSONObject meta) {
+        JSONObject payload = new JSONObject();
+        payload.put("action", "new_message");
+
         JSONObject data = new JSONObject();
+        data.put("id", message.getMessage_id().toString());
+        data.put("chat_id", message.getReceiver_id().toString());
+        data.put("sender_id", message.getSender_id().toString());
+        data.put("receiver_id", message.getReceiver_id().toString());
+        data.put("receiver_type", message.getReceiver_type());
+        data.put("content", message.getContent());
+        data.put("message_type", message.getMessage_type());
+        data.put("send_at", message.getSend_at().toString());
+
+        User sender = userDatabase.findByInternalUUID(message.getSender_id());
+        if (sender != null) data.put("sender_name", sender.getProfile_name());
+
+        data.put("kind", kind == null ? "plain" : kind); // plain|reply|forward
+        if (meta != null) data.put("meta", meta); // reply_to {...} | forwarded_from {...}
+
+        payload.put("data", data);
+        for (UUID userId : receivers) sendToUser(userId, payload);
+    }
+
+    public static void notifyMessageDeletedGlobal(UUID chatId, UUID messageId, List<UUID> receivers) {
+        JSONObject data = new JSONObject();
+        data.put("chat_id", chatId.toString());
         data.put("message_id", messageId.toString());
 
         JSONObject event = new JSONObject();
-        event.put("action", "delete_message");
+        event.put("action", "message_deleted_global");
         event.put("data", data);
 
         broadcastToUsers(receivers, event);
     }
+
+
+    public static void notifyReactionAdded(UUID chatId, UUID messageId, String emoji,
+                                           int totalForEmoji, JSONObject countsAll, List<UUID> receivers) {
+        JSONObject data = new JSONObject();
+        data.put("chat_id", chatId.toString());
+        data.put("message_id", messageId.toString());
+        data.put("emoji", emoji);
+        data.put("counts", countsAll); // {"❤️":3,"👍":1,...}
+        data.put("count_for_emoji", totalForEmoji);
+
+        JSONObject event = new JSONObject();
+        event.put("action", "message_reacted");
+        event.put("data", data);
+
+        broadcastToUsers(receivers, event);
+    }
+
+    public static void notifyReactionRemoved(UUID chatId, UUID messageId, String emoji,
+                                             int totalForEmoji, JSONObject countsAll, List<UUID> receivers) {
+        JSONObject data = new JSONObject();
+        data.put("chat_id", chatId.toString());
+        data.put("message_id", messageId.toString());
+        data.put("emoji", emoji);
+        data.put("counts", countsAll);
+        data.put("count_for_emoji", totalForEmoji);
+
+        JSONObject event = new JSONObject();
+        event.put("action", "message_unreacted");
+        event.put("data", data);
+
+        broadcastToUsers(receivers, event);
+    }
+
+
+
 
     public static void notifyUserUpdated(UUID userId, String newProfileName, String newImageUrl, List<UUID> contactIds) {
         JSONObject data = new JSONObject();

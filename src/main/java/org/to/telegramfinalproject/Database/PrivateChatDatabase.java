@@ -275,4 +275,12 @@ public class PrivateChatDatabase {
         return null;
     }
 
+    public static UUID getOtherParticipant(UUID chatId, UUID me) {
+        List<UUID> members = getMembers(chatId);
+        for (UUID u : members) {
+            if (!u.equals(me)) return u;
+        }
+        return null;
+    }
+
 }
