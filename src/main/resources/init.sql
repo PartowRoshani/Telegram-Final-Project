@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS messages (
     content TEXT,
     message_type VARCHAR(20) DEFAULT 'TEXT' CHECK (message_type IN ('TEXT','IMAGE','FILE','VIDEO','AUDIO','STICKER','GIF')),
     send_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(20),                                      -- SEND,DELIVERED,READ
+    status SET DEFAULT 'SEND',                      -- SEND,DELIVERED,READ
     reply_to_id UUID REFERENCES messages(message_id) ON DELETE SET NULL,        --(Bouns)
     is_edited BOOLEAN DEFAULT FALSE,                                            --(Bonus)
     edited_at TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
@@ -145,7 +145,15 @@ CREATE TABLE IF NOT EXISTS message_attachments (
     message_id UUID REFERENCES messages(message_id) ON DELETE CASCADE,
     file_url TEXT NOT NULL,
     file_type VARCHAR(20) CHECK (file_type IN ('IMAGE','VIDEO','AUDIO','FILE','GIF','STICKER')),
-    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    file_name TEXT,
+    file_size BIGINT,
+    mime_type TEXT,
+    width INT,
+    height INT,
+    duration_seconds INT,
+    thumbnail_url TEXT
+
 );
 
 
