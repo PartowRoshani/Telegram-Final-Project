@@ -44,11 +44,17 @@ dependencies {
     implementation('net.synedra:validatorfx:0.5.0') {
         exclude group: 'org.openjfx'
     }
+    //For upload files
+    implementation 'com.sparkjava:spark-core:2.9.4'
+    implementation 'org.jcodec:jcodec:0.2.5'
+    implementation 'org.jcodec:jcodec-javase:0.2.5'
+    implementation 'com.mpatric:mp3agic:0.9.1'        //for mp3
     implementation 'org.json:json:20231013'
     implementation 'org.kordamp.ikonli:ikonli-javafx:12.3.1'
     implementation 'org.kordamp.bootstrapfx:bootstrapfx-core:0.4.0'
     implementation('eu.hansolo:tilesfx:21.0.3') {
         exclude group: 'org.openjfx'
+
     }
 
     test {

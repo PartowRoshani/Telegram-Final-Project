@@ -66,6 +66,87 @@ public class MessageDatabase {
         }
     }
 
+
+    public static boolean insertMessageTx(Connection conn, UUID messageId, UUID senderId, UUID receiverId,
+                                          String receiverType, String content, String messageType) throws SQLException {
+        String sql = "INSERT INTO messages (message_id, sender_id, receiver_type, receiver_id, content, message_type) " +
+                "VALUES (?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, messageId);
+            ps.setObject(2, senderId);
+            ps.setString(3, receiverType);
+            ps.setObject(4, receiverId);
+            if (content == null || content.isBlank()) ps.setNull(5, java.sql.Types.VARCHAR); else ps.setString(5, content);
+            ps.setString(6, messageType);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    public static boolean insertAttachmentsTx(Connection conn, UUID messageId, List<FileAttachment> attachments) throws SQLException {
+        if (attachments == null || attachments.isEmpty()) return true;
+        String sql = """
+        INSERT INTO message_attachments
+            (attachment_id, message_id, file_url, file_type, file_name, file_size, mime_type, width, height, duration_seconds, thumbnail_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """;
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (FileAttachment att : attachments) {
+                ps.setObject(1, UUID.randomUUID());
+                ps.setObject(2, messageId);
+                ps.setString(3, att.getFileUrl());
+                ps.setString(4, att.getFileType()); // IMAGE/VIDEO/AUDIO/FILE/GIF/STICKER
+                ps.setString(5, att.getFileName());
+                if (att.getFileSize() != null) ps.setLong(6, att.getFileSize()); else ps.setNull(6, java.sql.Types.BIGINT);
+                ps.setString(7, att.getMimeType());
+                if (att.getWidth() != null) ps.setInt(8, att.getWidth()); else ps.setNull(8, java.sql.Types.INTEGER);
+                if (att.getHeight() != null) ps.setInt(9, att.getHeight()); else ps.setNull(9, java.sql.Types.INTEGER);
+                if (att.getDurationSeconds() != null) ps.setInt(10, att.getDurationSeconds()); else ps.setNull(10, java.sql.Types.INTEGER);
+                ps.setString(11, att.getThumbnailUrl());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+            return true;
+        }
+    }
+
+
+    public static boolean saveMessageWithOptionalAttachments(UUID messageId, UUID senderId, UUID receiverId,
+                                                             String receiverType, String content, String messageType,
+                                                             List<FileAttachment> attachments) {
+        Connection conn = null;
+        try {
+            conn = ConnectionDb.connect();
+            conn.setAutoCommit(false);
+
+            boolean isText = "TEXT".equalsIgnoreCase(messageType);
+            if (isText) {
+                if (attachments != null && !attachments.isEmpty())
+                    throw new IllegalArgumentException("TEXT must not have attachments");
+                if (content == null || content.isBlank())
+                    throw new IllegalArgumentException("TEXT must have non-empty content");
+            } else {
+                if (attachments == null || attachments.isEmpty())
+                    throw new IllegalArgumentException("Non-TEXT must have at least one attachment");
+            }
+
+            insertMessageTx(conn, messageId, senderId, receiverId, receiverType, content, messageType);
+            if (!isText) insertAttachmentsTx(conn, messageId, attachments);
+
+            conn.commit();
+            return true;
+        } catch (Exception e) {
+            if (conn != null) try { conn.rollback(); } catch (SQLException ignored) {}
+            e.printStackTrace();
+            return false;
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
+                try { conn.close(); } catch (SQLException ignored) {}
+            }
+        }
+    }
+
+
     public static void markGloballyDeleted(UUID chatId) {
         String sql = "UPDATE messages SET is_deleted_globally = true WHERE receiver_id = ? AND receiver_type = 'private'";
         try (Connection conn = ConnectionDb.connect(); PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -388,20 +469,27 @@ public class MessageDatabase {
         SELECT m.*
         FROM messages m
         LEFT JOIN message_receipts r ON m.message_id = r.message_id AND r.user_id = ?
-        LEFT JOIN deleted_messages d ON m.message_id = d.message_id AND d.user_id = ?
+        LEFT JOIN deleted_messages  d ON m.message_id = d.message_id AND d.user_id = ?
         WHERE r.user_id IS NULL
           AND d.message_id IS NULL
           AND m.is_deleted_globally = FALSE
           AND (
-              (m.receiver_type = 'private' AND m.receiver_id = ?)
-              OR
-              (m.receiver_type = 'group' AND EXISTS (
-                  SELECT 1 FROM group_members gm WHERE gm.group_id = m.receiver_id AND gm.user_id = ?
-              ))
-              OR
-              (m.receiver_type = 'channel' AND EXISTS (
-                  SELECT 1 FROM channel_subscribers cs WHERE cs.channel_id = m.receiver_id AND cs.user_id = ?
-              ))
+            (m.receiver_type = 'private' AND EXISTS (
+                SELECT 1
+                FROM private_chat pc
+                WHERE pc.chat_id = m.receiver_id
+                  AND (pc.user1_id = ? OR pc.user2_id = ?)
+            ))  -- فقط دو تا پرانتز
+            OR
+            (m.receiver_type = 'group' AND EXISTS (
+                SELECT 1 FROM group_members gm
+                WHERE gm.group_id = m.receiver_id AND gm.user_id = ?
+            ))
+            OR
+            (m.receiver_type = 'channel' AND EXISTS (
+                SELECT 1 FROM channel_subscribers cs
+                WHERE cs.channel_id = m.receiver_id AND cs.user_id = ?
+            ))
           )
         ORDER BY m.send_at DESC
     """;
@@ -409,34 +497,34 @@ public class MessageDatabase {
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setObject(1, userId); // for message_receipts
-            stmt.setObject(2, userId); // for deleted_messages
-            stmt.setObject(3, userId); // for private messages
-            stmt.setObject(4, userId); // for group members
-            stmt.setObject(5, userId); // for channel subscribers
+            int i = 1;
+            stmt.setObject(i++, userId); // 1) receipts
+            stmt.setObject(i++, userId); // 2) deleted
+            stmt.setObject(i++, userId); // 3) private: pc.user1_id
+            stmt.setObject(i++, userId); // 4) private: pc.user2_id
+            stmt.setObject(i++, userId); // 5) group:   gm.user_id
+            stmt.setObject(i++, userId); // 6) channel: cs.user_id
 
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                Message message = new Message(
-                        UUID.fromString(rs.getString("message_id")),
-                        rs.getObject("sender_id") != null ? UUID.fromString(rs.getString("sender_id")) : null,
-                        rs.getString("receiver_type"),
-                        UUID.fromString(rs.getString("receiver_id")),
-                        rs.getString("content"),
-                        rs.getString("message_type"),
-                        rs.getTimestamp("send_at").toLocalDateTime(),
-                        rs.getString("status"),
-                        rs.getObject("reply_to_id") != null ? UUID.fromString(rs.getString("reply_to_id")) : null,
-                        rs.getBoolean("is_edited"),
-                        rs.getBoolean("is_deleted_globally"),
-                        rs.getObject("original_message_id") != null ? UUID.fromString(rs.getString("original_message_id")) : null,
-                        rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
-                        rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null
-                );
-
-                messages.add(message);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    messages.add(new Message(
+                            UUID.fromString(rs.getString("message_id")),
+                            rs.getObject("sender_id") != null ? UUID.fromString(rs.getString("sender_id")) : null,
+                            rs.getString("receiver_type"),
+                            UUID.fromString(rs.getString("receiver_id")),
+                            rs.getString("content"),
+                            rs.getString("message_type"),
+                            rs.getTimestamp("send_at").toLocalDateTime(),
+                            rs.getString("status"),
+                            rs.getObject("reply_to_id") != null ? UUID.fromString(rs.getString("reply_to_id")) : null,
+                            rs.getBoolean("is_edited"),
+                            rs.getBoolean("is_deleted_globally"),
+                            rs.getObject("original_message_id") != null ? UUID.fromString(rs.getString("original_message_id")) : null,
+                            rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
+                            rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null
+                    ));
+                }
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -448,27 +536,31 @@ public class MessageDatabase {
 
     public static List<FileAttachment> getAttachments(UUID messageId) {
         List<FileAttachment> attachments = new ArrayList<>();
-        String sql = "SELECT file_url, file_type FROM message_attachments WHERE message_id = ?";
-
+        String sql = "SELECT file_url, file_type, file_name, file_size, mime_type, width, height, duration_seconds, thumbnail_url " +
+                "FROM message_attachments WHERE message_id = ? ORDER BY uploaded_at";
         try (Connection conn = ConnectionDb.connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setObject(1, messageId);
             ResultSet rs = stmt.executeQuery();
-
             while (rs.next()) {
                 attachments.add(new FileAttachment(
                         rs.getString("file_url"),
-                        rs.getString("file_type")
+                        rs.getString("file_type"),
+                        rs.getString("file_name"),
+                        (Long) rs.getObject("file_size"),
+                        rs.getString("mime_type"),
+                        (Integer) rs.getObject("width"),
+                        (Integer) rs.getObject("height"),
+                        (Integer) rs.getObject("duration_seconds"),
+                        rs.getString("thumbnail_url")
                 ));
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
         return attachments;
     }
+
 
 
 
