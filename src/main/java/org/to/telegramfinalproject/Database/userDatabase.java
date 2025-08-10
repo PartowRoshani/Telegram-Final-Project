@@ -353,6 +353,61 @@ public class userDatabase {
         }
     }
 
+    public static String getProfileName(UUID userId) {
+        String sql = "SELECT profile_name FROM users WHERE internal_uuid = ?";
 
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String profileName = rs.getString("profile_name");
+                return profileName;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Unknown";
+    }
+
+    public static String getProfilePicture(UUID userId) {
+        String sql = "SELECT image_url FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String imageUrl = rs.getString("image_url");
+                return imageUrl;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Unknown";
+    }
+
+    public static String getUserId(UUID userId) {
+        String sql = "SELECT user_id FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String user_id = rs.getString("user_id");
+                return user_id;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Unknown";
+    }
 }
 

@@ -1,9 +1,11 @@
 package org.to.telegramfinalproject.Database;
 
 import org.to.telegramfinalproject.Models.Contact;
+import org.to.telegramfinalproject.Models.ContactEntry;
 import org.to.telegramfinalproject.Models.User;
 
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -45,7 +47,7 @@ public class ContactDatabase {
 
 
 
-    public boolean removeContact(UUID user_id, UUID contact_id)  {
+    public static boolean removeContact(UUID user_id, UUID contact_id)  {
         String sql = "DELETE FROM contacts WHERE user_id = ? AND contact_id = ?";
         try (Connection connection = getConnection()) {
             PreparedStatement stmt = connection.prepareStatement(sql);
@@ -167,35 +169,6 @@ public class ContactDatabase {
         return false;
     }
 
-    public List<Contact> searchContacts(UUID user_id, String searchTerm) {
-        List<Contact> results = new ArrayList<>(); //ILIKE case-insensitive
-        String sql = """
-        SELECT c.contact_id, c.added_at, c.is_blocked
-        FROM contacts c
-        JOIN users u ON c.contact_id = u.internal_uuid
-        WHERE c.user_id = ? AND (u.user_id ILIKE ? OR u.profile_name ILIKE ?)
-        """;
-        try (Connection connection = getConnection()) {
-            PreparedStatement stmt = connection.prepareStatement(sql);
-            stmt.setObject(1, user_id);
-            stmt.setString(2, "%" + searchTerm + "%");
-            stmt.setString(3, "%" + searchTerm + "%");
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                UUID contactId = (UUID) rs.getObject("contact_id");
-                boolean isBlocked = rs.getBoolean("is_blocked");
-                Timestamp addedAt = rs.getTimestamp("added_at");
-                Contact contact = new Contact(user_id, contactId);
-                contact.setIs_blocked(isBlocked);
-                contact.setAdd_at(addedAt.toLocalDateTime());
-                results.add(contact);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return results;
-    }
-
 
     public static boolean deleteChatOneSide(UUID currentUserId, UUID otherUserId) {
         String sql = """
@@ -268,5 +241,50 @@ public class ContactDatabase {
         }
     }
 
+    public static List<ContactEntry> searchContacts(UUID userId, String searchTerm) {
+        List<ContactEntry> results = new ArrayList<>();
+
+        String sql = """
+        SELECT u.internal_uuid, u.user_id, c.is_blocked
+        FROM contacts c
+        JOIN users u ON c.contact_id = u.internal_uuid
+        WHERE c.user_id = ? 
+          AND (u.user_id ILIKE ? OR u.profile_name ILIKE ?)
+    """;
+
+        try (Connection connection = getConnection();
+             PreparedStatement stmt = connection.prepareStatement(sql)) {
+
+            stmt.setObject(1, userId);
+            stmt.setString(2, "%" + searchTerm + "%");
+            stmt.setString(3, "%" + searchTerm + "%");
+
+            ResultSet rs = stmt.executeQuery();
+
+            userDatabase userDB = new userDatabase();
+            while (rs.next()) {
+                UUID contactId = (UUID) rs.getObject("internal_uuid");
+                String displayId = rs.getString("user_id");
+                String contact_displayId = userDB.getUserId(contactId);
+                String profileName = userDB.getProfileName(contactId);
+                String imageUrl = userDB.getProfilePicture(contactId);
+                boolean isBlocked = rs.getBoolean("is_blocked");
+
+                String lastSeenString = userDB.getLastSeen(contactId);
+
+                // Convert to LocalDateTime
+                LocalDateTime lastSeen = null;
+                if (!"Unknown".equals(lastSeenString)) {
+                    lastSeen = LocalDateTime.parse(lastSeenString);
+                }
+
+                results.add(new ContactEntry(contactId, displayId, contact_displayId, profileName, imageUrl, isBlocked, lastSeen));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return results;
+    }
 
 }

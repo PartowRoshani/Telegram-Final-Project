@@ -277,7 +277,7 @@ public class MessageDatabase {
                 (UUID) rs.getObject("forwarded_by"),
                 (UUID) rs.getObject("forwarded_from"),
                 rs.getBoolean("is_deleted_globally"),
-                rs.getTimestamp("edited_at").toLocalDateTime()
+                (rs.getTimestamp("edited_at") != null) ? rs.getTimestamp("edited_at").toLocalDateTime() : null
                 );
     }
 
