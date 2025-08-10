@@ -2,9 +2,11 @@ package org.to.telegramfinalproject.Server;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.to.telegramfinalproject.Database.ContactDatabase;
 import org.to.telegramfinalproject.Database.MessageDatabase;
 import org.to.telegramfinalproject.Database.PrivateChatDatabase;
 import org.to.telegramfinalproject.Database.userDatabase;
+import org.to.telegramfinalproject.Models.ContactEntry;
 import org.to.telegramfinalproject.Models.Message;
 import org.to.telegramfinalproject.Models.ResponseModel;
 import org.to.telegramfinalproject.Models.User;
@@ -12,6 +14,7 @@ import org.to.telegramfinalproject.Models.User;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -155,6 +158,56 @@ public class SidebarService {
         } else {
             user.setProfile_name(oldName);
             return new ResponseModel("error", "Failed to update profile name.");
+        }
+    }
+
+    // Search in user's contact list
+    public static ResponseModel handleSearchContacts(String userUUID, String searchTerm) {
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return new ResponseModel("error", "Search term cannot be empty.");
+        }
+
+        List<ContactEntry> searchResult = ContactDatabase.searchContacts(UUID.fromString(userUUID), searchTerm);
+
+        if (searchResult.isEmpty()) {
+            return new ResponseModel("error", "No contacts found.");
+        }
+
+        JSONObject data = new JSONObject();
+        JSONArray contacts = new JSONArray();
+
+        for (ContactEntry entry : searchResult) {
+            contacts.put(new JSONObject()
+                    .put("contact_id", entry.getContactId())
+                    .put("user_id", entry.getUserId())
+                    .put("contact_display_id", entry.getContact_displayId())
+                    .put("profile_name", entry.getProfileName())
+                    .put("image_url", entry.getImageUrl())
+                    .put("is_blocked", entry.isBlocked())
+                    .put("last_seen", entry.getLastSeenTime())
+            );
+        }
+        data.put("contacts", contacts);
+
+        if (searchResult.isEmpty()) {
+            return new ResponseModel("error", "No contacts found.");
+        }
+
+        return new ResponseModel("success", "Search contacts successfully.", data);
+    }
+
+    // Remove a contact in user's contact list
+    public static ResponseModel handleRemoveContact(UUID userUUID, UUID contactId) {
+        if (userUUID == null || contactId == null) {
+            return new ResponseModel("error", "Invalid input.");
+        }
+
+        boolean removed = ContactDatabase.removeContact(userUUID, contactId);
+
+        if (removed) {
+            return new ResponseModel("success", "Contact removed successfully.");
+        } else {
+            return new ResponseModel("error", "Contact not found.");
         }
     }
 

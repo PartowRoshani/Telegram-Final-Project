@@ -1,5 +1,6 @@
 package org.to.telegramfinalproject.Server;
 
+import javafx.geometry.Side;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.*;
@@ -111,10 +112,13 @@ public class ClientHandler implements Runnable {
                                 JSONObject c = new JSONObject();
                                 c.put("user_id", contact.getUser_id().toString());
                                 c.put("contact_id", contact.getContact_id().toString());
+                                User Contact = userDatabase.findByInternalUUID(contact.getContact_id());
+                                c.put("contact_displayId", Contact.getUser_id());
                                 c.put("is_blocked", contact.getIs_blocked());
 
                                 c.put("profile_name", target.getProfile_name());
                                 c.put("image_url", target.getImage_url());
+                                c.put("last_seen", Contact.getLast_seen());
 
                                 contactList.put(c);
                             }
@@ -2120,6 +2124,22 @@ public class ClientHandler implements Runnable {
                     case "send_saved_messages": {
                        response = SidebarService.handleSendMessage(requestJson);
                        break;
+                    }
+
+                    case "search_contacts": {
+                        String user_id = requestJson.getString("user_id");
+                        String search_term = requestJson.getString("search_term");
+
+                        response = SidebarService.handleSearchContacts(user_id, search_term);
+                        break;
+                    }
+
+                    case "remove_contact": {
+                        UUID user_id = UUID.fromString(requestJson.getString("user_id"));
+                        UUID contactId = UUID.fromString(requestJson.getString("contact_id"));
+
+                        response = SidebarService.handleRemoveContact(user_id, contactId);
+                        break;
                     }
 
                     default:
