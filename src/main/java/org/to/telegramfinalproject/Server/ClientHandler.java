@@ -2121,6 +2121,15 @@ public class ClientHandler implements Runnable {
 
                         UUID targetId = PrivateChatDatabase.getOtherUserInChat(chatId, userId);
                         if (targetId == null) {
+                            PrivateChat chat = PrivateChatDatabase.findById(chatId);
+                            if (chat != null
+                                    && (userId.equals(chat.getUser1_id()) || userId.equals(chat.getUser2_id()))
+                                    && chat.getUser1_id().equals(chat.getUser2_id())) {
+                                targetId = userId;
+                            }
+                        }
+
+                        if (targetId == null) {
                             response = new ResponseModel("error", "Could not find other user.");
                         } else {
                             JSONObject data = new JSONObject();
