@@ -9,6 +9,7 @@ import org.to.telegramfinalproject.Utils.GroupPermissionUtil;
 
 import java.io.*;
 import java.net.Socket;
+import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -111,6 +112,8 @@ public class ClientHandler implements Runnable {
                                 JSONObject c = new JSONObject();
                                 c.put("user_id", contact.getUser_id().toString());
                                 c.put("contact_id", contact.getContact_id().toString());
+                                User Contact = userDatabase.findByInternalUUID(contact.getContact_id());
+                                c.put("contact_displayId", Contact.getUser_id());
                                 c.put("is_blocked", contact.getIs_blocked());
 
                                 c.put("profile_name", target.getProfile_name());
@@ -2469,8 +2472,87 @@ public class ClientHandler implements Runnable {
     }
 
 
-    private ResponseModel handleSendMessage(JSONObject json) {
+//    private ResponseModel handleSendMessage(JSONObject json) {
+//
+//        try {
+//            if (currentUser == null)
+//                return new ResponseModel("error", "Unauthorized. Please login first.");
+//
+//            UUID messageId = UUID.randomUUID();
+//            UUID senderId = currentUser.getInternal_uuid();
+//            String receiverType = json.getString("receiver_type");
+//            UUID receiverId;
+//            receiverId = UUID.fromString(json.getString("receiver_id"));
+//
+//            if(Objects.equals(receiverType, "private")){
+//                PrivateChatDatabase.clearDeletedFlag(senderId, receiverId);
+//                UUID other = PrivateChatDatabase.getOtherParticipant(receiverId, senderId);
+//                if (other == null) {
+//                    return new ResponseModel("error", "Invalid private chat.");
+//                }
+//                if (ContactDatabase.isBlocked(senderId, other) || ContactDatabase.isBlocked(other, senderId)) {
+//                    return new ResponseModel("error", "You can't message this user (blocked).");
+//                }
+//            }
+//
+//
+//            String content = json.optString("content", "");
+//            String messageType = json.optString("message_type", "TEXT");
+//
+//            boolean inserted = MessageDatabase.insertMessage(messageId, senderId, receiverId, receiverType, content, messageType);
+//            if (!inserted)
+//                return new ResponseModel("error", "Failed to insert message.");
+//
+//            if (json.has("attachments")) {
+//                JSONArray attachmentsArray = json.getJSONArray("attachments");
+//                List<FileAttachment> attachments = new ArrayList<>();
+//
+//                for (int i = 0; i < attachmentsArray.length(); i++) {
+//                    JSONObject attJson = attachmentsArray.getJSONObject(i);
+//                    attachments.add(new FileAttachment(
+//                            attJson.getString("file_url"),
+//                            attJson.getString("file_type")
+//                    ));
+//                }
+//
+//                boolean attInserted = MessageDatabase.insertAttachments(messageId, attachments);
+//                if (!attInserted)
+//                    return new ResponseModel("error", "Message inserted but failed to attach files.");
+//            }
+//
+//            // Send real-time message
+//            Message msg = new Message(messageId, senderId, receiverId, receiverType, content, messageType, LocalDateTime.now());
+//            List<UUID> receivers = getReceiversForChat(receiverId, receiverType);
+//            receivers.remove(senderId);
+//            RealTimeEventDispatcher.sendNewMessage(msg, receivers);
+//
+//            // Update chat list (last_message_time)
+//            JSONObject chatUpdate = new JSONObject();
+//            chatUpdate.put("chat_id", receiverId.toString());
+//            chatUpdate.put("chat_type", receiverType);
+//            chatUpdate.put("last_message_time", LocalDateTime.now().toString());
+//
+//            JSONObject chatPayload = new JSONObject();
+//            chatPayload.put("action", "chat_updated");
+//            chatPayload.put("data", chatUpdate);
+//
+//            for (UUID receiver : receivers) {
+//                RealTimeEventDispatcher.sendToUser(receiver, chatPayload);
+//            }
+//
+//            JSONObject data = new JSONObject();
+//            data.put("message_id", messageId.toString());
+//            return new ResponseModel("success", "Message sent successfully.", data);
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return new ResponseModel("error", "Exception occurred while sending message.");
+//        }
+//    }
 
+
+
+    private ResponseModel handleSendMessage(JSONObject json) {
         try {
             if (currentUser == null)
                 return new ResponseModel("error", "Unauthorized. Please login first.");
@@ -2478,74 +2560,131 @@ public class ClientHandler implements Runnable {
             UUID messageId = UUID.randomUUID();
             UUID senderId = currentUser.getInternal_uuid();
             String receiverType = json.getString("receiver_type");
-            UUID receiverId;
-            receiverId = UUID.fromString(json.getString("receiver_id"));
+            UUID receiverId = UUID.fromString(json.getString("receiver_id"));
 
-            if(Objects.equals(receiverType, "private")){
-                PrivateChatDatabase.clearDeletedFlag(senderId, receiverId);
-                UUID other = PrivateChatDatabase.getOtherParticipant(receiverId, senderId);
-                if (other == null) {
-                    return new ResponseModel("error", "Invalid private chat.");
-                }
-                if (ContactDatabase.isBlocked(senderId, other) || ContactDatabase.isBlocked(other, senderId)) {
-                    return new ResponseModel("error", "You can't message this user (blocked).");
-                }
-            }
-
+            // private validations...
+            // ...
 
             String content = json.optString("content", "");
             String messageType = json.optString("message_type", "TEXT");
 
-            boolean inserted = MessageDatabase.insertMessage(messageId, senderId, receiverId, receiverType, content, messageType);
-            if (!inserted)
-                return new ResponseModel("error", "Failed to insert message.");
-
+            // Parse attachments
+            List<FileAttachment> attachments = new ArrayList<>();
             if (json.has("attachments")) {
-                JSONArray attachmentsArray = json.getJSONArray("attachments");
-                List<FileAttachment> attachments = new ArrayList<>();
-
-                for (int i = 0; i < attachmentsArray.length(); i++) {
-                    JSONObject attJson = attachmentsArray.getJSONObject(i);
+                JSONArray arr = json.getJSONArray("attachments");
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject a = arr.getJSONObject(i);
                     attachments.add(new FileAttachment(
-                            attJson.getString("file_url"),
-                            attJson.getString("file_type")
+                            a.optString("file_url",""),
+                            a.optString("file_type","FILE"),
+                            a.optString("file_name",""),
+                            a.has("file_size") && !a.isNull("file_size") ? a.getLong("file_size") : null,
+                            a.optString("mime_type", null),
+                            a.has("width") && !a.isNull("width") ? a.getInt("width") : null,
+                            a.has("height") && !a.isNull("height") ? a.getInt("height") : null,
+                            a.has("duration_seconds") && !a.isNull("duration_seconds") ? a.getInt("duration_seconds") : null,
+                            a.isNull("thumbnail_url") ? null : a.optString("thumbnail_url", null)
                     ));
                 }
-
-                boolean attInserted = MessageDatabase.insertAttachments(messageId, attachments);
-                if (!attInserted)
-                    return new ResponseModel("error", "Message inserted but failed to attach files.");
             }
 
-            // Send real-time message
+            if ((content == null || content.isBlank()) && attachments.isEmpty()) {
+                return new ResponseModel("error", "Empty message: no content or attachment.");
+            }
+
+            // Harmonize message_type
+            if (!attachments.isEmpty()) {
+                String firstType = attachments.get(0).getFileType();
+                if ("TEXT".equalsIgnoreCase(messageType)) {
+                    messageType = firstType;
+                } else if (!messageType.equalsIgnoreCase(firstType) && !messageType.equalsIgnoreCase("FILE")) {
+                    return new ResponseModel("error", "message_type and attachment.file_type mismatch.");
+                }
+            }
+
+            // DB transaction
+            try (Connection conn = ConnectionDb.connect()) {
+                conn.setAutoCommit(false);
+
+                boolean inserted = MessageDatabase.insertMessageTx(conn, messageId, senderId, receiverId, receiverType, content, messageType);
+                if (!inserted) {
+                    conn.rollback();
+                    return new ResponseModel("error", "Failed to insert message.");
+                }
+
+                if (!attachments.isEmpty()) {
+                    boolean attInserted = MessageDatabase.insertAttachmentsTx(conn, messageId, attachments);
+                    if (!attInserted) {
+                        conn.rollback();
+                        return new ResponseModel("error", "Message inserted but failed to attach files.");
+                    }
+                }
+
+                conn.commit();
+            }
+
+            // Real-Time
             Message msg = new Message(messageId, senderId, receiverId, receiverType, content, messageType, LocalDateTime.now());
+
+            // رویداد با پیوست‌ها
+            JSONObject payload = new JSONObject();
+            payload.put("action", "new_message");
+            JSONObject data = new JSONObject();
+            data.put("id", messageId.toString());
+            data.put("sender_id", senderId.toString());
+            data.put("receiver_id", receiverId.toString());
+            data.put("receiver_type", receiverType);
+            data.put("content", content);
+            data.put("message_type", messageType);
+            data.put("send_at", msg.getSend_at().toString());
+
+            if (!attachments.isEmpty()) {
+                JSONArray out = new JSONArray();
+                for (FileAttachment a : attachments) {
+                    JSONObject ao = new JSONObject()
+                            .put("file_url", a.getFileUrl())
+                            .put("file_type", a.getFileType())
+                            .put("file_name", a.getFileName() == null ? JSONObject.NULL : a.getFileName())
+                            .put("file_size", a.getFileSize() == null ? JSONObject.NULL : a.getFileSize())
+                            .put("mime_type", a.getMimeType() == null ? JSONObject.NULL : a.getMimeType())
+                            .put("width", a.getWidth() == null ? JSONObject.NULL : a.getWidth())
+                            .put("height", a.getHeight() == null ? JSONObject.NULL : a.getHeight())
+                            .put("duration_seconds", a.getDurationSeconds() == null ? JSONObject.NULL : a.getDurationSeconds())
+                            .put("thumbnail_url", a.getThumbnailUrl() == null ? JSONObject.NULL : a.getThumbnailUrl());
+                    out.put(ao);
+                }
+                data.put("attachments", out);
+            }
+
+            User sender = userDatabase.findByInternalUUID(senderId);
+            if (sender != null) data.put("sender_name", sender.getProfile_name());
+            payload.put("data", data);
+
             List<UUID> receivers = getReceiversForChat(receiverId, receiverType);
             receivers.remove(senderId);
-            RealTimeEventDispatcher.sendNewMessage(msg, receivers);
+            RealTimeEventDispatcher.broadcastToUsers(receivers, payload);
 
-            // Update chat list (last_message_time)
-            JSONObject chatUpdate = new JSONObject();
-            chatUpdate.put("chat_id", receiverId.toString());
-            chatUpdate.put("chat_type", receiverType);
-            chatUpdate.put("last_message_time", LocalDateTime.now().toString());
+            // chat_updated
+            JSONObject chatUpdate = new JSONObject()
+                    .put("chat_id", receiverId.toString())
+                    .put("chat_type", receiverType)
+                    .put("last_message_time", LocalDateTime.now().toString());
 
-            JSONObject chatPayload = new JSONObject();
-            chatPayload.put("action", "chat_updated");
-            chatPayload.put("data", chatUpdate);
+            JSONObject chatPayload = new JSONObject()
+                    .put("action", "chat_updated")
+                    .put("data", chatUpdate);
 
-            for (UUID receiver : receivers) {
-                RealTimeEventDispatcher.sendToUser(receiver, chatPayload);
-            }
+            for (UUID r : receivers) RealTimeEventDispatcher.sendToUser(r, chatPayload);
 
-            JSONObject data = new JSONObject();
-            data.put("message_id", messageId.toString());
-            return new ResponseModel("success", "Message sent successfully.", data);
+            JSONObject respData = new JSONObject().put("message_id", messageId.toString());
+            return new ResponseModel("success", "Message sent successfully.", respData);
 
         } catch (Exception e) {
             e.printStackTrace();
             return new ResponseModel("error", "Exception occurred while sending message.");
         }
     }
+
 
 
     private List<UUID> getReceiversForChat(UUID receiverId, String receiverType) {

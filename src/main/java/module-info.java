@@ -11,12 +11,10 @@ module org.to.telegramfinalproject {
     requires eu.hansolo.tilesfx;
     requires org.json;
     requires java.sql;
-    requires javax.servlet.api;
-    requires spark.core;
     requires java.desktop;
-    requires jcodec;
+    requires spark.core;
+    requires javax.servlet.api;
     requires mp3agic;
-    requires jcodec.javase;
     opens org.to.telegramfinalproject to javafx.fxml;
     exports org.to.telegramfinalproject;
     exports org.to.telegramfinalproject.Client;

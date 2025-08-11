@@ -1,17 +1,19 @@
 package org.to.telegramfinalproject.Models;
 
+import org.json.JSONObject;
 import java.util.Objects;
 
 public class FileAttachment {
-    private  String fileUrl;
-    private  String fileType;        // IMAGE, VIDEO, AUDIO, FILE, GIF, STICKER
-    private  String fileName;
-    private  Long fileSize;
-    private  String mimeType;        // MIME type (example: image/png)
-    private  Integer width;
-    private  Integer height;
-    private  Integer durationSeconds; //time for video and audio
-    private  String thumbnailUrl;
+
+    private final String fileUrl;
+    private final String fileType;          // IMAGE, VIDEO, AUDIO, FILE, GIF, STICKER
+    private final String fileName;
+    private final Long   fileSize;
+    private final String mimeType;          // e.g., image/png
+    private final Integer width;
+    private final Integer height;
+    private final Integer durationSeconds;  // for audio/video
+    private final String  thumbnailUrl;
 
     public FileAttachment(String fileUrl,
                           String fileType,
@@ -34,44 +36,91 @@ public class FileAttachment {
     }
 
     public FileAttachment(String fileUrl, String fileType) {
-        this.fileUrl = fileUrl;
-        this.fileType = fileType;
+        this(fileUrl, fileType, null, null, null, null, null, null, null);
+    }
+
+    // ساخت از JSON /upload
+    public static FileAttachment fromUploadJson(JSONObject j) {
+        return new FileAttachment(
+                j.optString("file_url", ""),
+                j.optString("file_type", "FILE"),
+                emptyToNull(j.optString("file_name", null)),
+                j.has("file_size") && !j.isNull("file_size") ? j.getLong("file_size") : null,
+                emptyToNull(j.optString("mime_type", null)),
+                j.has("width") && !j.isNull("width") ? j.getInt("width") : null,
+                j.has("height") && !j.isNull("height") ? j.getInt("height") : null,
+                j.has("duration_seconds") && !j.isNull("duration_seconds") ? j.getInt("duration_seconds") : null,
+                j.isNull("thumbnail_url") ? null : emptyToNull(j.optString("thumbnail_url", null))
+        );
+    }
+
+    // خروجی JSON برای RT/کلاینت
+    public JSONObject toJson() {
+        JSONObject out = new JSONObject()
+                .put("file_url", fileUrl)
+                .put("file_type", fileType);
+
+        out.put("file_name", fileName == null ? JSONObject.NULL : fileName);
+        out.put("file_size", fileSize == null ? JSONObject.NULL : fileSize);
+        out.put("mime_type", mimeType == null ? JSONObject.NULL : mimeType);
+        out.put("width", width == null ? JSONObject.NULL : width);
+        out.put("height", height == null ? JSONObject.NULL : height);
+        out.put("duration_seconds", durationSeconds == null ? JSONObject.NULL : durationSeconds);
+        out.put("thumbnail_url", thumbnailUrl == null ? JSONObject.NULL : thumbnailUrl);
+        return out;
+    }
+
+    // Helpers
+    public boolean isImage() { return "IMAGE".equalsIgnoreCase(fileType) || "GIF".equalsIgnoreCase(fileType); }
+    public boolean isAudio() { return "AUDIO".equalsIgnoreCase(fileType); }
+    public boolean hasDimensions() { return width != null && height != null; }
+
+    private static String emptyToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s;
     }
 
     // Getters
-    public String getFileUrl() {
-        return fileUrl;
+    public String getFileUrl() { return fileUrl; }
+    public String getFileType() { return fileType; }
+    public String getFileName() { return fileName; }
+    public Long getFileSize() { return fileSize; }
+    public String getMimeType() { return mimeType; }
+    public Integer getWidth() { return width; }
+    public Integer getHeight() { return height; }
+    public Integer getDurationSeconds() { return durationSeconds; }
+    public String getThumbnailUrl() { return thumbnailUrl; }
+
+    // equals/hashCode/toString
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof FileAttachment)) return false;
+        FileAttachment that = (FileAttachment) o;
+        return Objects.equals(fileUrl, that.fileUrl) &&
+                Objects.equals(fileType, that.fileType) &&
+                Objects.equals(fileName, that.fileName) &&
+                Objects.equals(fileSize, that.fileSize) &&
+                Objects.equals(mimeType, that.mimeType) &&
+                Objects.equals(width, that.width) &&
+                Objects.equals(height, that.height) &&
+                Objects.equals(durationSeconds, that.durationSeconds) &&
+                Objects.equals(thumbnailUrl, that.thumbnailUrl);
     }
 
-    public String getFileType() {
-        return fileType;
+    @Override public int hashCode() {
+        return Objects.hash(fileUrl, fileType, fileName, fileSize, mimeType, width, height, durationSeconds, thumbnailUrl);
     }
 
-    public String getFileName() {
-        return fileName;
-    }
-
-    public Long getFileSize() {
-        return fileSize;
-    }
-
-    public String getMimeType() {
-        return mimeType;
-    }
-
-    public Integer getWidth() {
-        return width;
-    }
-
-    public Integer getHeight() {
-        return height;
-    }
-
-    public Integer getDurationSeconds() {
-        return durationSeconds;
-    }
-
-    public String getThumbnailUrl() {
-        return thumbnailUrl;
+    @Override public String toString() {
+        return "FileAttachment{" +
+                "fileUrl='" + fileUrl + '\'' +
+                ", fileType='" + fileType + '\'' +
+                ", fileName='" + fileName + '\'' +
+                ", fileSize=" + fileSize +
+                ", mimeType='" + mimeType + '\'' +
+                ", width=" + width +
+                ", height=" + height +
+                ", durationSeconds=" + durationSeconds +
+                ", thumbnailUrl='" + thumbnailUrl + '\'' +
+                '}';
     }
 }

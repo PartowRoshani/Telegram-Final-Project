@@ -555,13 +555,13 @@ public class ActionHandler {
                         ContactEntry entry = new ContactEntry(
                                 UUID.fromString(c.getString("contact_id")),
                                 c.getString("user_id"),
+                                c.getString("contact_displayId"),
                                 c.getString("profile_name"),
                                 c.optString("image_url", ""),
                                 c.optBoolean("is_blocked", false)
                         );
                         Session.contactEntries.add(entry);
                     }
-
 
 
 
@@ -898,6 +898,134 @@ public class ActionHandler {
             default -> System.out.println("❌ Invalid option.");
         }
     }
+
+
+
+//    public void showContactList() {
+//        System.out.println("1. View All Contacts");
+//        System.out.println("2. Search Contacts");
+//        System.out.println("Choose an option: (0 to go back)");
+//        int option = scanner.nextInt();
+//        scanner.nextLine();
+//
+//        // Handle invalid input
+//        while (option < 0 || option > 2) {
+//            System.out.println("Invalid choice. Try again: ");
+//            option = scanner.nextInt();
+//            scanner.nextLine();
+//        }
+//
+//        List<ContactEntry> contacts;
+//
+//        if (option == 0) {
+//            return;
+//        }
+//        else if (option == 1) {
+//            contacts = Session.contactEntries;
+//
+//        } else if (option == 2) {
+//            contacts = new ArrayList<>();
+//
+//            System.out.print("Enter name or user ID to search: ");
+//            String searchTerm = scanner.nextLine();
+//
+//            // Handle invalid input
+//            while (searchTerm.isEmpty()) {
+//                System.out.print("Search key can not be empty. Try again: ");
+//                searchTerm = scanner.nextLine();
+//            }
+//
+//            // Send a request to server
+//            JSONObject request = new JSONObject();
+//            request.put("action", "search_contacts");
+//            request.put("user_id", Session.getUserUUID());
+//            request.put("search_term", searchTerm);
+//
+//            JSONObject response = ActionHandler.sendWithResponse(request);
+//
+//            if (!response.optString("status", "fail").equals("success")) {
+//                System.out.println("Failed to search contacts: " + response.optString("message", "Unknown error"));
+//                return;
+//            }
+//
+//            JSONObject data = response.getJSONObject("data");
+//            JSONArray contactsJson = data.getJSONArray("contacts");
+//
+//            for (int i = 0; i < contactsJson.length(); i++) {
+//                JSONObject contact = contactsJson.getJSONObject(i);
+//
+//                UUID contactId = UUID.fromString(contact.getString("contact_id"));
+//                String userId = contact.getString("user_id");
+//                String profileName = contact.getString("profile_name");
+//                String imageUrl = contact.optString("image_url", "");
+//                boolean isBlocked = contact.getBoolean("is_blocked");
+//                String lastSeenString = contact.getString("last_seen");
+//                LocalDateTime lastSeen = null;
+//                if (lastSeenString != null) {
+//                    lastSeen = LocalDateTime.parse(lastSeenString);
+//                }
+//
+//                contacts.add(new ContactEntry(contactId, userId, profileName, imageUrl, isBlocked));
+//            }
+//
+//        } else {
+//            System.out.println("❌ Invalid choice.");
+//            return;
+//        }
+//
+//        if (contacts.isEmpty()) {
+//            System.out.println("📭 No contacts found.");
+//            return;
+//        }
+//
+//        System.out.println("👥 Your Contacts:");
+//        for (int i = 0; i < contacts.size(); i++) {
+//            System.out.println((i + 1) + ". " + contacts.get(i));
+//        }
+//
+//        System.out.print("Select a contact (0 to go back): ");
+//        int choice = scanner.nextInt();
+//        scanner.nextLine();
+//
+//        if (choice == 0) return;
+//        if (choice < 1 || choice > contacts.size()) {
+//            System.out.println("❌ Invalid choice.");
+//            return;
+//        }
+//
+//        ContactEntry selected = contacts.get(choice - 1);
+//        System.out.println("\n📇 What do you want to do with " + selected.getProfileName() + "?");
+//        System.out.println("1. View Profile");
+//        System.out.println("2. Send Message");
+//        System.out.println("3. Remove Contact");
+//        System.out.print("Enter your choice: ");
+//        int action = scanner.nextInt();
+//        scanner.nextLine();
+//        switch (action) {
+//            case 1 -> viewProfile(selected.getContactId());
+//            case 2 -> startPrivateChat(selected);
+//            case 3 -> {
+//                // Send a request to server
+//                JSONObject request = new JSONObject();
+//                request.put("action", "remove_contact");
+//                request.put("user_id", Session.getUserUUID()); // Current user
+//                request.put("contact_id", selected.getContactId().toString()); // Contact to remove
+//
+//                JSONObject response = ActionHandler.sendWithResponse(request);
+//
+//                if ("success".equals(response.optString("status"))) {
+//                    System.out.println("✅ Contact removed successfully.");
+//                    Session.contactEntries.remove(selected); // Remove from local session list
+//                } else {
+//                    System.out.println("❌ Failed to remove contact: " +
+//                            response.optString("message", "Unknown error"));
+//                }
+//            }
+//
+//            default -> System.out.println("❌ Invalid option.");
+//        }
+//    }
+
 
     private void viewProfile(UUID targetId) {
         JSONObject req = new JSONObject();
@@ -3232,32 +3360,110 @@ public class ActionHandler {
 
 
 
+//    public void sendMessage(UUID chatId, String receiverType) {
+//        Scanner scanner = new Scanner(System.in);
+//
+//        System.out.print("Enter your message: ");
+//        String content = scanner.nextLine();
+//
+//        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE): ");
+//        String messageType = scanner.nextLine().toUpperCase();
+//        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+//        while (!allowedTypes.contains(messageType)) {
+//            System.out.print("❌ Invalid type. Try again (TEXT / IMAGE / VIDEO / FILE): ");
+//            messageType = scanner.nextLine().toUpperCase();
+//        }
+//
+//        JSONArray attachmentsArray = new JSONArray();
+//        System.out.print("Do you want to attach files? (yes/no): ");
+//        if (scanner.nextLine().equalsIgnoreCase("yes")) {
+//            while (true) {
+//                System.out.print("File URL: ");
+//                String fileUrl = scanner.nextLine();
+//                System.out.print("File Type (IMAGE / VIDEO / FILE): ");
+//                String fileType = scanner.nextLine().toUpperCase();
+//
+//                JSONObject fileJson = new JSONObject();
+//                fileJson.put("file_url", fileUrl);
+//                fileJson.put("file_type", fileType);
+//                attachmentsArray.put(fileJson);
+//
+//                System.out.print("Add another file? (yes/no): ");
+//                if (!scanner.nextLine().equalsIgnoreCase("yes")) break;
+//            }
+//        }
+//
+//        // 🔹 فقط ارسال پیام با chat_id و receiver_type
+//        JSONObject messageJson = new JSONObject();
+//        messageJson.put("action", "send_message");
+//        messageJson.put("receiver_type", receiverType);
+//        messageJson.put("receiver_id", chatId.toString());
+//        messageJson.put("content", content);
+//        messageJson.put("message_type", messageType);
+//
+//        if (!attachmentsArray.isEmpty()) {
+//            messageJson.put("attachments", attachmentsArray);
+//        }
+//
+//        JSONObject response = sendWithResponse(messageJson);
+//        if (response != null && response.getString("status").equals("success")) {
+//            System.out.println("✅ Message sent! ID: " + response.getJSONObject("data").getString("message_id"));
+//        } else {
+//            System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "No response"));
+//        }
+//    }
+
+
+
+
     public void sendMessage(UUID chatId, String receiverType) {
         Scanner scanner = new Scanner(System.in);
 
-        System.out.print("Enter your message: ");
+        System.out.print("Enter your message (leave empty if file only): ");
         String content = scanner.nextLine();
 
-        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE): ");
+        System.out.print("Enter message type (TEXT / IMAGE / AUDIO / FILE / GIF): ");
         String messageType = scanner.nextLine().toUpperCase();
-        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "AUDIO", "FILE", "GIF");
         while (!allowedTypes.contains(messageType)) {
-            System.out.print("❌ Invalid type. Try again (TEXT / IMAGE / VIDEO / FILE): ");
+            System.out.print("❌ Invalid type. Try again (TEXT / IMAGE / AUDIO / FILE / GIF): ");
             messageType = scanner.nextLine().toUpperCase();
         }
 
         JSONArray attachmentsArray = new JSONArray();
-        System.out.print("Do you want to attach files? (yes/no): ");
+        System.out.print("Attach files? (yes/no): ");
         if (scanner.nextLine().equalsIgnoreCase("yes")) {
             while (true) {
-                System.out.print("File URL: ");
-                String fileUrl = scanner.nextLine();
-                System.out.print("File Type (IMAGE / VIDEO / FILE): ");
-                String fileType = scanner.nextLine().toUpperCase();
+                System.out.println("Paste the JSON you got from /upload (or leave empty to enter minimal fields):");
+                String jsonLine = scanner.nextLine().trim();
 
-                JSONObject fileJson = new JSONObject();
-                fileJson.put("file_url", fileUrl);
-                fileJson.put("file_type", fileType);
+                JSONObject fileJson;
+                if (!jsonLine.isEmpty()) {
+                    // انتظار خروجی کامل /upload
+                    fileJson = new JSONObject(jsonLine);
+                    // اگه خروجی /upload تو ریشه‌ست، تبدیلش کن به ساختار attachment
+                    fileJson = new JSONObject()
+                            .put("file_url", fileJson.optString("file_url", ""))
+                            .put("file_type", fileJson.optString("file_type", "FILE"))
+                            .put("file_name", fileJson.optString("file_name", ""))
+                            .put("file_size", fileJson.optLong("file_size", 0))
+                            .put("mime_type", fileJson.optString("mime_type", ""))
+                            .put("width", fileJson.isNull("width") ? JSONObject.NULL : fileJson.optInt("width"))
+                            .put("height", fileJson.isNull("height") ? JSONObject.NULL : fileJson.optInt("height"))
+                            .put("duration_seconds", fileJson.isNull("duration_seconds") ? JSONObject.NULL : fileJson.optInt("duration_seconds"))
+                            .put("thumbnail_url", fileJson.isNull("thumbnail_url") ? JSONObject.NULL : fileJson.optString("thumbnail_url", null));
+                } else {
+                    // ورودی حداقلی
+                    System.out.print("File URL: ");
+                    String fileUrl = scanner.nextLine();
+                    System.out.print("File Type (IMAGE / AUDIO / FILE / GIF): ");
+                    String fileType = scanner.nextLine().toUpperCase();
+
+                    fileJson = new JSONObject();
+                    fileJson.put("file_url", fileUrl);
+                    fileJson.put("file_type", fileType);
+                }
+
                 attachmentsArray.put(fileJson);
 
                 System.out.print("Add another file? (yes/no): ");
@@ -3265,15 +3471,13 @@ public class ActionHandler {
             }
         }
 
-        // 🔹 فقط ارسال پیام با chat_id و receiver_type
         JSONObject messageJson = new JSONObject();
         messageJson.put("action", "send_message");
-        messageJson.put("receiver_type", receiverType);
-        messageJson.put("receiver_id", chatId.toString());
+        messageJson.put("receiver_type", receiverType);    // "private"/"group"/"channel"
+        messageJson.put("receiver_id", chatId.toString()); // در private = chat_id
         messageJson.put("content", content);
         messageJson.put("message_type", messageType);
-
-        if (!attachmentsArray.isEmpty()) {
+        if (attachmentsArray.length() > 0) {
             messageJson.put("attachments", attachmentsArray);
         }
 
@@ -3281,7 +3485,7 @@ public class ActionHandler {
         if (response != null && response.getString("status").equals("success")) {
             System.out.println("✅ Message sent! ID: " + response.getJSONObject("data").getString("message_id"));
         } else {
-            System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "No response"));
+            System.out.println("❌ Failed to send message: " + (response != null ? response.optString("message","No message") : "No response"));
         }
     }
 

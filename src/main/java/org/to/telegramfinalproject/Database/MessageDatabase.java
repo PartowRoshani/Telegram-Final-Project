@@ -626,11 +626,13 @@ public class MessageDatabase {
                 rs.getString("status"),
                 (UUID) rs.getObject("reply_to_id"),
                 rs.getBoolean("is_edited"),
-                rs.getBoolean("is_deleted_globally"),
+//                rs.getBoolean("is_deleted_globally"),
                 (UUID) rs.getObject("original_message_id"),
                 (UUID) rs.getObject("forwarded_by"),
-                (UUID) rs.getObject("forwarded_from")
-        );
+                (UUID) rs.getObject("forwarded_from"),
+                rs.getBoolean("is_deleted_globally"),
+                (rs.getTimestamp("edited_at") != null) ? rs.getTimestamp("edited_at").toLocalDateTime() : null
+                );
     }
 
 

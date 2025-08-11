@@ -10,10 +10,20 @@ public class ContactEntry {
     private String profileName;
     private String imageUrl;
     private boolean isBlocked;
+    private String contact_displayId;
 
     public ContactEntry(UUID contactId, String userId, String profileName, String imageUrl, boolean isBlocked) {
         this.contactId = contactId;
         this.userId = userId;
+        this.profileName = profileName;
+        this.imageUrl = imageUrl;
+        this.isBlocked = isBlocked;
+    }
+
+    public ContactEntry(UUID contactId, String userId,String contact_displayId , String profileName, String imageUrl, boolean isBlocked){
+        this.contactId = contactId;
+        this.userId = userId;
+        this.contact_displayId = contact_displayId;
         this.profileName = profileName;
         this.imageUrl = imageUrl;
         this.isBlocked = isBlocked;
@@ -41,7 +51,7 @@ public class ContactEntry {
 
     @Override
     public String toString() {
-        return profileName + " (" + userId + ")" + (isBlocked ? " [Blocked]" : "");
+        return profileName + " ( @" + contact_displayId + ")" + (isBlocked ? " [Blocked]" : "");
     }
 
 
