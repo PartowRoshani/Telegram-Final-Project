@@ -185,7 +185,7 @@ public class JsonUtil {
             obj.put("last_message_time", entry.getLastMessageTime() == null ? JSONObject.NULL : entry.getLastMessageTime().toString());
             obj.put("is_owner", entry.isOwner());
             obj.put("is_admin", entry.isAdmin());
-
+            obj.put("is_saved_messages", entry.isSavedMessages());
 
             jsonArray.put(obj);
         }

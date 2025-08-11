@@ -3,6 +3,7 @@ package org.to.telegramfinalproject.Client;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.PrivateChatDatabase;
+import org.to.telegramfinalproject.Database.ContactDatabase;
 import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Models.ContactEntry;
 import org.to.telegramfinalproject.Models.SearchRequestModel;
@@ -501,6 +502,10 @@ public class ActionHandler {
                             entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
                         }
 
+                        if (chat.has("is_saved_messages")) {
+                            entry.setSavedMessages(chat.getBoolean("is_saved_messages"));
+                        }
+
                         chatList.add(entry);
 
                     }
@@ -558,7 +563,10 @@ public class ActionHandler {
                                 c.getString("contact_displayId"),
                                 c.getString("profile_name"),
                                 c.optString("image_url", ""),
-                                c.optBoolean("is_blocked", false)
+                                c.optBoolean("is_blocked", false),
+                                c.isNull("last_seen")
+                                        ? null
+                                        : LocalDateTime.parse(c.getString("last_seen"))
                         );
                         Session.contactEntries.add(entry);
                     }
@@ -839,7 +847,8 @@ public class ActionHandler {
             System.out.println("3. Create Channel");
             System.out.println("4. Create group");
             System.out.println("5. View contacts");
-            System.out.println("6. Logout");
+            System.out.println("6. Show sidebar menu");
+            System.out.println("7. Logout");
             System.out.print("Choose an option: ");
             String choice = scanner.nextLine();
 
@@ -853,7 +862,8 @@ public class ActionHandler {
                 case "3" -> createChannel();
                 case "4" -> createGroup();
                 case "5" -> showContactList();
-                case "6" -> {
+                case "6" -> showSidebarMenu();
+                case "7" -> {
                     logout();
                     return;
                 }
@@ -862,119 +872,10 @@ public class ActionHandler {
         }
     }
 
-    public void showContactList() {
-        List<ContactEntry> contacts = Session.contactEntries;
-        if (contacts.isEmpty()) {
-            System.out.println("📭 You have no contacts.");
-            return;
-        }
-
-        System.out.println("👥 Your Contacts:");
-        for (int i = 0; i < contacts.size(); i++) {
-            System.out.println((i + 1) + ". " + contacts.get(i));
-        }
-
-        System.out.print("Select a contact (0 to go back): ");
-        int choice = scanner.nextInt();
-        scanner.nextLine();
-
-        if (choice == 0) return;
-        if (choice < 1 || choice > contacts.size()) {
-            System.out.println("❌ Invalid choice.");
-            return;
-        }
-
-        ContactEntry selected = contacts.get(choice - 1);
-        System.out.println("\n📇 What do you want to do with " + selected.getProfileName() + "?");
-        System.out.println("1. View Profile");
-        System.out.println("2. Send Message");
-        System.out.print("Enter your choice: ");
-        int action = scanner.nextInt();
-        scanner.nextLine();
-
-        switch (action) {
-            case 1 -> viewProfile(selected.getContactId());
-            case 2 -> startPrivateChat(selected);
-            default -> System.out.println("❌ Invalid option.");
-        }
-    }
-
-
-
 //    public void showContactList() {
-//        System.out.println("1. View All Contacts");
-//        System.out.println("2. Search Contacts");
-//        System.out.println("Choose an option: (0 to go back)");
-//        int option = scanner.nextInt();
-//        scanner.nextLine();
-//
-//        // Handle invalid input
-//        while (option < 0 || option > 2) {
-//            System.out.println("Invalid choice. Try again: ");
-//            option = scanner.nextInt();
-//            scanner.nextLine();
-//        }
-//
-//        List<ContactEntry> contacts;
-//
-//        if (option == 0) {
-//            return;
-//        }
-//        else if (option == 1) {
-//            contacts = Session.contactEntries;
-//
-//        } else if (option == 2) {
-//            contacts = new ArrayList<>();
-//
-//            System.out.print("Enter name or user ID to search: ");
-//            String searchTerm = scanner.nextLine();
-//
-//            // Handle invalid input
-//            while (searchTerm.isEmpty()) {
-//                System.out.print("Search key can not be empty. Try again: ");
-//                searchTerm = scanner.nextLine();
-//            }
-//
-//            // Send a request to server
-//            JSONObject request = new JSONObject();
-//            request.put("action", "search_contacts");
-//            request.put("user_id", Session.getUserUUID());
-//            request.put("search_term", searchTerm);
-//
-//            JSONObject response = ActionHandler.sendWithResponse(request);
-//
-//            if (!response.optString("status", "fail").equals("success")) {
-//                System.out.println("Failed to search contacts: " + response.optString("message", "Unknown error"));
-//                return;
-//            }
-//
-//            JSONObject data = response.getJSONObject("data");
-//            JSONArray contactsJson = data.getJSONArray("contacts");
-//
-//            for (int i = 0; i < contactsJson.length(); i++) {
-//                JSONObject contact = contactsJson.getJSONObject(i);
-//
-//                UUID contactId = UUID.fromString(contact.getString("contact_id"));
-//                String userId = contact.getString("user_id");
-//                String profileName = contact.getString("profile_name");
-//                String imageUrl = contact.optString("image_url", "");
-//                boolean isBlocked = contact.getBoolean("is_blocked");
-//                String lastSeenString = contact.getString("last_seen");
-//                LocalDateTime lastSeen = null;
-//                if (lastSeenString != null) {
-//                    lastSeen = LocalDateTime.parse(lastSeenString);
-//                }
-//
-//                contacts.add(new ContactEntry(contactId, userId, profileName, imageUrl, isBlocked));
-//            }
-//
-//        } else {
-//            System.out.println("❌ Invalid choice.");
-//            return;
-//        }
-//
+//        List<ContactEntry> contacts = Session.contactEntries;
 //        if (contacts.isEmpty()) {
-//            System.out.println("📭 No contacts found.");
+//            System.out.println("📭 You have no contacts.");
 //            return;
 //        }
 //
@@ -997,34 +898,143 @@ public class ActionHandler {
 //        System.out.println("\n📇 What do you want to do with " + selected.getProfileName() + "?");
 //        System.out.println("1. View Profile");
 //        System.out.println("2. Send Message");
-//        System.out.println("3. Remove Contact");
 //        System.out.print("Enter your choice: ");
 //        int action = scanner.nextInt();
 //        scanner.nextLine();
+//
 //        switch (action) {
 //            case 1 -> viewProfile(selected.getContactId());
 //            case 2 -> startPrivateChat(selected);
-//            case 3 -> {
-//                // Send a request to server
-//                JSONObject request = new JSONObject();
-//                request.put("action", "remove_contact");
-//                request.put("user_id", Session.getUserUUID()); // Current user
-//                request.put("contact_id", selected.getContactId().toString()); // Contact to remove
-//
-//                JSONObject response = ActionHandler.sendWithResponse(request);
-//
-//                if ("success".equals(response.optString("status"))) {
-//                    System.out.println("✅ Contact removed successfully.");
-//                    Session.contactEntries.remove(selected); // Remove from local session list
-//                } else {
-//                    System.out.println("❌ Failed to remove contact: " +
-//                            response.optString("message", "Unknown error"));
-//                }
-//            }
-//
 //            default -> System.out.println("❌ Invalid option.");
 //        }
 //    }
+
+    public void showContactList() {
+        System.out.println("1. View All Contacts");
+        System.out.println("2. Search Contacts");
+        System.out.println("Choose an option: (0 to go back)");
+        int option = scanner.nextInt();
+        scanner.nextLine();
+
+        // Handle invalid input
+        while (option < 0 || option > 2) {
+            System.out.println("Invalid choice. Try again: ");
+            option = scanner.nextInt();
+            scanner.nextLine();
+        }
+
+        List<ContactEntry> contacts;
+
+        if (option == 0) {
+            return;
+        }
+        else if (option == 1) {
+            contacts = Session.contactEntries;
+
+        } else if (option == 2) {
+            contacts = new ArrayList<>();
+
+            System.out.print("Enter name or user ID to search: ");
+            String searchTerm = scanner.nextLine();
+
+            // Handle invalid input
+            while (searchTerm.isEmpty()) {
+                System.out.print("Search key can not be empty. Try again: ");
+                searchTerm = scanner.nextLine();
+            }
+
+            // Send a request to server
+            JSONObject request = new JSONObject();
+            request.put("action", "search_contacts");
+            request.put("user_id", Session.getUserUUID());
+            request.put("search_term", searchTerm);
+
+            JSONObject response = ActionHandler.sendWithResponse(request);
+
+            if (!response.optString("status", "fail").equals("success")) {
+                System.out.println("Failed to search contacts: " + response.optString("message", "Unknown error"));
+                return;
+            }
+
+            JSONObject data = response.getJSONObject("data");
+            JSONArray contactsJson = data.getJSONArray("contacts");
+
+            for (int i = 0; i < contactsJson.length(); i++) {
+                JSONObject contact = contactsJson.getJSONObject(i);
+
+                UUID contactId = UUID.fromString(contact.getString("contact_id"));
+                String userId = contact.getString("user_id");
+                String contact_displayId = contact.getString("contact_display_id");
+                String profileName = contact.getString("profile_name");
+                String imageUrl = contact.optString("image_url", "");
+                boolean isBlocked = contact.getBoolean("is_blocked");
+                String lastSeenString = contact.getString("last_seen");
+                LocalDateTime lastSeen = null;
+                if (lastSeenString != null) {
+                    lastSeen = LocalDateTime.parse(lastSeenString);
+                }
+
+                contacts.add(new ContactEntry(contactId, userId, contact_displayId, profileName, imageUrl, isBlocked, lastSeen));
+            }
+
+        } else {
+            System.out.println("❌ Invalid choice.");
+            return;
+        }
+
+        if (contacts.isEmpty()) {
+            System.out.println("📭 No contacts found.");
+            return;
+        }
+
+        System.out.println("👥 Your Contacts:");
+        for (int i = 0; i < contacts.size(); i++) {
+            System.out.println((i + 1) + ". " + contacts.get(i));
+        }
+
+        System.out.print("Select a contact (0 to go back): ");
+        int choice = scanner.nextInt();
+        scanner.nextLine();
+
+        if (choice == 0) return;
+        if (choice < 1 || choice > contacts.size()) {
+            System.out.println("❌ Invalid choice.");
+            return;
+        }
+
+        ContactEntry selected = contacts.get(choice - 1);
+        System.out.println("\n📇 What do you want to do with " + selected.getProfileName() + "?");
+        System.out.println("1. View Profile");
+        System.out.println("2. Send Message");
+        System.out.println("3. Remove Contact");
+        System.out.print("Enter your choice: ");
+        int action = scanner.nextInt();
+        scanner.nextLine();
+
+        switch (action) {
+            case 1 -> viewProfile(selected.getContactId());
+            case 2 -> startPrivateChat(selected);
+            case 3 -> {
+                // Send a request to server
+                JSONObject request = new JSONObject();
+                request.put("action", "remove_contact");
+                request.put("user_id", Session.getUserUUID()); // Current user
+                request.put("contact_id", selected.getContactId().toString()); // Contact to remove
+
+                JSONObject response = ActionHandler.sendWithResponse(request);
+
+                if ("success".equals(response.optString("status"))) {
+                    System.out.println("✅ Contact removed successfully.");
+                    Session.contactEntries.remove(selected); // Remove from local session list
+                } else {
+                    System.out.println("❌ Failed to remove contact: " +
+                            response.optString("message", "Unknown error"));
+                }
+            }
+
+            default -> System.out.println("❌ Invalid option.");
+        }
+    }
 
 
     private void viewProfile(UUID targetId) {
@@ -1129,13 +1139,35 @@ public class ActionHandler {
         System.out.println("\nYour Chats:");
         System.out.println("0. 📦 Archived Chats");
 
+        // Track index dynamically
+        int index = 1;
+
+        // Check if Saved Messages exists in the list
+        int savedMessagesIndex = -1;
         for (int i = 0; i < Session.activeChats.size(); i++) {
             ChatEntry entry = Session.activeChats.get(i);
+
+            if (entry.isSavedMessages()) {
+                savedMessagesIndex = index;
+                System.out.println(index + ". 📦 Saved Messages Chat");
+                index++;
+                break;
+            }
+        }
+
+        // Print the rest of the chats
+        for (int i = 0; i < Session.activeChats.size(); i++) {
+            ChatEntry entry = Session.activeChats.get(i);
+            if (entry.isSavedMessages()) {
+                continue; // Already printed above
+            }
+
             String time = (entry.getLastMessageTime() == null)
                     ? "No messages yet"
                     : entry.getLastMessageTime().toString();
-            System.out.println((i + 1) + ". [" + entry.getType() + "] " +
+            System.out.println(index + ". [" + entry.getType() + "] " +
                     entry.getName() + " - Last: " + time);
+            index++;
         }
 
         System.out.print("Select a chat by number: ");
@@ -1146,14 +1178,33 @@ public class ActionHandler {
             return;
         }
 
-        int index = choice - 1;
+        if (choice == savedMessagesIndex) {
+            new SidebarHandler(scanner, this).getSavedMessagesData(Session.getUserUUID());
+            return;
+        }
 
-        if (index < 0 || index >= Session.activeChats.size()) {
+        // Adjust for Saved Messages if it was in the list
+        int baseIndex = (savedMessagesIndex != -1 && choice > savedMessagesIndex) ? 1 : 0;
+        int chatIndex = choice - 1 - baseIndex;
+
+        if (chatIndex < 0 || chatIndex >= Session.activeChats.size()) {
             System.out.println("Invalid selection.");
             return;
         }
 
-        ChatEntry selected = Session.activeChats.get(index);
+        // Find the actual index of the chat, skipping the saved_messages entry
+        int actualIndex = 0;
+        for (int i = 0; i < Session.activeChats.size(); i++) {
+            if (Session.activeChats.get(i).getType().equalsIgnoreCase("saved_messages")) {
+                continue; // Skip saved_messages
+            }
+            if (actualIndex == chatIndex) {
+                break;
+            }
+            actualIndex++;
+        }
+
+        ChatEntry selected = Session.activeChats.get(actualIndex);
         openChat(selected);
     }
 
@@ -3414,8 +3465,6 @@ public class ActionHandler {
 //    }
 
 
-
-
     public void sendMessage(UUID chatId, String receiverType) {
         Scanner scanner = new Scanner(System.in);
 
@@ -3880,6 +3929,52 @@ public class ActionHandler {
         }
     }
 
+    private void showSidebarMenu() {
+        System.out.println("\n--- Sidebar Menu ---");
+        System.out.println("1. View Profile");
+        System.out.println("2. New Group");
+        System.out.println("3. New Channel");
+        System.out.println("4. View Contacts");
+        System.out.println("5. Saved messages");
+        System.out.println("6. Settings");
+        System.out.println("7. Telegram features");
+        System.out.println("8. Telegram Q&A");
+        System.out.println("0. Back");
+        System.out.println("Choose your action: (0 to 8)");
+
+        // Handle invalid input
+        int action;
+        while (true) {
+            if (scanner.hasNextInt()) {
+                action = scanner.nextInt();
+                scanner.nextLine(); // Clear newline
+
+                if (action >= 0 && action <= 8) {
+                    break;
+                }
+                System.out.println("Invalid input. Please enter a number between 0 and 8.");
+            } else {
+                scanner.nextLine();
+                System.out.println("Invalid input. Try again.");
+            }
+        }
+
+        SidebarHandler sidebarHandler = new SidebarHandler(scanner, this);
+        switch (action) {
+            case 0 -> {
+                return;
+            }
+            case 1 -> sidebarHandler.handleSidebarAction(SidebarAction.MY_PROFILE);
+            case 2 -> sidebarHandler.handleSidebarAction(SidebarAction.NEW_GROUP);
+            case 3 -> sidebarHandler.handleSidebarAction(SidebarAction.NEW_CHANNEL);
+            case 4 -> sidebarHandler.handleSidebarAction(SidebarAction.CONTACTS);
+            case 5 -> sidebarHandler.handleSidebarAction(SidebarAction.SAVED_MESSAGES);
+            case 6 -> sidebarHandler.handleSidebarAction(SidebarAction.SETTINGS);
+            case 7 -> sidebarHandler.handleSidebarAction(SidebarAction.FEATURES);
+            case 8 -> sidebarHandler.handleSidebarAction(SidebarAction.Q_AND_A);
+            default -> System.out.println("Invalid action.");
+        }
+    }
 
 
 }

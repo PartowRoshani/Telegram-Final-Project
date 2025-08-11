@@ -1,7 +1,7 @@
 package org.to.telegramfinalproject.Models;
 
+import java.time.LocalDateTime;
 import org.json.JSONObject;
-
 import java.util.UUID;
 
 public class ContactEntry {
@@ -10,7 +10,9 @@ public class ContactEntry {
     private String profileName;
     private String imageUrl;
     private boolean isBlocked;
+    private LocalDateTime lastSeenTime;
     private String contact_displayId;
+
 
     public ContactEntry(UUID contactId, String userId, String profileName, String imageUrl, boolean isBlocked) {
         this.contactId = contactId;
@@ -20,13 +22,14 @@ public class ContactEntry {
         this.isBlocked = isBlocked;
     }
 
-    public ContactEntry(UUID contactId, String userId,String contact_displayId , String profileName, String imageUrl, boolean isBlocked){
+    public ContactEntry(UUID contactId, String userId,String contact_displayId , String profileName, String imageUrl, boolean isBlocked, LocalDateTime lastSeenTime){
         this.contactId = contactId;
         this.userId = userId;
         this.contact_displayId = contact_displayId;
         this.profileName = profileName;
         this.imageUrl = imageUrl;
         this.isBlocked = isBlocked;
+        this.lastSeenTime = lastSeenTime;
     }
 
     public UUID getContactId() {
@@ -49,9 +52,25 @@ public class ContactEntry {
         return isBlocked;
     }
 
+    public LocalDateTime getLastSeenTime() {
+        return lastSeenTime;
+    }
+
+    public void setLastSeenTime(LocalDateTime lastSeenTime) {
+        this.lastSeenTime = lastSeenTime;
+    }
+
+    public String getContact_displayId() {
+        return contact_displayId;
+    }
+
+    public void setContact_displayId(String contact_displayId) {
+        this.contact_displayId = contact_displayId;
+    }
+
     @Override
     public String toString() {
-        return profileName + " ( @" + contact_displayId + ")" + (isBlocked ? " [Blocked]" : "");
+        return profileName + " (@" + contact_displayId + ")" + (isBlocked ? " [Blocked]" : "") + " Last Seen:" + (lastSeenTime != null ? " " + lastSeenTime.toString() : "");
     }
 
 

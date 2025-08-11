@@ -16,15 +16,14 @@ public class Message {
     private String status;
     private UUID reply_to_id;
     private boolean is_edited;
-    private boolean is_deleted_globally;
     private UUID original_message_id;
     private UUID forwarded_by;
     private UUID forwarded_from;
     private List<FileAttachment> attachments;
+    private boolean is_deleted_globally;
+    private LocalDateTime edited_at;
     private transient String sender_name;
     private transient String receiver_name;
-    private LocalDateTime edited_at;
-
 
 
     // ✅ Full Constructor
@@ -68,6 +67,7 @@ public class Message {
         this.is_deleted_globally = is_deleted_globally;
         this.edited_at = edited_at;
     }
+
 
     // ✅ Short Constructors
     //for normal messages
@@ -190,13 +190,24 @@ public class Message {
         this.receiver_name = receiver_name;
     }
 
-    public LocalDateTime getEdited_at() {
-        return edited_at;
-    }
+   public LocalDateTime getEdited_at() {
+       return edited_at;
+     }
 
     public void setEdited_at(LocalDateTime edited_at) {
         this.edited_at = edited_at;
     }
 
 
+    public boolean getIs_deleted_globally() {
+        return is_deleted_globally;
+    }
+//
+//    public void setEdited_at(LocalDateTime edited_at) {
+//        this.edited_at = edited_at;
+//    }
+//
+//    public LocalDateTime getEdited_at() {
+//        return edited_at;
+//    }
 }

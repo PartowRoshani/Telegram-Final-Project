@@ -2,7 +2,7 @@ package org.to.telegramfinalproject.Models;
 
 public class SearchResultModel {
     private final String type;
-    private final String id;           // ← UUID واقعی برای عملیات
+    private final String id;           // ← UUID
     private final String displayId;    // ← user_id یا group_id برای نمایش
     private String name;
     private final String content;

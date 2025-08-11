@@ -27,24 +27,28 @@ CREATE TABLE IF NOT EXISTS messages (
     receiver_id UUID NOT NULL ,
     content TEXT,
     message_type VARCHAR(20) DEFAULT 'TEXT' CHECK (message_type IN ('TEXT','IMAGE','FILE','VIDEO','AUDIO','STICKER','GIF')),
-    file_url TEXT,                                                --(Bouns)
     send_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(20),                                      -- SEND,DELIVERED,READ
+    status VARCHAR(20) DEFAULT 'SEND',                       -- SEND,DELIVERED,READ
     reply_to_id UUID REFERENCES messages(message_id) ON DELETE SET NULL,        --(Bouns)
-    is_edited BOOLEAN DEFAULT FALSE,                                           --(Bonus)
-    original_message_id UUID REFERENCES messages(message_id)
-   ON DELETE SET NULL,              --(Bonus)
+    is_edited BOOLEAN DEFAULT FALSE,                                            --(Bonus)
+    edited_at TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
+    original_message_id UUID REFERENCES messages(message_id) ON DELETE SET NULL,              --(Bonus)
     forwarded_by UUID REFERENCES users(internal_uuid) ON DELETE SET NULL,              --(Bouns)
-    forwarded_from UUID REFERENCES users(internal_uuid) ON DELETE SET NULL             --(Bouns)
+    forwarded_from UUID REFERENCES users(internal_uuid) ON DELETE SET NULL,            --(Bouns)
+    is_deleted_globally BOOLEAN DEFAULT FALSE
     );
 
 CREATE TABLE IF NOT EXISTS private_chat (
      chat_id UUID PRIMARY KEY,
     user1_id UUID REFERENCES users(internal_uuid) ON DELETE SET NULL,
     user2_id UUID REFERENCES users(internal_uuid) ON DELETE SET NULL,
+    user1_deleted BOOLEAN DEFAULT FALSE,
+    user2_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_users UNIQUE (user1_id, user2_id)
     );
+
+
 CREATE TABLE IF NOT EXISTS groups (
     internal_uuid UUID PRIMARY KEY,
     group_id VARCHAR(70) UNIQUE,
@@ -67,7 +71,7 @@ CREATE TABLE group_members (
 
 CREATE TABLE IF NOT EXISTS channels (
     channel_id VARCHAR(70) UNIQUE,
-    internal_uuid UUID PRIMARY KEY,,
+    internal_uuid UUID PRIMARY KEY,
     channel_name VARCHAR(100),
     creator_id UUID REFERENCES users(internal_uuid),
     image_url TEXT,
@@ -117,5 +121,40 @@ CREATE TABLE archived_chats (
     archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, chat_id)
 );
+
+
+CREATE TABLE deleted_messages (
+    message_id UUID REFERENCES messages(message_id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(internal_uuid) ON DELETE CASCADE,
+    deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (message_id, user_id)
+);
+
+
+CREATE TABLE IF NOT EXISTS message_reactions (
+    message_id UUID REFERENCES messages(message_id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(internal_uuid) ON DELETE CASCADE,
+    emoji TEXT NOT NULL,  
+    reacted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (message_id, user_id)
+);
+
+--Multi attachments
+CREATE TABLE IF NOT EXISTS message_attachments (
+    attachment_id UUID PRIMARY KEY,
+    message_id UUID REFERENCES messages(message_id) ON DELETE CASCADE,
+    file_url TEXT NOT NULL,
+    file_type VARCHAR(20) CHECK (file_type IN ('IMAGE','VIDEO','AUDIO','FILE','GIF','STICKER')),
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    file_name TEXT,
+    file_size BIGINT,
+    mime_type TEXT,
+    width INT,
+    height INT,
+    duration_seconds INT,
+    thumbnail_url TEXT
+
+);
+
 
 
