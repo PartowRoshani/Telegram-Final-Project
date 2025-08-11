@@ -1,0 +1,14 @@
+.sidebar-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-pref-width: 230;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 8 0 8 16;
+}
+
+.sidebar-btn:hover {
+    -fx-background-color: #2f3e50;
+    -fx-cursor: hand;
+    -fx-text-fill: white;
+}

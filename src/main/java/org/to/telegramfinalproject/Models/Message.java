@@ -16,15 +16,14 @@ public class Message {
     private String status;
     private UUID reply_to_id;
     private boolean is_edited;
-    private boolean is_deleted_globally;
     private UUID original_message_id;
     private UUID forwarded_by;
     private UUID forwarded_from;
     private List<FileAttachment> attachments;
+    private boolean is_deleted_globally;
+    private LocalDateTime edited_at;
     private transient String sender_name;
     private transient String receiver_name;
-    private LocalDateTime edited_at;
-
 
 
     // ✅ Full Constructor
@@ -46,6 +45,27 @@ public class Message {
         this.original_message_id = original_message_id;
         this.forwarded_by = forwarded_by;
         this.forwarded_from = forwarded_from;
+    }
+
+    public Message(UUID message_id, UUID sender_id, String receiver_type, UUID receiver_id, String content,
+                   String message_type, LocalDateTime send_at, String status,
+                   UUID reply_to_id, boolean is_edited, UUID original_message_id,
+                   UUID forwarded_by, UUID forwarded_from,boolean is_deleted_globally, LocalDateTime edited_at) {
+        this.message_id = message_id;
+        this.sender_id = sender_id;
+        this.receiver_type = receiver_type;
+        this.receiver_id = receiver_id;
+        this.content = content;
+        this.message_type = message_type;
+        this.send_at = send_at;
+        this.status = status;
+        this.reply_to_id = reply_to_id;
+        this.is_edited = is_edited;
+        this.original_message_id = original_message_id;
+        this.forwarded_by = forwarded_by;
+        this.forwarded_from = forwarded_from;
+        this.is_deleted_globally = is_deleted_globally;
+        this.edited_at = edited_at;
     }
 
 
@@ -178,5 +198,18 @@ public class Message {
         this.edited_at = edited_at;
     }
 
+    public void setIs_deleted_globally(boolean is_deleted_globally) {
+        this.is_deleted_globally = is_deleted_globally;
+    }
+    public boolean getIs_deleted_globally() {
+        return is_deleted_globally;
+    }
 
+    public void setEdited_at(LocalDateTime edited_at) {
+        this.edited_at = edited_at;
+    }
+
+    public LocalDateTime getEdited_at() {
+        return edited_at;
+    }
 }

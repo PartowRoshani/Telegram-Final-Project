@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS messages (
     content TEXT,
     message_type VARCHAR(20) DEFAULT 'TEXT' CHECK (message_type IN ('TEXT','IMAGE','FILE','VIDEO','AUDIO','STICKER','GIF')),
     send_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status SET DEFAULT 'SEND',                      -- SEND,DELIVERED,READ
+    status VARCHAR(20) DEFAULT 'SEND',                       -- SEND,DELIVERED,READ
     reply_to_id UUID REFERENCES messages(message_id) ON DELETE SET NULL,        --(Bouns)
     is_edited BOOLEAN DEFAULT FALSE,                                            --(Bonus)
     edited_at TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,

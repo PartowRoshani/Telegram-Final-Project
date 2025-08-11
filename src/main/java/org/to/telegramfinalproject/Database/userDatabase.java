@@ -152,7 +152,7 @@ public class userDatabase {
     }
 
     public boolean save(User user) {
-        String query = "INSERT INTO users (user_id, internal_uuid, username, password, profile_name) VALUES (?, ?, ?, ?, ?)";
+        String query = "INSERT INTO users (user_id, internal_uuid, username, password, profile_name, bio, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try {
             boolean var5;
@@ -165,6 +165,8 @@ public class userDatabase {
                 stmt.setString(3, user.getUsername());
                 stmt.setString(4, user.getPassword());
                 stmt.setString(5, user.getProfile_name());
+                stmt.setString(6, user.getBio());
+                stmt.setString(7, user.getImage_url());
                 var5 = stmt.executeUpdate() > 0;
             }
 
@@ -223,7 +225,7 @@ public class userDatabase {
     }
 
     private User extractUser(ResultSet rs) throws SQLException {
-        return new User(rs.getString("user_id"), UUID.fromString(rs.getString("internal_uuid")), rs.getString("username"), rs.getString("password"), rs.getString("profile_name"));
+        return new User(rs.getString("user_id"), UUID.fromString(rs.getString("internal_uuid")), rs.getString("username"), rs.getString("password"), rs.getString("profile_name"), rs.getString("bio"), rs.getString("image_url"));
     }
 
     public boolean deleteByUUID(UUID uuid) {
@@ -288,7 +290,9 @@ public class userDatabase {
                         UUID.fromString(rs.getString("internal_uuid")),
                         rs.getString("username"),
                         rs.getString("password"),
-                        rs.getString("profile_name")
+                        rs.getString("profile_name"),
+                        rs.getString("bio"),
+                        rs.getString("image_url")
                 );
 
                 user.setBio(rs.getString("bio"));
@@ -349,6 +353,61 @@ public class userDatabase {
         }
     }
 
+    public static String getProfileName(UUID userId) {
+        String sql = "SELECT profile_name FROM users WHERE internal_uuid = ?";
 
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String profileName = rs.getString("profile_name");
+                return profileName;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Unknown";
+    }
+
+    public static String getProfilePicture(UUID userId) {
+        String sql = "SELECT image_url FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String imageUrl = rs.getString("image_url");
+                return imageUrl;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Unknown";
+    }
+
+    public static String getUserId(UUID userId) {
+        String sql = "SELECT user_id FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String user_id = rs.getString("user_id");
+                return user_id;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Unknown";
+    }
 }
 

@@ -1,5 +1,6 @@
 package org.to.telegramfinalproject.Server;
 
+import javafx.geometry.Side;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.*;
@@ -111,10 +112,13 @@ public class ClientHandler implements Runnable {
                                 JSONObject c = new JSONObject();
                                 c.put("user_id", contact.getUser_id().toString());
                                 c.put("contact_id", contact.getContact_id().toString());
+                                User Contact = userDatabase.findByInternalUUID(contact.getContact_id());
+                                c.put("contact_displayId", Contact.getUser_id());
                                 c.put("is_blocked", contact.getIs_blocked());
 
                                 c.put("profile_name", target.getProfile_name());
                                 c.put("image_url", target.getImage_url());
+                                c.put("last_seen", Contact.getLast_seen());
 
                                 contactList.put(c);
                             }
@@ -178,6 +182,10 @@ public class ClientHandler implements Runnable {
                                         false
                                 );
                                 entry.setOtherUserId(otherId);
+
+                                if (currentUser.getInternal_uuid() == otherId) {
+                                    entry.setSavedMessages(true);
+                                }
 
                                 if (archivedChatIds.contains(chat.getChat_id())) {
                                     archivedChatList.add(entry);
@@ -715,6 +723,8 @@ public class ClientHandler implements Runnable {
 
                             LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTime(chat.getChat_id(), "private");
 
+                            boolean isSavedMessages = chat.getUser1_id().equals(currentUser.getInternal_uuid())
+                                    && chat.getUser2_id().equals(currentUser.getInternal_uuid());
 
                             ChatEntry entry = new ChatEntry(
                                     chat.getChat_id(),
@@ -727,6 +737,11 @@ public class ClientHandler implements Runnable {
                                     false
                             );
                             entry.setOtherUserId(otherId);
+
+                            // Mark it as saved messages if it's the special self-chat
+                            if (isSavedMessages) {
+                                entry.setSavedMessages(true);
+                            }
 
                             if (archivedChatIds.contains(chat.getChat_id())) {
                                 archivedChatList.add(entry);
@@ -2409,8 +2424,103 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "get_user_profile": {
+                        // Get the current user's UUID
+                        UUID user_UUID = this.currentUser.getInternal_uuid();
 
+                        // Get the profile JSON from SidebarService
+                        JSONObject data = SidebarService.getUserProfile(user_UUID);
 
+                        if (data == null) {
+                            response = new ResponseModel("error", "Failed to retrieve user profile.");
+                        } else {
+                            response = new ResponseModel("success", "User profile retrieved successfully.", data);
+                        }
+                        break;
+                    }
+
+                    case "edit_profile_name": {
+                        // Validate input
+                        if (!requestJson.has("new_profile_name")) {
+                            response = new ResponseModel("error", "Missing new profile name.");
+                            break;
+                        }
+
+                        UUID user_UUID = this.currentUser.getInternal_uuid();
+                        String newProfileName = requestJson.getString("new_profile_name");
+
+                        response = SidebarService.updateProfileName(user_UUID, newProfileName);
+                        break;
+                    }
+
+                    case "edit_user_id": {
+                        // Validate input
+                        if (!requestJson.has("new_user_id")) {
+                            response = new ResponseModel("error", "Missing new user ID.");
+                            break;
+                        }
+
+                        UUID user_UUID = this.currentUser.getInternal_uuid();
+                        String newUserId = requestJson.getString("new_user_id");
+
+                        response = SidebarService.updateUserId(user_UUID, newUserId);
+                        break;
+                    }
+
+                    case "edit_bio": {
+                        // Validate input
+                        if (!requestJson.has("new_bio")) {
+                            response = new ResponseModel("error", "Missing new bio.");
+                            break;
+                        }
+
+                        UUID user_UUID = this.currentUser.getInternal_uuid();
+                        String newBio = requestJson.getString("new_bio").trim();
+
+                        response = SidebarService.updateBio(user_UUID, newBio);
+                        break;
+                    }
+
+                    case "edit_profile_picture": {
+                        // Validate input
+                        if (!requestJson.has("new_image_url")) {
+                            response = new ResponseModel("error", "Missing new image url.");
+                            break;
+                        }
+
+                        UUID user_UUID = this.currentUser.getInternal_uuid();
+                        String newImageUrl = requestJson.getString("new_image_url").trim();
+
+                        response = SidebarService.updateProfilePicture(user_UUID, newImageUrl);
+                        break;
+                    }
+
+                    case "get_saved_messages": {
+                        UUID user_Id = UUID.fromString(requestJson.getString("user_id"));
+                        response = SidebarService.handleGetSavedMessages(user_Id);
+                        break;
+                    }
+
+                    case "send_saved_messages": {
+                        response = SidebarService.handleSendMessage(requestJson);
+                        break;
+                    }
+
+                    case "search_contacts": {
+                        String user_id = requestJson.getString("user_id");
+                        String search_term = requestJson.getString("search_term");
+
+                        response = SidebarService.handleSearchContacts(user_id, search_term);
+                        break;
+                    }
+
+                    case "remove_contact": {
+                        UUID user_id = UUID.fromString(requestJson.getString("user_id"));
+                        UUID contactId = UUID.fromString(requestJson.getString("contact_id"));
+
+                        response = SidebarService.handleRemoveContact(user_id, contactId);
+                        break;
+                    }
 
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);

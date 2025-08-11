@@ -20,7 +20,7 @@ public class AuthService {
             } else {
                 UUID uuid = UUID.randomUUID();
                 password = PasswordHashing.hash(password);
-                User user = new User(user_id, uuid, username, password, profile_name);
+                User user = new User(user_id, uuid, username, password, profile_name, "", "");
                 return this.userDb.save(user);
             }
         } else {

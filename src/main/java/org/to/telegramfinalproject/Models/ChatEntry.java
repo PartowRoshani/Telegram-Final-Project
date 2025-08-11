@@ -14,6 +14,7 @@ public class ChatEntry {
     private LocalDateTime lastMessageTime;
     private boolean archived = false;
     private UUID otherUser;
+    private boolean savedMessages = false;
 
 
     private boolean isOwner = false;
@@ -139,5 +140,13 @@ public class ChatEntry {
 
     public UUID getOtherUserId(){
         return otherUser;
+    }
+
+    public boolean isSavedMessages() {
+        return savedMessages;
+    }
+
+    public void setSavedMessages(boolean savedMessages) {
+        this.savedMessages = savedMessages;
     }
 }
