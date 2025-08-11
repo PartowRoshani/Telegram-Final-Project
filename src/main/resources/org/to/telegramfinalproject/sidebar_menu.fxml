@@ -4,47 +4,45 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Separator?>
 
-<AnchorPane xmlns:fx="http://javafx.com/fxml" fx:controller="org.to.telegramfinalproject.UI.SidebarController"
-            prefWidth="260" style="-fx-background-color: #1f2a36;">
-    <VBox spacing="10" AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">
+<VBox fx:id="sidebar" spacing="20" alignment="TOP_LEFT"
+      prefWidth="250.0"
+      style="-fx-background-color: #1b2735;"
+      xmlns="http://javafx.com/javafx/17"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.to.telegramfinalproject.UI.SidebarMenuController">
 
-        <!-- Top Profile Section -->
-        <VBox alignment="CENTER_LEFT" spacing="5" padding="10">
-            <HBox spacing="10" alignment="CENTER_LEFT">
-                <ImageView fx:id="profileImage" fitWidth="40" fitHeight="40"/>
-                <VBox>
-                    <Label fx:id="usernameLabel" text="Asal" textFill="white" style="-fx-font-size: 14px; -fx-font-weight: bold;" />
-                    <Hyperlink fx:id="setEmojiStatus" text="Set Emoji Status" textFill="#5FA6F9" />
-                </VBox>
-            </HBox>
-        </VBox>
+    <padding>
+        <Insets top="20" left="10" right="10" bottom="10"/>
+    </padding>
 
-        <!-- Menu Buttons -->
-        <VBox spacing="8" padding="10">
-            <Button fx:id="myProfileButton" text="My Profile" styleClass="menu-button"/>
-            <Button fx:id="newGroupButton" text="New Group" styleClass="menu-button"/>
-            <Button fx:id="newChannelButton" text="New Channel" styleClass="menu-button"/>
-            <Button fx:id="contactsButton" text="Contacts" styleClass="menu-button"/>
-            <Button fx:id="savedMessagesButton" text="Saved Messages" styleClass="menu-button"/>
-            <Button fx:id="settingsButton" text="Settings" styleClass="menu-button"/>
-            <Button fx:id="telegramFeaturesButton" text="Telegram Features" styleClass="menu-button"/>
-            <Button fx:id="telegramQnAButton" text="Telegram Q&amp;A" styleClass="menu-button"/>
-        </VBox>
-
-        <!-- Spacer -->
-        <VBox VBox.vgrow="ALWAYS"/>
-
-        <!-- Bottom Section: Night Mode & Version -->
-        <VBox spacing="8" padding="10">
-            <HBox spacing="10" alignment="CENTER_LEFT">
-                <Label text="Night Mode" textFill="white" />
-                <ToggleButton fx:id="nightModeToggle"/>
-            </HBox>
-            <VBox spacing="2" alignment="CENTER_LEFT">
-                <Label text="Telegram Desktop" textFill="#5FA6F9" style="-fx-font-size: 11px;"/>
-                <Label text="Version 5.16.6 x64 – About" textFill="#5FA6F9" style="-fx-font-size: 11px;"/>
-            </VBox>
-        </VBox>
+    <!-- Profile Section -->
+    <VBox alignment="TOP_LEFT" spacing="10">
+        <padding>
+            <Insets top="10" left="10" bottom="0" right="0"/>
+        </padding>
+        <ImageView fx:id="profileImage" fitWidth="80" fitHeight="80" pickOnBounds="true" preserveRatio="true"/>
+        <Label fx:id="usernameLabel" text="Asal Lotfi" textFill="white" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
     </VBox>
-</AnchorPane>
+
+    <Separator prefWidth="200"/>
+
+    <!-- Menu Buttons -->
+    <VBox spacing="8" alignment="TOP_LEFT">
+        <Button fx:id="btnMyProfile" text="  My Profile" styleClass="sidebar-btn"/>
+        <Button fx:id="btnNewGroup" text="  New Group" styleClass="sidebar-btn"/>
+        <Button fx:id="btnNewChannel" text="  New Channel" styleClass="sidebar-btn"/>
+        <Button fx:id="btnContacts" text="  Contacts" styleClass="sidebar-btn"/>
+        <Button fx:id="btnCalls" text="  Calls" styleClass="sidebar-btn"/>
+        <Button fx:id="btnSavedMessages" text="  Saved Messages" styleClass="sidebar-btn"/>
+        <Button fx:id="btnSettings" text="  Settings" styleClass="sidebar-btn"/>
+
+        <!-- Night Mode Toggle -->
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="Night Mode" textFill="white" style="-fx-font-size: 13px;"/>
+            <ToggleButton fx:id="nightModeToggle"/>
+        </HBox>
+    </VBox>
+
+</VBox>
