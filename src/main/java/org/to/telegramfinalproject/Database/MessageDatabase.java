@@ -428,13 +428,12 @@ public class MessageDatabase {
                         rs.getString("status"),
                         rs.getObject("reply_to_id") != null ? UUID.fromString(rs.getString("reply_to_id")) : null,
                         rs.getBoolean("is_edited"),
-                        rs.getBoolean("is_deleted_globally"),
                         rs.getObject("original_message_id") != null ? UUID.fromString(rs.getString("original_message_id")) : null,
                         rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
                         rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null,
                         rs.getBoolean("is_deleted_globally"),
                         rs.getTimestamp("edited_at") != null ? rs.getTimestamp("edited_at").toLocalDateTime() : null
-                        ));
+                        );
 
                 messages.add(message);
             }
