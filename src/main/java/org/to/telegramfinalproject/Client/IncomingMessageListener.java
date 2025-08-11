@@ -74,24 +74,24 @@ public class IncomingMessageListener implements Runnable {
 
     private boolean isRealTimeEvent(String action) {
         return switch (action) {
-            case "new_message", "message_edited", "message_deleted",
+            case "new_message", "message_edited", "message_deleted_global",
                  "user_status_changed", "added_to_group", "added_to_channel",
                  "update_group_or_channel", "chat_deleted",
                  "blocked_by_user", "unblocked_by_user", "message_seen",
                  "removed_from_group", "removed_from_channel",
-                 "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated" -> true;
+                 "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated","created_private_chat" , "message_reacted" , "message_unreacted" -> true;
             default -> false;
         };
     }
 
     void handleRealTimeEvent(JSONObject response) throws IOException {
         String action = response.getString("action");
-        JSONObject msg = response.getJSONObject("data");
+        JSONObject msg = response.has("data") ? response.getJSONObject("data") : new JSONObject();
 
 
         switch (action) {
             case "added_to_group", "added_to_channel",
-                 "removed_from_group", "removed_from_channel", "chat_deleted" -> {
+                 "removed_from_group", "removed_from_channel", "chat_deleted","created_private_chat" -> {
                 System.out.println("🔄 Chat list changed. Updating...");
                 Session.forceRefreshChatList = true;
                 System.out.println("🧪 Calling requestChatList() after being added");
@@ -133,10 +133,6 @@ public class IncomingMessageListener implements Runnable {
                     }
                 }).start();
             }
-
-
-//
-
 
 
             default -> displayRealTimeMessage(action, msg);
@@ -298,25 +294,33 @@ public class IncomingMessageListener implements Runnable {
     private void displayRealTimeMessage(String action, JSONObject msg) {
         switch (action) {
             case "new_message" -> {
-                System.out.println("\n🔔 New Message Received:");
-                String senderName = msg.optString("sender_name", "Unknown");
-                String content = msg.optString("content", "(empty)");
-                String sendAt = msg.optString("send_at", "-");
+                String senderName = msg.optString("sender_name","Unknown");
+                String content    = msg.optString("content","(empty)");
+                String sendAt     = msg.optString("send_at","-");
+                String chatId     = msg.optString("receiver_id", msg.optString("chat_id",""));
+                String kind       = msg.optString("kind","plain");
+                JSONObject meta   = msg.optJSONObject("meta");
 
-                String receiverId = msg.optString("receiver_id", "");
-                String receiverType = msg.optString("receiver_type", "");
+                String prefix = "";
+                if ("reply".equals(kind) && meta != null) {
+                    var rt = meta.optJSONObject("reply_to");
+                    prefix = "[reply → " + (rt!=null?rt.optString("excerpt",""):"") + "] ";
+                } else if ("forward".equals(kind) && meta != null) {
+                    var ff = meta.optJSONObject("forwarded_from");
+                    prefix = "[forwarded from " + (ff!=null?ff.optString("sender_name","unknown"):"unknown") + "] ";
+                }
 
                 boolean isInCurrentChat = Session.inChatMenu &&
-                        Session.currentChatId != null &&
-                        Session.currentChatId.equals(receiverId);
+                        Session.currentChatId != null && Session.currentChatId.equals(chatId);
 
                 if (isInCurrentChat) {
-                    System.out.println(senderName + ": " + content + "   (" + sendAt + ")");
+                    System.out.println(senderName + ": " + prefix + content + "   (" + sendAt + ")");
                 } else {
-                    System.out.println("💬 Message from " + senderName + " in " + receiverType + " chat: " + content);
+                    System.out.println("💬 Message from " + senderName + ": " + prefix + content);
                     Session.forceRefreshChatList = true;
                 }
             }
+
 
             case "message_edited" -> {
                 System.out.println("\n✏️ Message Edited:");
@@ -324,10 +328,18 @@ public class IncomingMessageListener implements Runnable {
                 System.out.println("New Content: " + msg.getString("new_content"));
                 System.out.println("Edit Time: " + msg.getString("edited_at"));
             }
-            case "message_deleted" -> {
+            case "message_deleted_global" -> {
                 System.out.println("\n🗑️ Message Deleted:");
                 System.out.println("Message ID: " + msg.getString("message_id"));
             }
+            case "message_reacted", "message_unreacted" -> {
+                String mid    = msg.getString("message_id");
+                String emoji  = msg.getString("emoji");
+                JSONObject counts = msg.optJSONObject("counts");
+                int n = msg.optInt("count_for_emoji", 0);
+                System.out.println("\n⭐ Reaction update on " + mid + " : " + emoji + " → " + n);
+            }
+
             case "user_status_changed" -> {
                 System.out.println("\n🔄 User Status Changed:");
                 System.out.println("User: " + msg.getString("user_id"));

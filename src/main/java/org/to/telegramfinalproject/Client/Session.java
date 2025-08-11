@@ -27,8 +27,7 @@ public class Session {
     public static String currentChatId = null;
     public static ChatEntry currentChatEntry = null;
     public static List<ContactEntry> contactEntries = new ArrayList<>();
-
-
+    public static boolean inContactListMenu = false;
 
 
     public static String getUserUUID() {
