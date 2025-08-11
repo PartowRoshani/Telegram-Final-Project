@@ -427,10 +427,14 @@ public class ClientHandler implements Runnable {
                             JSONObject obj = new JSONObject();
                             obj.put("type", "message");
                             obj.put("content", m.getContent());
-                            obj.put("sender", m.getSender_id().toString());
                             obj.put("time", m.getSend_at().toString());
+                            obj.put("sender", m.getSender_id() != null ? m.getSender_id().toString() : "N/A");
                             obj.put("receiver_id", m.getReceiver_id().toString());
                             obj.put("receiver_type", m.getReceiver_type());
+                            User senderUser = userDatabase.findByInternalUUID(m.getSender_id());
+                            String senderName = senderUser != null ? senderUser.getProfile_name() : "Unknown";
+                            obj.put("sender_name", senderName);
+
                             results.add(obj);
                         }
 
@@ -447,13 +451,23 @@ public class ClientHandler implements Runnable {
                         }
 
 
-                        List<Message> groupMessages = MessageDatabase.searchMessagesInGroups(groupIds, keyword);
+                        List<Message> groupMessages = MessageDatabase.searchMessagesInGroups(groupIds, keyword, currentUser.getInternal_uuid());
                         for (Message m : groupMessages) {
                             JSONObject obj = new JSONObject();
                             obj.put("type", "message");
                             obj.put("from", "group");
                             obj.put("content", m.getContent());
                             obj.put("time", m.getSend_at().toString());
+                            obj.put("sender", m.getSender_id() != null ? m.getSender_id().toString() : "N/A");
+                            obj.put("receiver_id", m.getReceiver_id().toString());
+                            obj.put("receiver_type", "group");
+                            Group senderGroup = GroupDatabase.findByInternalUUID(m.getReceiver_id());
+                            String groupName = senderGroup != null ? senderGroup.getGroup_name() : "Unknown";
+                            obj.put("group_name", groupName);
+                            User senderUser = userDatabase.findByInternalUUID(m.getSender_id());
+                            String senderName = senderUser != null ? senderUser.getProfile_name() : "Unknown";
+                            obj.put("sender_name", senderName);
+
                             results.add(obj);
                         }
 
@@ -464,6 +478,15 @@ public class ClientHandler implements Runnable {
                             obj.put("from", "channel");
                             obj.put("content", m.getContent());
                             obj.put("time", m.getSend_at().toString());
+                            obj.put("sender", m.getSender_id() != null ? m.getSender_id().toString() : "N/A");
+                            obj.put("receiver_id", m.getReceiver_id().toString());
+                            obj.put("receiver_type", "channel");
+                            Channel SenderChannel = ChannelDatabase.findByInternalUUID(m.getReceiver_id());
+                            String channelName = SenderChannel != null ? SenderChannel.getChannel_name() : "Unknown";
+                            obj.put("channel_name", channelName);
+                            User senderUser = userDatabase.findByInternalUUID(m.getSender_id());
+                            String senderName = senderUser != null ? senderUser.getProfile_name() : "Unknown";
+                            obj.put("sender_name", senderName);
                             results.add(obj);
                         }
 
@@ -494,6 +517,7 @@ public class ClientHandler implements Runnable {
                                     currentUser.getImage_url(),
                                     contactUUID
                             );
+
                         }
 
                         response = success
@@ -1280,7 +1304,7 @@ public class ClientHandler implements Runnable {
                                         break;
                                     }
 
-                                    messages = MessageDatabase.privateChatHistory(chatId);
+                                    messages = MessageDatabase.privateChatHistory(chatId, currentUser.getInternal_uuid());
                                 }
 
 
@@ -1290,7 +1314,7 @@ public class ClientHandler implements Runnable {
                                         response = new ResponseModel("error", "Group not found.");
                                         break;
                                     }
-                                    messages = MessageDatabase.groupChatHistory(group.getInternal_uuid());
+                                    messages = MessageDatabase.groupChatHistory(group.getInternal_uuid(),currentUser.getInternal_uuid());
                                 }
 
 
@@ -1300,7 +1324,7 @@ public class ClientHandler implements Runnable {
                                         response = new ResponseModel("error", "Channel not found.");
                                         break;
                                     }
-                                    messages = MessageDatabase.channelChatHistory(channel.getInternal_uuid());
+                                    messages = MessageDatabase.channelChatHistory(channel.getInternal_uuid(),currentUser.getInternal_uuid());
                                 }
                                 default -> {
                                     response = new ResponseModel("error", "Invalid receiver type.");
@@ -2003,7 +2027,6 @@ public class ClientHandler implements Runnable {
                     }
                     break;
 
-
                     case "get_or_create_private_chat": {
                         if (currentUser == null) {
                             response = new ResponseModel("error", "Unauthorized. Please login first.");
@@ -2014,7 +2037,23 @@ public class ClientHandler implements Runnable {
                             UUID user1 = UUID.fromString(requestJson.getString("user1"));
                             UUID user2 = UUID.fromString(requestJson.getString("user2"));
 
+                            UUID oldChat = PrivateChatDatabase.findChatBetween(user1, user2);
                             UUID chatId = PrivateChatDatabase.getOrCreateChat(user1, user2);
+                            boolean isNew = oldChat == null;
+
+                            if (isNew) {
+                                JSONObject chatPayload = new JSONObject();
+                                chatPayload.put("action", "created_private_chat");
+
+                                JSONObject chatData = new JSONObject();
+                                chatData.put("chat_id", chatId.toString());
+                                chatData.put("chat_type", "private");
+                                chatData.put("last_message_time", LocalDateTime.now().toString());
+                                chatPayload.put("data", chatData);
+
+                                RealTimeEventDispatcher.sendToUser(user1, chatPayload);
+                                RealTimeEventDispatcher.sendToUser(user2, chatPayload);
+                            }
 
                             JSONObject data = new JSONObject();
                             data.put("chat_id", chatId.toString());
@@ -2026,6 +2065,7 @@ public class ClientHandler implements Runnable {
 
                         break;
                     }
+
 
 
 
@@ -2041,6 +2081,346 @@ public class ClientHandler implements Runnable {
                             data.put("target_id", targetId.toString());
                             response = new ResponseModel("success", "Target fetched.", data);
                         }
+                        break;
+                    }
+
+                    case "get_contact_list": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+
+                        List<Contact> contacts = ContactDatabase.getContacts(currentUser.getInternal_uuid());
+                        List<ContactEntry> contactEntries = new ArrayList<>();
+
+                        for (Contact contact : contacts) {
+                            UUID contactId = contact.getContact_id();
+                            User contactUser = userDatabase.findByInternalUUID(contactId);
+                            if (contactUser == null) continue;
+
+                            ContactEntry entry = new ContactEntry(
+                                    contactId,
+                                    contactUser.getUser_id(),
+                                    contactUser.getProfile_name(),
+                                    contactUser.getImage_url(),
+                                    contact.getIs_blocked()
+                            );
+
+                            contactEntries.add(entry);
+                        }
+
+                        // Optional: sort alphabetically
+                        contactEntries.sort(Comparator.comparing(ContactEntry::getProfileName, String.CASE_INSENSITIVE_ORDER));
+
+                        JSONObject data = new JSONObject();
+                        data.put("contact_list", JsonUtil.contactEntryListToJson(contactEntries));
+
+                        response = new ResponseModel("success", "Contact list refreshed", data);
+                        break;
+                    }
+
+                    case "get_chat_messages" : {
+                        UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
+                        String chatType = requestJson.getString("chat_type");
+                        int offset = requestJson.optInt("offset", 0);
+                        int limit = requestJson.optInt("limit", 10);
+
+                        List<Message> messages = MessageDatabase.getMessagesForChat(chatId, chatType, currentUser.getInternal_uuid(), offset, limit);
+
+                        JSONArray result = new JSONArray();
+                        for (Message m : messages) {
+                            JSONObject obj = new JSONObject();
+                            obj.put("message_id", m.getMessage_id().toString());
+                            obj.put("sender_id", m.getSender_id().toString());
+
+                            User sender = userDatabase.findByInternalUUID(m.getSender_id());
+                            obj.put("sender_name", sender != null ? sender.getProfile_name() : "Unknown");
+
+                            obj.put("receiver_id", m.getReceiver_id().toString());
+                            obj.put("receiver_type", m.getReceiver_type());
+
+                            String receiverName = switch (m.getReceiver_type()) {
+                                case "group" -> {
+                                    Group g = GroupDatabase.findByInternalUUID(m.getReceiver_id());
+                                    yield g != null ? g.getGroup_name() : "Unknown group";
+                                }
+                                case "channel" -> {
+                                    Channel c = ChannelDatabase.findByInternalUUID(m.getReceiver_id());
+                                    yield c != null ? c.getChannel_name() : "Unknown channel";
+                                }
+                                case "private" -> {
+                                    UUID otherId = PrivateChatDatabase.getOtherParticipant(
+                                            m.getReceiver_id(),             // chat_id
+                                            currentUser.getInternal_uuid()  // my user uuid
+                                    );
+                                    User other = userDatabase.findByInternalUUID(otherId);
+                                    yield other != null ? other.getProfile_name() : "Unknown user";
+                                }
+
+                                default -> "Unknown";
+                            };
+                            obj.put("receiver_name", receiverName);
+
+                            obj.put("content", m.getContent());
+                            obj.put("message_type", m.getMessage_type());
+                            obj.put("time", m.getSend_at().toString());
+                            obj.put("is_edited", m.isIs_edited());
+                            obj.put("is_deleted_globally", m.isIs_deleted_globally());
+                            obj.put("edited_at", m.getEdited_at() != null ? m.getEdited_at().toString() : JSONObject.NULL);
+
+                            //For reply messages
+                            if (m.getReply_to_id() != null) {
+                                Message replied = MessageDatabase.findById(m.getReply_to_id());
+                                if (replied != null) {
+                                    User repliedSender = userDatabase.findByInternalUUID(replied.getSender_id());
+                                    obj.put("reply_to_id", replied.getMessage_id().toString());
+                                    obj.put("reply_to_sender", repliedSender != null ? repliedSender.getProfile_name() : "Unknown");
+                                    obj.put("reply_to_content", replied.getContent());
+                                }
+                            }
+
+                            //  For forwarded messages
+                            if (m.getOriginal_message_id() != null && m.getForwarded_from() != null) {
+                                User originalSender = userDatabase.findByInternalUUID(m.getForwarded_from());
+                                obj.put("is_forwarded", true);
+                                obj.put("forwarded_from_id", m.getForwarded_from().toString());
+                                obj.put("forwarded_from_name", originalSender != null ? originalSender.getProfile_name() : "Unknown");
+                            } else {
+                                obj.put("is_forwarded", false);
+                            }
+
+                            //For reactions
+                            List<String> reactions = MessageReactionDatabase.getReactions(m.getMessage_id());
+                            obj.put("reactions", new JSONArray(reactions));
+
+
+                            result.put(obj);
+                        }
+
+
+
+                        JSONObject data = new JSONObject();
+                        data.put("get_chat_messages", result);
+
+                        response = new ResponseModel("success", "get messages ", data);
+                        break;
+                    }
+
+                    case "delete_message" : {
+                        UUID messageId = UUID.fromString(requestJson.getString("message_id"));
+                        String deleteType = requestJson.getString("delete_type");
+
+                        Message msg = MessageDatabase.findById(messageId);
+                        if (msg == null) {
+                            response = new ResponseModel("error", "Message not found.");
+                            break;
+                        }
+
+                        UUID currentUserId = currentUser.getInternal_uuid();
+
+                        if (deleteType.equals("one-sided")) {
+                            boolean success = MessageDatabase.markAsDeletedForUser(messageId, currentUserId);
+                            if (success)
+                                response = new ResponseModel("success", "Message deleted for current user.");
+                            else
+                                response = new ResponseModel("error", "Failed to delete message for user.");
+                            break;
+                        }
+
+                        //If allowed to delete the message
+                        if (deleteType.equals("global")) {
+                            boolean allowed = false;
+
+                            String type = msg.getReceiver_type();
+                            UUID chatId = msg.getReceiver_id();
+
+                            if (type.equals("private") || type.equals("group")) {
+                                allowed = msg.getSender_id().equals(currentUserId);
+                            } else if (type.equals("channel")) {
+                                //Only owner and admins can delete messages
+                                allowed = ChannelPermissionUtil.canDeleteMessage(chatId, currentUserId);
+                            }
+
+                            if (!allowed) {
+                                response = new ResponseModel("error", "You are not allowed to delete this message globally.");
+                                break;
+                            }
+
+                            boolean success = MessageDatabase.markAsGloballyDeleted(messageId);
+                            if (success) {
+                                response = new ResponseModel("success", "Message deleted globally.");
+                                Message updated = MessageDatabase.findById(messageId);
+                                List<UUID> receivers = Receivers.resolveFor(updated.getReceiver_type(), updated.getReceiver_id(), null);
+                                RealTimeEventDispatcher.notifyMessageDeletedGlobal(updated.getReceiver_id(), messageId, receivers);
+
+                            }
+                            else{
+                                response = new ResponseModel("error", "Failed to delete message globally.");
+                            }
+                            break;
+                        }
+
+                        response = new ResponseModel("error", "Invalid delete_type.");
+                        break;
+                    }
+
+                    case "edit_message" : {
+                        UUID msgId = UUID.fromString(requestJson.getString("message_id"));
+                        String newContent = requestJson.getString("new_content");
+
+                        Message msg = MessageDatabase.findById(msgId);
+                        if (msg == null) {
+                            response = new ResponseModel("error", "Message not found.");
+                            break;
+                        }
+
+                        //Only sender can edit
+                        if (!msg.getSender_id().equals(currentUser.getInternal_uuid())) {
+                            response = new ResponseModel("error", "You can only edit your own messages.");
+                            break;
+                        }
+
+                        boolean success = MessageDatabase.updateContentAndMarkEdited(msgId, newContent);
+                        if (!success) {
+                            response = new ResponseModel("error", "Failed to update message.");
+                        } else {
+                            response = new ResponseModel("success", "Message edited.");
+                            Message updated = MessageDatabase.findById(msgId);
+                            List<UUID> receivers = Receivers.resolveFor(updated.getReceiver_type(), updated.getReceiver_id(), null);
+                            RealTimeEventDispatcher.notifyMessageEdited(updated.getReceiver_id(), updated.getMessage_id(), newContent, LocalDateTime.now(), receivers);
+
+                        }
+                        break;
+                    }
+
+                    case "send_reply_message" : {
+                        UUID senderId = currentUser.getInternal_uuid();
+                        String content = requestJson.getString("content");
+                        String receiverType = requestJson.getString("receiver_type");
+                        UUID receiverId = UUID.fromString(requestJson.getString("receiver_id"));
+                        //For block
+                        if ("private".equals(receiverType) && !canSendToPrivate(receiverId, senderId)) {
+                            response = new ResponseModel("error", "You can't message this user (blocked).");
+                            break;
+                        }
+
+                        UUID replyToId = UUID.fromString(requestJson.getString("reply_to_id"));
+
+                        Message message = new Message(
+                                UUID.randomUUID(),
+                                senderId,
+                                receiverType,
+                                receiverId,
+                                content,
+                                "TEXT",
+                                LocalDateTime.now(),
+                                "SEND",
+                                replyToId
+                        );
+
+                        boolean saved = MessageDatabase.saveReplyMessage(message);
+
+                        String excerpt = MessageDatabase.getExcerpt(replyToId);
+                        JSONObject meta = new JSONObject().put("reply_to", new JSONObject()
+                                .put("id", replyToId.toString())
+                                .put("excerpt", excerpt));
+
+                        List<UUID> receivers = Receivers.resolveFor(receiverType, receiverId, senderId);
+                        //RealTimeEventDispatcher.sendNewMessage(message, receivers, "reply", meta);
+                        RealTimeEventDispatcher.sendNewMessageFiltered(message, receivers, senderId, "reply", meta);
+
+
+                        response = saved ?
+                                new ResponseModel("success", "Reply sent") :
+                                new ResponseModel("error", "Failed to send reply");
+                        break;
+                    }
+
+                    case "forward_message" : {
+                        UUID senderId = currentUser.getInternal_uuid();
+                        UUID originalMessageId = UUID.fromString(requestJson.getString("original_message_id"));
+                        UUID targetChatId = UUID.fromString(requestJson.getString("target_chat_id"));
+                        String targetChatType = requestJson.getString("target_chat_type");
+
+                        //For block
+                        if ("private".equals(targetChatType) && !canSendToPrivate(targetChatId, senderId)) {
+                            response = new ResponseModel("error", "You can't message this user (blocked).");
+                            break;
+                        }
+
+                        // original message
+                        Message original = MessageDatabase.findById(originalMessageId);
+                        if (original == null) {
+                            response = new ResponseModel("error", "Original message not found.");
+                            break;
+                        }
+
+                        //make forwarded message
+                        Message forwarded = new Message(
+                                UUID.randomUUID(),
+                                currentUser.getInternal_uuid(),
+                                targetChatType,
+                                targetChatId,
+                                original.getContent(),
+                                original.getMessage_type(),
+                                LocalDateTime.now(),
+                                "SEND",
+                                null,           // reply_to_id
+                                false,          // is_edited
+                                false,          // is_deleted_globally
+                                original.getMessage_id(), //original message id
+                                currentUser.getInternal_uuid(),       // forwarded_by
+                                original.getSender_id(),              // forwarded_from
+                                null                                   // edited_at
+                        );
+
+                        boolean success = MessageDatabase.saveForwardedMessage(forwarded);
+
+                        if (success) {
+                            response = new ResponseModel("success", "Message forwarded.");
+                            JSONObject meta = new JSONObject().put("forwarded_from", new JSONObject()
+                                    .put("chat_id", original.getReceiver_id().toString())
+                                    .put("message_id", original.getMessage_id().toString())
+                                    .put("sender_id", original.getSender_id().toString())
+                                    .put("sender_name", userDatabase.findByInternalUUID(original.getSender_id()).getProfile_name()));
+
+                            List<UUID> receivers = Receivers.resolveFor(targetChatType, targetChatId, currentUser.getInternal_uuid());
+                            //RealTimeEventDispatcher.sendNewMessage(forwarded, receivers, "forward", meta);
+                            RealTimeEventDispatcher.sendNewMessageFiltered(forwarded, receivers, senderId, "forward", meta);
+
+                        } else {
+                            response = new ResponseModel("error", "Failed to forward message.");
+                        }
+                        break;
+                    }
+
+                    case "react_to_message": {
+                        UUID messageId = UUID.fromString(requestJson.getString("message_id"));
+                        String reaction = requestJson.getString("reaction");
+                        boolean success = MessageReactionDatabase.saveOrUpdateReaction(messageId, currentUser.getInternal_uuid(), reaction);
+
+
+                        if (success) {
+                            Message msg = MessageDatabase.findById(messageId);
+
+                            JSONObject counts = MessageReactionDatabase.getCountsAsJson(messageId);
+
+                            List<UUID> receivers = Receivers.resolveFor(msg.getReceiver_type(), msg.getReceiver_id(), null);
+
+                            RealTimeEventDispatcher.notifyReactionAdded(
+                                    msg.getReceiver_id(),           // chatId
+                                    messageId,                       // messageId
+                                    reaction,                        // emoji
+                                    counts.optInt(reaction, 0),
+                                    counts,
+                                    receivers
+                            );
+
+                            response = new ResponseModel("success", "Reaction saved.");
+                        } else {
+                            response = new ResponseModel("error", "Failed to save reaction.");
+                        }
+
                         break;
                     }
 
@@ -2122,8 +2502,8 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "send_saved_messages": {
-                       response = SidebarService.handleSendMessage(requestJson);
-                       break;
+                        response = SidebarService.handleSendMessage(requestJson);
+                        break;
                     }
 
                     case "search_contacts": {
@@ -2213,6 +2593,13 @@ public class ClientHandler implements Runnable {
 
             if(Objects.equals(receiverType, "private")){
                 PrivateChatDatabase.clearDeletedFlag(senderId, receiverId);
+                UUID other = PrivateChatDatabase.getOtherParticipant(receiverId, senderId);
+                if (other == null) {
+                    return new ResponseModel("error", "Invalid private chat.");
+                }
+                if (ContactDatabase.isBlocked(senderId, other) || ContactDatabase.isBlocked(other, senderId)) {
+                    return new ResponseModel("error", "You can't message this user (blocked).");
+                }
             }
 
 
@@ -2319,6 +2706,14 @@ public class ClientHandler implements Runnable {
             return new ResponseModel("error", "Exception while deleting chat.");
         }
     }
+
+    // helper
+    private boolean canSendToPrivate(UUID chatId, UUID senderId) {
+        UUID other = PrivateChatDatabase.getOtherParticipant(chatId, senderId);
+        if (other == null) return false;
+        return !(ContactDatabase.isBlocked(senderId, other) || ContactDatabase.isBlocked(other, senderId));
+    }
+
 
 
 

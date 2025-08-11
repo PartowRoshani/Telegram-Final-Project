@@ -283,7 +283,36 @@ public class PrivateChatDatabase {
     }
 
 
+    public static UUID findChatBetween(UUID user1, UUID user2) {
+        String sql = """
+        SELECT chat_id FROM private_chat
+        WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)
+    """;
 
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, user1);
+            ps.setObject(2, user2);
+            ps.setObject(3, user2);
+            ps.setObject(4, user1);
 
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return (UUID) rs.getObject("chat_id");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public static UUID getOtherParticipant(UUID chatId, UUID me) {
+        List<UUID> members = getMembers(chatId);
+        for (UUID u : members) {
+            if (!u.equals(me)) return u;
+        }
+        return null;
+    }
 
 }

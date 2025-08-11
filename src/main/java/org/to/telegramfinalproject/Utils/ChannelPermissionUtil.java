@@ -2,7 +2,12 @@ package org.to.telegramfinalproject.Utils;
 
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.ChannelDatabase;
+import org.to.telegramfinalproject.Database.ConnectionDb;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.UUID;
 
 public class ChannelPermissionUtil {
@@ -48,6 +53,23 @@ public class ChannelPermissionUtil {
         if (ChannelDatabase.isAdmin(channelId, userId)) {
             JSONObject perms = ChannelDatabase.getChannelPermissions(channelId, userId);
             return perms.optBoolean("can_remove_members", false);
+        }
+        return false;
+    }
+
+    public static boolean canDeleteMessage(UUID channelId, UUID userId) {
+        String roleSql = "SELECT role FROM channel_subscribers WHERE channel_id = ? AND user_id = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(roleSql)) {
+            ps.setObject(1, channelId);
+            ps.setObject(2, userId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                String role = rs.getString("role");
+                return role.equalsIgnoreCase("owner") || role.equalsIgnoreCase("admin");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
         return false;
     }

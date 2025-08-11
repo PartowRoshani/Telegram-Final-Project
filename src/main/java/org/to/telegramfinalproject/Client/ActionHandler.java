@@ -344,6 +344,7 @@ public class ActionHandler {
     }
 
 
+
     public void createGroup() {
         String groupId = null;
 
@@ -524,7 +525,7 @@ public class ActionHandler {
                                 chat.optBoolean("is_admin", false)
                         );
                         if (chat.has("other_user_id")) {
-                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));  // 👈 اضافه کردن برای private chat
+                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
                         }
                         archivedChats.add(entry);
 
@@ -545,7 +546,7 @@ public class ActionHandler {
                                 chat.optBoolean("is_admin", false)
                         );
                         if (chat.has("other_user_id")) {
-                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));  // 👈 اضافه کردن برای private chat
+                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
                         }
 
                         activeChats.add(entry);
@@ -615,12 +616,24 @@ public class ActionHandler {
                             String type = item.getString("type");
 
                             if (type.equals("message")) {
-                                System.out.println((i + 1) + ". [message] \"" + item.getString("content") + "\""
-                                        + " (from: " + item.optString("sender", "N/A") + ", at: " + item.getString("time") + ")");
+                                String senderName = item.optString("sender_name", item.optString("sender", "Unknown"));
+                                String time = item.optString("time", "Unknown time");
+                                String content = item.optString("content", "[No content]");
+                                String context = "";
+
+                                if (item.has("group_name")) {
+                                    context = " in group: " + item.getString("group_name");
+                                } else if (item.has("channel_name")) {
+                                    context = " in channel: " + item.getString("channel_name");
+                                }
+
+                                System.out.println((i + 1) + ". [message] \"" + content + "\""
+                                        + " (from: " + senderName + context + ", at: " + time + ")");
                             } else {
                                 System.out.println((i + 1) + ". [" + type + "] "
                                         + item.getString("name") + " (ID: " + item.getString("id") + ")");
                             }
+
                         }
 
                         System.out.print("Select a result number to interact (or 0 to exit): ");
@@ -722,6 +735,22 @@ public class ActionHandler {
                             case "message" -> {
                                 String receiverId = selected.getString("receiver_id");
                                 String receiverType = selected.getString("receiver_type");
+                                String senderName = selected.optString("sender_name", "Unknown");
+                                String content = selected.optString("content", "[No content]");
+                                String time = selected.optString("time", "Unknown time");
+
+                                String context = "";
+                                if (receiverType.equals("group")) {
+                                    context = "in group: " + selected.optString("group_name", "Unknown group");
+                                } else if (receiverType.equals("channel")) {
+                                    context = "in channel: " + selected.optString("channel_name", "Unknown channel");
+                                }
+
+                                System.out.println("📩 Message preview:");
+                                System.out.println("From: " + senderName);
+                                if (!context.isEmpty()) System.out.println(context);
+                                System.out.println("Time: " + time);
+                                System.out.println("Content: \"" + content + "\"");
 
                                 System.out.println("🔍 Looking for chat with displayId='" + receiverId + "' type='" + receiverType + "'");
 
@@ -732,6 +761,7 @@ public class ActionHandler {
 
                                 openChat(chat);
                             }
+
 
                             default -> System.out.println("No interaction available for type: " + type);
                         }
@@ -1392,7 +1422,8 @@ public class ActionHandler {
         System.out.println("4. Delete chat (both sides)");
         System.out.println("5. View profile");
         System.out.println("6. Archive/Unarchived");
-        System.out.println("7. Back");
+        System.out.println("7. View messages");
+        System.out.println("8. Back");
 
 
         String input = scanner.nextLine();
@@ -1438,8 +1469,11 @@ public class ActionHandler {
 
                 return true;
             }
+            case "7" ->{
+                viewMessagesInChat(chat);
+            }
 
-            case "7" -> {
+            case "8" -> {
                 return false;
             }
             default -> System.out.println("Invalid choice.");
@@ -1505,6 +1539,7 @@ public class ActionHandler {
         }
 
         System.out.println("12. Archive/Unarchived");
+        System.out.println("13. View messages");
 
         System.out.println("0. Back to Chat List");
 
@@ -1557,6 +1592,10 @@ public class ActionHandler {
 
             case "12"->{
                 toggleArchive(chat.getId() , "group");
+            }
+
+            case "13" ->{
+                viewMessagesInChat(chat);
             }
 
             case "0" -> {
@@ -1626,6 +1665,7 @@ public class ActionHandler {
         }
 
         System.out.println("12. Archive/Unarchived");
+        System.out.println("13. View messages");
         System.out.println("0. Back to Chat List");
 
         String input = scanner.nextLine();
@@ -1708,7 +1748,9 @@ public class ActionHandler {
             case "12"->{
                 toggleArchive(chat.getId() , "channel");
             }
-
+            case "13" ->{
+                viewMessagesInChat(chat);
+            }
 
             case "0" -> {
                 return false;
@@ -3169,7 +3211,7 @@ public class ActionHandler {
                     }
                     case "2" -> {
                         addContact(chat.getId());
-                        refreshChatList();
+                        refreshContactList();
                     }
                     default -> System.out.println("Back...");
                 }
@@ -3446,6 +3488,397 @@ public class ActionHandler {
         }
     }
 
+    private void refreshContactList() {
+        JSONObject req = new JSONObject();
+        req.put("action", "get_contact_list");
+        req.put("user_id", Session.currentUser.getString("user_id"));
+        out.println(req.toString());
+
+        try {
+            JSONObject response = TelegramClient.responseQueue.take();
+
+            if (response != null && response.getString("status").equals("success")) {
+                if (response.has("data") && !response.isNull("data")) {
+                    JSONObject data = response.getJSONObject("data");
+
+                    if (!data.has("contact_list") || data.isNull("contact_list")) {
+                        System.out.println("❌ contact_list not found in response data.");
+                        return;
+                    }
+
+                    JSONArray contactListJson = data.getJSONArray("contact_list");
+                    List<ContactEntry> contactList = new ArrayList<>();
+
+                    for (Object obj : contactListJson) {
+                        JSONObject c = (JSONObject) obj;
+
+                        ContactEntry entry = new ContactEntry(
+                                UUID.fromString(c.getString("contact_id")),
+                                c.getString("user_id"),
+                                c.getString("profile_name"),
+                                c.optString("image_url", ""),
+                                c.optBoolean("is_blocked", false)
+                        );
+
+                        contactList.add(entry);
+                    }
+
+                    Session.contactEntries = contactList;
+                    System.out.println("✅ Contact list updated. Total: " + contactList.size());
+
+                } else {
+                    System.out.println("⚠️ Response has no data object.");
+                }
+            } else {
+                if (response.has("message") && !response.isNull("message")) {
+                    System.out.println("❌ Failed to refresh contact list: " + response.getString("message"));
+                } else {
+                    System.out.println("❌ Failed to refresh contact list.");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error during refreshContactList: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void viewMessagesInChat(ChatEntry chat) {
+        int offset = 0;
+        int limit = 10;
+
+        while (true) {
+            JSONObject req = new JSONObject();
+            req.put("action", "get_chat_messages");
+            req.put("chat_id", chat.getId());
+            req.put("chat_type", chat.getType());
+            req.put("offset", offset);
+            req.put("limit", limit);
+
+            JSONObject res = sendWithResponse(req);
+            if (res == null || !res.getString("status").equals("success")) {
+                System.out.println("❌ Failed to fetch messages.");
+                return;
+            }
+
+            JSONArray messages = res.getJSONObject("data").getJSONArray("get_chat_messages");
+
+            if (messages.isEmpty()) {
+                if (offset == 0)
+                    System.out.println("📭 No messages in this chat.");
+                else
+                    System.out.println("📭 No more messages.");
+                return;
+            }
+
+            System.out.println("\n📥 Messages:");
+            System.out.println("─────────────────────────────────────────────");
+            for (int i = 0; i < messages.length(); i++) {
+                JSONObject msg = messages.getJSONObject(i);
+                String senderName = msg.optString("sender_name", "Unknown");
+                String content = msg.optString("content", "(no content)");
+                String time = msg.optString("time", "");
+                boolean isEdited = msg.optBoolean("is_edited", false);
+                String editedAt = msg.optString("edited_at", "");
+                String label = isEdited ? "🖊️ (edited at: " + editedAt + ")" : "";
+
+                // ✅ Forwarded info
+                String forwardLabel = "";
+                if (msg.optBoolean("is_forwarded", false)) {
+                    String forwardFrom = msg.optString("forwarded_from_name", "Unknown");
+                    forwardLabel = "🔁 Forwarded from " + forwardFrom;
+                }
+
+                //for reply
+                String replyLabel = "";
+                if (msg.has("reply_to_id")) {
+                    String repliedSender = msg.optString("reply_to_sender", "Unknown");
+                    String repliedContent = msg.optString("reply_to_content", "...");
+                    replyLabel = "↪️ Reply to " + repliedSender + ": \"" + repliedContent + "\"";
+                }
+
+                JSONArray reactions = msg.optJSONArray("reactions");
+                if (reactions != null && !reactions.isEmpty()) {
+                    System.out.print(" 💬 Reactions: ");
+                    for (int j = 0; j < reactions.length(); j++) {
+                        System.out.print(reactions.getString(j) + " ");
+                    }
+                    System.out.println();
+                }
+
+
+                System.out.printf("[%d] [%s] %s: \n", i + 1, time, senderName);
+                if (!forwardLabel.isEmpty()) System.out.println(forwardLabel);
+                if (!replyLabel.isEmpty()) System.out.println(replyLabel);
+                System.out.printf("%s %s\n", content, label);
+                System.out.println("─────────────────────────────────────────────");
+            }
+
+            System.out.print("""
+            💬 Options:
+            [number] - Interact with message
+            N - Next page (older messages)
+            0 - Back to chat menu
+            S - Send message
+            ➤ Choice: """);
+
+            String input = scanner.nextLine().trim();
+
+            if (input.equals("0")) return;
+            if (input.equalsIgnoreCase("N")) {
+                offset += limit;
+                continue;
+            }
+
+            if(input.equalsIgnoreCase("S")){
+                sendMessage(chat.getId(), chat.getType());
+            }
+            try {
+                int index = Integer.parseInt(input);
+                if (index < 1 || index > messages.length()) {
+                    System.out.println("❌ Invalid message number.");
+                    continue;
+                }
+
+                JSONObject selected = messages.getJSONObject(index - 1);
+                UUID messageId = UUID.fromString(selected.getString("message_id"));
+                UUID senderId = UUID.fromString(selected.getString("sender_id"));
+                boolean isSender = senderId.toString().equals(Session.currentUser.getString("internal_uuid"));
+                boolean isChannel = chat.getType().equals("channel");
+                boolean isOwnerOrAdmin = chat.isOwner() || chat.isAdmin();
+
+                System.out.println("\n🎯 Selected message by " + selected.getString("sender_name"));
+
+                // ✔ Show interaction menu based on access
+                System.out.println("2. Forward");
+
+                if (isChannel) {
+                    if (isOwnerOrAdmin) {
+                        System.out.println("1. Reply");
+                        System.out.println("3. React");
+                        if (isSender) {
+                            System.out.println("4. Edit");
+                        }
+                        System.out.println("5. Delete");
+                    }
+                } else {
+                    System.out.println("1. Reply");
+                    System.out.println("3. React");
+                    if (isSender) {
+                        System.out.println("4. Edit");
+                    }
+                    if (isSender || isOwnerOrAdmin) {
+                        System.out.println("5. Delete");
+                    }
+                }
+
+                System.out.println("0. Back to message list");
+                System.out.print("➤ Select an action: ");
+                String choice = scanner.nextLine().trim();
+
+                switch (choice) {
+                    case "1" -> {
+                        if (!isChannel || isOwnerOrAdmin)
+                            replyToMessage(messageId);
+                        else
+                            System.out.println("❌ You are not allowed to reply.");
+                    }
+                    case "2" -> forwardMessage(messageId);
+                    case "3" -> {
+                        if (!isChannel || isOwnerOrAdmin)
+                            reactToMessage(messageId);
+                        else
+                            System.out.println("❌ You are not allowed to react.");
+                    }
+                    case "4" -> {
+                        if (isSender)
+                            editMessage(messageId);
+                        else
+                            System.out.println("❌ You can only edit your own messages.");
+                    }
+                    case "5" -> {
+                        if (!isChannel || isOwnerOrAdmin || isSender)
+                            deleteMessage(messageId);
+                        else
+                            System.out.println("❌ You are not allowed to delete this message.");
+                    }
+                    case "0" -> {}
+                    default -> System.out.println("❌ Invalid option.");
+                }
+
+            } catch (NumberFormatException e) {
+                System.out.println("❌ Please enter a valid number or command.");
+            }
+        }
+    }
+
+    private void editMessage(UUID messageId) {
+        System.out.print("📝 Enter new content: ");
+        String newContent = scanner.nextLine().trim();
+
+        if (newContent.isEmpty()) {
+            System.out.println("❌ Content cannot be empty.");
+            return;
+        }
+
+        JSONObject req = new JSONObject();
+        req.put("action", "edit_message");
+        req.put("message_id", messageId.toString());
+        req.put("new_content", newContent);
+
+        JSONObject res = sendWithResponse(req);
+        if (res == null || !res.getString("status").equals("success")) {
+            System.out.println("❌ Failed to edit message.");
+            return;
+        }
+
+        System.out.println("✅ Message updated successfully.");
+    }
+
+
+    private void reactToMessage(UUID messageId) {
+        System.out.print("😊 Enter your reaction (e.g., ❤️, 👍, 😂): ");
+        String reaction = scanner.nextLine().trim();
+
+        if (reaction.isEmpty()) {
+            System.out.println("⚠️ Empty reaction discarded.");
+            return;
+        }
+
+        JSONObject req = new JSONObject();
+        req.put("action", "react_to_message");
+        req.put("message_id", messageId.toString());
+        req.put("reaction", reaction);
+
+        JSONObject res = sendWithResponse(req);
+        if (res != null && res.getString("status").equals("success")) {
+            System.out.println("✅ Reaction sent.");
+        } else {
+            System.out.println("❌ Failed to react to message.");
+        }
+    }
+
+
+    private void forwardMessage(UUID originalMessageId) {
+        System.out.println("\n📤 Select a chat to forward this message to:");
+
+        List<ChatEntry> chatList = Session.chatList;
+        for (int i = 0; i < chatList.size(); i++) {
+            ChatEntry c = chatList.get(i);
+            System.out.printf("%d. [%s] %s\n", i + 1, c.getType(), c.getName());
+        }
+        System.out.println("0. Cancel");
+
+        System.out.print("➤ Enter chat number: ");
+        String input = scanner.nextLine().trim();
+
+        if (input.equals("0")) return;
+
+        try {
+            int choice = Integer.parseInt(input);
+            if (choice < 1 || choice > chatList.size()) {
+                System.out.println("❌ Invalid choice.");
+                return;
+            }
+
+            ChatEntry target = chatList.get(choice - 1);
+
+            JSONObject req = new JSONObject();
+            req.put("action", "forward_message");
+            req.put("target_chat_id", target.getId());
+            req.put("target_chat_type", target.getType());
+            req.put("original_message_id", originalMessageId.toString());
+            req.put("forwarded_by", Session.currentUser.getString("internal_uuid"));
+
+            JSONObject res = sendWithResponse(req);
+            if (res != null && res.getString("status").equals("success")) {
+                System.out.println("✅ Message forwarded successfully.");
+            } else {
+                System.out.println("❌ Failed to forward the message.");
+            }
+
+        } catch (NumberFormatException e) {
+            System.out.println("❌ Invalid input.");
+        }
+    }
+
+
+    private void replyToMessage(UUID messageId) {
+        System.out.print("💬 Enter your reply: ");
+        String content = scanner.nextLine().trim();
+
+        if (content.isEmpty()) {
+            System.out.println("⚠️ Empty reply discarded.");
+            return;
+        }
+
+        UUID chatId = UUID.fromString(Session.currentChatId);
+        String chatType = Session.currentChatType;
+
+        JSONObject req = new JSONObject();
+        req.put("action", "send_reply_message");
+        req.put("receiver_type", chatType);
+        req.put("receiver_id", chatId.toString());
+        req.put("content", content);
+        req.put("reply_to_id", messageId.toString());
+
+        JSONObject res = sendWithResponse(req);
+
+        if (res != null && res.getString("status").equals("success")) {
+            System.out.println("✅ Reply sent.");
+        } else {
+            System.out.println("❌ Failed to send reply.");
+        }
+    }
+
+
+    private void deleteMessage(UUID messageId) {
+        System.out.println("\n🗑️ Delete Message Options:");
+        System.out.println("1. Delete for yourself (one-sided)");
+        System.out.println("2. Delete for everyone (global) [only if allowed]");
+        System.out.println("0. Cancel");
+
+        String choice = scanner.nextLine().trim();
+
+        switch (choice) {
+            case "1" -> {
+                JSONObject req = new JSONObject();
+                req.put("action", "delete_message");
+                req.put("message_id", messageId.toString());
+                req.put("delete_type", "one-sided");
+
+                JSONObject res = sendWithResponse(req);
+                if (res != null && res.getString("status").equals("success")) {
+                    System.out.println("✅ Message deleted for you.");
+                } else {
+                    System.out.println("❌ Failed to delete message.");
+                }
+            }
+
+            case "2" -> {
+                JSONObject req = new JSONObject();
+                req.put("action", "delete_message");
+                req.put("message_id", messageId.toString());
+                req.put("delete_type", "global");
+
+                JSONObject res = sendWithResponse(req);
+                if (res != null && res.getString("status").equals("success")) {
+                    System.out.println("✅ Message deleted for everyone.");
+                } else {
+                    System.out.println("❌ Failed to delete message globally.");
+                    if (res != null) System.out.println("⚠️ " + res.optString("message"));
+                }
+            }
+
+            case "0" -> {
+                System.out.println("❎ Delete canceled.");
+            }
+
+            default -> {
+                System.out.println("❌ Invalid option.");
+            }
+        }
+    }
+
     private void showSidebarMenu() {
         System.out.println("\n--- Sidebar Menu ---");
         System.out.println("1. View Profile");
@@ -3492,6 +3925,7 @@ public class ActionHandler {
             default -> System.out.println("Invalid action.");
         }
     }
+
 
 }
 

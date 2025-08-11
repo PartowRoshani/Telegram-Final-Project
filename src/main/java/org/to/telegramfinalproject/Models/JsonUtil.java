@@ -2,6 +2,7 @@ package org.to.telegramfinalproject.Models;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.to.telegramfinalproject.Database.userDatabase;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -9,19 +10,42 @@ import java.util.UUID;
 
 public class JsonUtil {
     public static JSONArray contactListToJson(List<Contact> contacts) {
-
-
         JSONArray array = new JSONArray();
+
         for (Contact contact : contacts) {
+            UUID contactId = contact.getContact_id();
+            User contactUser = userDatabase.findByInternalUUID(contactId);
+            if (contactUser == null) continue;
+
             JSONObject obj = new JSONObject();
-            obj.put("user_id", contact.getUser_id().toString());
-            obj.put("contact_id", contact.getContact_id().toString());
+            obj.put("contact_id", contactId.toString());                        // UUID
+            obj.put("user_id", contactUser.getUser_id());                      // public ID
+            obj.put("profile_name", contactUser.getProfile_name());
+            obj.put("image_url", contactUser.getImage_url());
             obj.put("is_blocked", contact.getIs_blocked());
-            obj.put("added_at", contact.getAdd_at().toString());
+
             array.put(obj);
         }
+
         return array;
     }
+
+    public static JSONArray contactEntryListToJson(List<ContactEntry> contactEntries) {
+        JSONArray array = new JSONArray();
+
+        for (ContactEntry entry : contactEntries) {
+            JSONObject obj = new JSONObject();
+            obj.put("contact_id", entry.getContactId().toString());
+            obj.put("user_id", entry.getUserId());
+            obj.put("profile_name", entry.getProfileName());
+            obj.put("image_url", entry.getImageUrl());
+            obj.put("is_blocked", entry.isBlocked());
+            array.put(obj);
+        }
+
+        return array;
+    }
+
 
 
 

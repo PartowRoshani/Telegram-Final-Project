@@ -1,6 +1,7 @@
 package org.to.telegramfinalproject.Models;
 
 import java.time.LocalDateTime;
+import org.json.JSONObject;
 import java.util.UUID;
 
 public class ContactEntry {
@@ -71,4 +72,16 @@ public class ContactEntry {
     public String toString() {
         return profileName + " (@" + contact_displayId + ")" + (isBlocked ? " [Blocked]" : "") + " Last Seen:" + (lastSeenTime != null ? " " + lastSeenTime.toString() : "");
     }
+
+
+    public JSONObject toJson() {
+        JSONObject obj = new JSONObject();
+        obj.put("contact_id", contactId.toString());
+        obj.put("user_id", userId);
+        obj.put("profile_name", profileName);
+        obj.put("image_url", imageUrl);
+        obj.put("is_blocked", isBlocked);
+        return obj;
+    }
+
 }

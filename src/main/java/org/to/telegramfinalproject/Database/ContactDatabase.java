@@ -82,7 +82,6 @@ public class ContactDatabase {
                 }
                 return !currentlyBlocked;
             } else {
-                // اگر رابطه وجود نداره، اول باید کاربر رو به contact ها اضافه کنیم
                 String insertSql = "INSERT INTO contacts (user_id, contact_id, is_blocked) VALUES (?, ?, ?)";
                 try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
                     insertStmt.setObject(1, userId);
@@ -152,8 +151,13 @@ public class ContactDatabase {
         }
     }
 
+    public boolean eitherBlocks(UUID userA, UUID userB) {
+        return isBlocked(userA, userB) || isBlocked(userB, userA);
+    }
 
-    public boolean isBlocked(UUID user_id, UUID contact_id) {
+
+
+    public static boolean isBlocked(UUID user_id, UUID contact_id) {
         String sql = "SELECT is_blocked FROM contacts WHERE user_id = ? AND contact_id = ?";
         try (Connection connection = getConnection()) {
             PreparedStatement stmt = connection.prepareStatement(sql);
@@ -239,6 +243,39 @@ public class ContactDatabase {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public static List<ContactEntry> getContactEntries(UUID userId) {
+        List<ContactEntry> entries = new ArrayList<>();
+
+        String sql = """
+        SELECT c.contact_id, c.is_blocked, u.user_id, u.profile_name, u.image_url
+        FROM contacts c
+        JOIN users u ON c.contact_id = u.internal_uuid
+        WHERE c.user_id = ?
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, userId);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                UUID contactId = UUID.fromString(rs.getString("contact_id"));
+                boolean isBlocked = rs.getBoolean("is_blocked");
+                String userIdStr = rs.getString("user_id");
+                String profileName = rs.getString("profile_name");
+                String imageUrl = rs.getString("image_url");
+
+                ContactEntry entry = new ContactEntry(contactId, userIdStr, profileName, imageUrl, isBlocked);
+                entries.add(entry);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return entries;
     }
 
     public static List<ContactEntry> searchContacts(UUID userId, String searchTerm) {
