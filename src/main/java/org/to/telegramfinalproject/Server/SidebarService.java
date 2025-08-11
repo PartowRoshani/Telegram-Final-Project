@@ -211,50 +211,49 @@ public class SidebarService {
         }
     }
 
-    // Get saved messages data
-//    public static ResponseModel handleGetSavedMessages(UUID userId) {
-//        try {
-//
-//            UUID chatId = PrivateChatDatabase.getOrCreateSavedMessagesChat(userId);
-//            if (chatId == null) {
-//                return new ResponseModel("error", "Failed to create or find saved messages chat.");
-//            }
-//
-//            List<Message> messages = MessageDatabase.privateChatHistory(chatId);
-//
-//            JSONArray messageArray = new JSONArray();
-//            if (!messages.isEmpty()) {
-//                for (Message msg : messages) {
-//                    JSONObject msgJson = new JSONObject();
-//                    msgJson.put("message_id", msg.getMessage_id().toString());
-//                    msgJson.put("sender_id", msg.getSender_id().toString());
-//                    msgJson.put("receiver_type", msg.getReceiver_type());
-//                    msgJson.put("receiver_id", msg.getReceiver_id().toString());
-//                    msgJson.put("content", msg.getContent());
-//                    msgJson.put("message_type", msg.getMessage_type());
-//                    msgJson.put("send_at", msg.getSend_at().toString()); // LocalDateTime
-//                    msgJson.put("status", msg.getStatus());
-//                    msgJson.put("reply_to_id", msg.getReply_to_id() != null ? msg.getReply_to_id().toString() : JSONObject.NULL);
-//                    msgJson.put("is_edited", msg.isIs_edited());
-//                    msgJson.put("original_message_id", msg.getOriginal_message_id() != null ? msg.getOriginal_message_id().toString() : JSONObject.NULL);
-//                    msgJson.put("forwarded_by", msg.getForwarded_by() != null ? msg.getForwarded_by().toString() : JSONObject.NULL);
-//                    msgJson.put("forwarded_from", msg.getForwarded_from() != null ? msg.getForwarded_from().toString() : JSONObject.NULL);
-//
-//                    messageArray.put(msgJson);
-//                }
-//            }
-//
-//            JSONObject data = new JSONObject();
-//            data.put("chat_id", chatId.toString());
-//            data.put("messages", messageArray);
-//
-//            return new ResponseModel("success", "Saved messages retrieved successfully", data);
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            return new ResponseModel("error", "Unexpected server error.");
-//        }
-//    }
+    public static ResponseModel handleGetSavedMessages(UUID userId) {
+        try {
+
+            UUID chatId = PrivateChatDatabase.getOrCreateSavedMessagesChat(userId);
+            if (chatId == null) {
+                return new ResponseModel("error", "Failed to create or find saved messages chat.");
+            }
+
+            List<Message> messages = MessageDatabase.privateChatHistory(chatId, userId);
+
+            JSONArray messageArray = new JSONArray();
+            if (!messages.isEmpty()) {
+                for (Message msg : messages) {
+                    JSONObject msgJson = new JSONObject();
+                    msgJson.put("message_id", msg.getMessage_id().toString());
+                    msgJson.put("sender_id", msg.getSender_id().toString());
+                    msgJson.put("receiver_type", msg.getReceiver_type());
+                    msgJson.put("receiver_id", msg.getReceiver_id().toString());
+                    msgJson.put("content", msg.getContent());
+                    msgJson.put("message_type", msg.getMessage_type());
+                    msgJson.put("send_at", msg.getSend_at().toString()); // LocalDateTime
+                    msgJson.put("status", msg.getStatus());
+                    msgJson.put("reply_to_id", msg.getReply_to_id() != null ? msg.getReply_to_id().toString() : JSONObject.NULL);
+                    msgJson.put("is_edited", msg.isIs_edited());
+                    msgJson.put("original_message_id", msg.getOriginal_message_id() != null ? msg.getOriginal_message_id().toString() : JSONObject.NULL);
+                    msgJson.put("forwarded_by", msg.getForwarded_by() != null ? msg.getForwarded_by().toString() : JSONObject.NULL);
+                    msgJson.put("forwarded_from", msg.getForwarded_from() != null ? msg.getForwarded_from().toString() : JSONObject.NULL);
+
+                    messageArray.put(msgJson);
+                }
+            }
+
+            JSONObject data = new JSONObject();
+            data.put("chat_id", chatId.toString());
+            data.put("messages", messageArray);
+
+            return new ResponseModel("success", "Saved messages retrieved successfully", data);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseModel("error", "Unexpected server error.");
+        }
+    }
 
     // Save messages to DB
     public static ResponseModel handleSendMessage(JSONObject requestJson) {

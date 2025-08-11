@@ -4,6 +4,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.ChatEntry;
+import org.to.telegramfinalproject.Models.FileAttachment;
 import org.to.telegramfinalproject.Models.Message;
 
 import java.time.LocalDateTime;
@@ -13,8 +14,15 @@ import static org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse;
 
 public class SidebarHandler {
     private final Scanner scanner;
-    private final ActionHandler actionHandler;
+    private  ActionHandler actionHandler ;
     private final String userUUID;
+
+    public SidebarHandler(Scanner scanner, ActionHandler actionHandler, ActionHandler action) {
+        this.scanner = scanner;
+        this.actionHandler = action;
+        this.userUUID = Session.getUserUUID();
+
+    }
 
     public SidebarHandler(Scanner scanner, ActionHandler actionHandler) {
         this.scanner = scanner;
@@ -38,7 +46,7 @@ public class SidebarHandler {
                 showContacts();
                 break;
             case SAVED_MESSAGES:
-                getSavedMessagesData(userUUID);
+                ensureSavedMessagesCreated();
                 break;
             case SETTINGS:
                 openSettings();
@@ -347,109 +355,182 @@ public class SidebarHandler {
     }
 
     private void showSavedMessages(UUID chatId, List<Message> messages) {
-        Scanner scanner = new Scanner(System.in);
+//        Scanner scanner = new Scanner(System.in);
+//
+//        System.out.println("==== Saved Messages ====");
+//        if (messages == null || messages.isEmpty()) {
+//            System.out.println("No messages yet.");
+//        } else {
+//            for (Message msg : messages) {
+//                System.out.println("[" + msg.getSend_at() + "] " + msg.getContent());
+//            }
+//        }
+//
+//        System.out.println("\n(Type your message below, or type 0 to exit)");
+//
+//        while (true) {
+//            System.out.print("You: ");
+//            String content = scanner.nextLine().trim();
+//            if (content.equals("0")) {
+//                System.out.println("Exiting Saved Messages.");
+//                break;
+//            }
+//
+//            System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE / AUDIO): ");
+//            String messageType = scanner.nextLine().trim().toUpperCase();
+//            Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE", "AUDIO");
+//            while (!allowedTypes.contains(messageType)) {
+//                System.out.print("Invalid type. Try again (TEXT / IMAGE / VIDEO / FILE / AUDIO): ");
+//                messageType = scanner.nextLine().trim().toUpperCase();
+//            }
+//
+//            // Attachments (اختیاری)
+//            JSONArray attachmentsArray = new JSONArray();
+//            System.out.print("Do you want to attach files? (yes/no): ");
+//            if (scanner.nextLine().equalsIgnoreCase("yes")) {
+//                while (true) {
+//                    System.out.print("File URL: ");
+//                    String fileUrl = scanner.nextLine().trim();
+//
+//                    if (fileUrl.isEmpty()) {
+//                        System.out.println("URL can not be empty. Try again.");
+//                        continue;
+//                    }
+//                    if (fileUrl.contains(" ")) {
+//                        System.out.println("URL cannot contain spaces. Try again.");
+//                        continue;
+//                    }
+//                    if (!fileUrl.matches("^(http|https)://.*$")) {
+//                        System.out.println("Invalid URL format. Please enter a valid HTTP/HTTPS link.");
+//                        continue;
+//                    }
+//
+//                    System.out.print("File Type (IMAGE / VIDEO / FILE / AUDIO): ");
+//                    String fileType = scanner.nextLine().trim().toUpperCase();
+//                    Set<String> allowedFileTypes = Set.of("IMAGE", "VIDEO", "FILE", "AUDIO");
+//                    while (!allowedFileTypes.contains(fileType)) {
+//                        System.out.print("Invalid type. Try again (IMAGE / VIDEO / FILE / AUDIO): ");
+//                        fileType = scanner.nextLine().trim().toUpperCase();
+//                    }
+//
+//                    JSONObject fileJson = new JSONObject();
+//                    fileJson.put("file_url", fileUrl);
+//                    fileJson.put("file_type", fileType);
+//                    attachmentsArray.put(fileJson);
+//
+//                    System.out.print("Add another file? (yes/no): ");
+//                    if (!scanner.nextLine().equalsIgnoreCase("yes")) break;
+//                }
+//            }
+//
+//            // درخواست مطابق هندلر send_message
+//            JSONObject request = new JSONObject();
+//            request.put("action", "send_message");
+//            request.put("receiver_type", "private");
+//            request.put("receiver_id", chatId.toString()); // chat_id
+//            request.put("content", content);
+//            request.put("message_type", messageType);
+//            if (attachmentsArray.length() > 0) {
+//                request.put("attachments", attachmentsArray);
+//            }
+//
+//            JSONObject response = ActionHandler.sendWithResponse(request);
+//            if (!"success".equalsIgnoreCase(response.optString("status"))) {
+//                System.out.println("Failed to send message: " + response.optString("message", "Unknown error"));
+//            } else {
+//                System.out.println("Message sent.");
+//
+//                Message justSent = new Message(
+//                        UUID.fromString(response.getJSONObject("data").getString("message_id")),
+//                        /* senderId   */ userUUID,
+//                        /* receiverId */ chatId,
+//                        /* type       */ "private",
+//                        /* content    */ content,
+//                        /* msgType    */ messageType,
+//                        /* send_at    */ java.time.LocalDateTime.now()
+//                );
+//                messages.add(justSent);
+//                System.out.println("[" + justSent.getSend_at() + "] " + justSent.getContent());
+//            }
+//        }
+    }
 
-        System.out.println("==== Saved Messages ====");
 
-        // Show previous messages
-        if (messages.isEmpty()) {
-            System.out.println("No messages yet.");
-        } else {
-            for (Message msg : messages) {
-                System.out.println("[" + msg.getSend_at() + "] " + msg.getContent());
+//    public void openSavedMessages() {
+//        JSONObject req = new JSONObject().put("action", "get_or_create_saved_messages");
+//        JSONObject res = sendWithResponse(req);
+//        if (res == null || !"success".equals(res.optString("status"))) {
+//            System.out.println("❌ Could not open Saved Messages: " + res.optString("message",""));
+//            return;
+//        }
+//
+//        ActionHandler.requestChatList();
+//        String chatId = res.getJSONObject("data").getString("chat_id");
+//
+//        JSONObject mreq = new JSONObject()
+//                .put("action", "get_messages")
+//                .put("receiver_type", "private")
+//                .put("receiver_id", chatId)
+//                .put("offset", 0)
+//                .put("limit", 50);
+//
+//        JSONObject mres = sendWithResponse(mreq);
+//        JSONArray msgs = (mres != null && mres.has("data"))
+//                ? mres.getJSONObject("data").optJSONArray("messages")
+//                : new JSONArray();
+//
+//        List<Message> messages = parseMessages(msgs); // تبدیل JSON → Message
+//        showSavedMessages(UUID.fromString(chatId), messages);
+//    }
+//
+
+
+
+    public void ensureSavedMessagesCreated() {
+        // 1) Client-side quick check
+        boolean alreadyExists = false;
+        if (Session.activeChats != null) {
+            for (ChatEntry e : Session.activeChats) {
+                if (e != null && e.isSavedMessages()) { alreadyExists = true; break; }
             }
         }
+        if (alreadyExists) {
+            System.out.println("ℹ️ Saved Messages already exists.");
+            return;
+        }
 
-        System.out.println("\n(Type your message below, or type 0 to exit)");
+        // 2) Ask server to get or create the self-chat
+        JSONObject res = sendWithResponse(new JSONObject().put("action", "get_or_create_saved_messages"));
+        if (res == null || !"success".equals(res.optString("status"))) {
+            System.out.println("❌ Failed to create/open Saved Messages: " + (res != null ? res.optString("message","") : ""));
+            return;
+        }
 
-        while (true) {
-            System.out.print("You: ");
-            String content = scanner.nextLine().trim();
+        JSONObject data = res.optJSONObject("data");
+        if (data == null) {
+            System.out.println("❌ Invalid server response for Saved Messages.");
+            return;
+        }
 
-            if (content.equals("0")) {
-                System.out.println("Exiting Saved Messages.");
-                break;
-            }
+        boolean created = data.optBoolean("created", true); // if server sends it
+        String chatId = data.optString("chat_id", null);
 
-            System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE / AUDIO): ");
-            String messageType = scanner.nextLine().toUpperCase();
-            Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
-            while (!allowedTypes.contains(messageType)) {
-                System.out.print("Invalid type. Try again (TEXT / IMAGE / VIDEO / FILE / AUDIO): ");
-                messageType = scanner.nextLine().toUpperCase();
-            }
-
-            // Attaching Files
-            JSONArray attachmentsArray = new JSONArray();
-            System.out.print("Do you want to attach files? (yes/no): ");
-            if (scanner.nextLine().equalsIgnoreCase("yes")) {
-                while (true) {
-                    System.out.print("File URL: ");
-                    String fileUrl = scanner.nextLine();
-
-                    // URL validation
-                    if (fileUrl.isEmpty()) {
-                        System.out.print("URL can not be empty. Try again.");
-                        continue;
-                    }
-
-                    if (fileUrl.contains(" ")) {
-                        System.out.println("URL cannot contain spaces. Try again.");
-                        continue;
-                    }
-
-                    if (!fileUrl.isEmpty() && !fileUrl.matches("^(http|https)://.*$")) {
-                        System.out.println("Invalid URL format. Please enter a valid HTTP/HTTPS link.");
-                        continue;
-                    }
-
-                    System.out.print("File Type (IMAGE / VIDEO / FILE / AUDIO): ");
-                    String fileType = scanner.nextLine().toUpperCase();
-
-                    Set<String> allowedFileTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
-                    while (!allowedFileTypes.contains(fileType)) {
-                        System.out.print("Invalid type. Try again (IMAGE / VIDEO / FILE / AUDIO): ");
-                        fileType = scanner.nextLine().toUpperCase();
-                    }
-
-                    JSONObject fileJson = new JSONObject();
-                    fileJson.put("file_url", fileUrl);
-                    fileJson.put("file_type", fileType);
-                    attachmentsArray.put(fileJson);
-
-                    System.out.print("Add another file? (yes/no): ");
-                    if (!scanner.nextLine().equalsIgnoreCase("yes")) break;
-                }
-            }
-
-            // Prepare the request JSON
-            JSONObject request = new JSONObject();
-            request.put("action", "send_saved_messages");
-            request.put("message_id", UUID.randomUUID().toString());
-            request.put("sender_id", userUUID);
-            request.put("receiver_type", "private");
-            request.put("receiver_id", userUUID); // saved messages = to yourself
-            request.put("content", content);
-            request.put("message_type", "TEXT");
-            request.put("status", "READ");
-            request.put("reply_to_id", JSONObject.NULL);
-            request.put("is_edited", false);
-            request.put("original_message_id", JSONObject.NULL);
-            request.put("forwarded_by", JSONObject.NULL);
-            request.put("forwarded_from", JSONObject.NULL);
-            request.put("is_deleted_globally", JSONObject.NULL);
-            request.put("edited_at", JSONObject.NULL);
-
-            // Send the message and wait for response
-            JSONObject response = ActionHandler.sendWithResponse(request);
-
-            if (!response.optString("status", "fail").equals("success")) {
-                System.out.println("Failed to send message: " + response.optString("message", "Unknown error"));
-            } else {
-                System.out.println("Message sent.");
-            }
+        if (created) {
+            System.out.println("✅ Saved Messages created." + (chatId != null ? " chat_id=" + chatId : ""));
+             try {
+                 UUID cid = UUID.fromString(chatId);
+                 ChatEntry saved = new ChatEntry(cid, "Saved Messages", "Saved Messages", "", "private", null, true, false);
+                 saved.setSavedMessages(true);
+                 if (Session.activeChats == null) Session.activeChats = new ArrayList<>();
+                 Session.activeChats.add(0, saved);
+             } catch (Exception ignore) {}
+        } else {
+            System.out.println("ℹ️ Saved Messages already exists." + (chatId != null ? " chat_id=" + chatId : ""));
         }
     }
+
+
+
 
     private void openSettings() {
         System.out.println("⚙️ Opening settings...");
@@ -461,5 +542,61 @@ public class SidebarHandler {
 
     private void showTelegramQA() {
         System.out.println("❓ Showing Q&A...");
+    }
+
+
+    private List<Message> parseMessages(JSONArray msgs) {
+        List<Message> list = new ArrayList<>();
+        if (msgs == null) return list;
+
+        for (int i = 0; i < msgs.length(); i++) {
+            try {
+                JSONObject obj = msgs.getJSONObject(i);
+
+                UUID messageId     = UUID.fromString(obj.getString("message_id"));
+                UUID senderId      = UUID.fromString(obj.getString("sender_id"));
+                String receiverType= obj.getString("receiver_type");       // "private" | "group" | "channel"
+                UUID receiverId    = UUID.fromString(obj.getString("receiver_id")); // برای private = chat_id
+                String content     = obj.optString("content", "");
+                String messageType = obj.optString("message_type", "TEXT");
+                LocalDateTime sent = LocalDateTime.parse(obj.getString("send_at"));
+
+                Message m = new Message(
+                        messageId, senderId, receiverId, receiverType, content, messageType, sent
+                );
+
+                if (obj.has("status") && !obj.isNull("status")) {
+                    try { m.setStatus(obj.getString("status")); } catch (Exception ignore) {}
+                }
+                if (obj.has("reply_to_id") && !obj.isNull("reply_to_id")) {
+                    try { m.setReply_to_id(UUID.fromString(obj.getString("reply_to_id"))); } catch (Exception ignore) {}
+                }
+                if (obj.has("forwarded_by") && !obj.isNull("forwarded_by")) {
+                    try { m.setForwarded_by(UUID.fromString(obj.getString("forwarded_by"))); } catch (Exception ignore) {}
+                }
+                if (obj.has("forwarded_from") && !obj.isNull("forwarded_from")) {
+                    try { m.setForwarded_from(UUID.fromString(obj.getString("forwarded_from"))); } catch (Exception ignore) {}
+                }
+
+//                // ضمیمه‌ها (اگر در مدل Message متد addAttachment داری)
+//                if (obj.has("attachments") && !obj.isNull("attachments")) {
+//                    try {
+//                        JSONArray atts = obj.getJSONArray("attachments");
+//                        for (int j = 0; j < atts.length(); j++) {
+//                            JSONObject a = atts.getJSONObject(j);
+//                            String fileUrl  = a.getString("file_url");
+//                            String fileType = a.getString("file_type");
+//                            FileAttachment fa = new FileAttachment(fileUrl, fileType);
+//                            try { m.addAttachment(fa); } catch (Exception ignore) {}
+//                        }
+//                    } catch (Exception ignore) {}
+//                }
+
+                list.add(m);
+            } catch (Exception perItem) {
+                perItem.printStackTrace();
+            }
+        }
+        return list;
     }
 }
