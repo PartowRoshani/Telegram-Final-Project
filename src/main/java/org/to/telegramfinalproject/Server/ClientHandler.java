@@ -29,11 +29,24 @@ public class ClientHandler implements Runnable {
         UUID userId = null;
 
         try (
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
+//                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+//                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
+                BufferedInputStream bis = new BufferedInputStream(socket.getInputStream());
+                DataInputStream dis = new DataInputStream(bis); // برای MEDIA و هدرهای باینری
+
+                PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8), true);
+
         ) {
+
+//            DataInputStream bin = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+
             String inputLine;
-            while ((inputLine = in.readLine()) != null) {
+            while ((inputLine = readUtf8Line(bis)) != null) {
+                if ("MEDIA".equalsIgnoreCase(inputLine.trim())) {
+                    handleMediaFrame(dis, out);
+                    continue;
+                }
+
                 JSONObject requestJson = new JSONObject(inputLine);
                 String action = requestJson.getString("action");
                 ResponseModel response = null;
@@ -2578,6 +2591,194 @@ public class ClientHandler implements Runnable {
 
 
     }
+
+    private static String readUtf8Line(BufferedInputStream bis) throws java.io.IOException {
+        StringBuilder sb = new StringBuilder();
+        while (true) {
+            int b = bis.read();
+            if (b == -1) {
+                return sb.length() == 0 ? null : sb.toString();
+            }
+            if (b == '\n') {
+                int len = sb.length();
+                if (len > 0 && sb.charAt(len - 1) == '\r') sb.setLength(len - 1);
+                return sb.toString();
+            }
+            sb.append((char) b); // برای کنترل‌لاین‌های ASCII/UTF-8 OK
+        }
+    }
+
+
+    private void handleMediaFrame(DataInputStream dis, PrintWriter out) {
+        try {
+            // MAGIC = "MDM1"
+            final int MAGIC_EXPECTED = 0x4D444D31;
+            int magic = dis.readInt();
+            if (magic != MAGIC_EXPECTED) {
+                out.println(new JSONObject().put("status","error").put("message","bad magic").toString());
+                out.flush();
+                return;
+            }
+
+            int headerLen = dis.readInt();
+            if (headerLen <= 0 || headerLen > (64 * 1024)) {
+                out.println(new JSONObject().put("status","error").put("message","bad header length").toString());
+                out.flush();
+                return;
+            }
+
+            byte[] headerBytes = dis.readNBytes(headerLen);
+            if (headerBytes.length != headerLen) {
+                out.println(new JSONObject().put("status","error").put("message","header truncated").toString());
+                out.flush();
+                return;
+            }
+            JSONObject h = new JSONObject(new String(headerBytes, java.nio.charset.StandardCharsets.UTF_8));
+
+            long contentLen = dis.readLong();
+            long MAX_MEDIA = 25L * 1024 * 1024;
+            if (contentLen <= 0 || contentLen > MAX_MEDIA) {
+                skip(dis, contentLen);
+                out.println(new JSONObject().put("status","error").put("message","file too large/invalid").toString());
+                out.flush();
+                return;
+            }
+
+            // الزامی‌ها
+            UUID messageId  = UUID.fromString(h.getString("message_id"));
+            UUID senderId   = UUID.fromString(h.getString("sender_id"));
+            String rType    = h.getString("receiver_type");      // private/group/channel
+            UUID receiverId = UUID.fromString(h.getString("receiver_id"));
+            String messageType = h.getString("message_type");    // IMAGE | AUDIO
+
+            if (!"IMAGE".equalsIgnoreCase(messageType) && !"AUDIO".equalsIgnoreCase(messageType)) {
+                skip(dis, contentLen);
+                out.println(new JSONObject().put("status","error").put("message","unsupported message_type").toString());
+                out.flush();
+                return;
+            }
+
+            String fileName = h.optString("file_name", "file.bin");
+            String mimeType = h.optString("mime_type", "application/octet-stream");
+            String text     = h.optString("text", "");
+
+            Integer width   = h.has("width")  && !h.isNull("width")  ? h.getInt("width")  : null;
+            Integer height  = h.has("height") && !h.isNull("height") ? h.getInt("height") : null;
+
+            if (fileName.length() > 200) fileName = fileName.substring(0, 200);
+
+            // مسیر ذخیره
+            java.nio.file.Path baseDir = java.nio.file.Paths.get("uploads").toAbsolutePath().normalize();
+            java.nio.file.Files.createDirectories(baseDir);
+            String kind = "IMAGE".equalsIgnoreCase(messageType) ? "images" : "audios";
+            String subdir = kind + "/" + java.time.LocalDate.now();
+            java.nio.file.Path dir = baseDir.resolve(subdir).normalize();
+            java.nio.file.Files.createDirectories(dir);
+
+            String ext = guessExt(fileName, mimeType);
+            String storedName = java.util.UUID.randomUUID() + ext;
+            java.nio.file.Path target = dir.resolve(storedName).normalize();
+
+            // دریافت بایت‌های فایل
+            try (OutputStream fos = new BufferedOutputStream(java.nio.file.Files.newOutputStream(
+                    target, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING))) {
+                long remaining = contentLen;
+                byte[] buf = new byte[8192];
+                while (remaining > 0) {
+                    int toRead = (int) Math.min(buf.length, remaining);
+                    int n = dis.read(buf, 0, toRead);
+                    if (n == -1) throw new EOFException("stream ended early");
+                    fos.write(buf, 0, n);
+                    remaining -= n;
+                }
+            }
+
+            long fileSize = java.nio.file.Files.size(target);
+            String fileUrl = "/" + subdir.replace('\\','/') + "/" + storedName;
+
+            FileAttachment att = new FileAttachment(
+                    fileUrl,
+                    messageType.toUpperCase(), // IMAGE/AUDIO
+                    fileName,
+                    fileSize,
+                    mimeType,
+                    width,
+                    height,
+                    null,   // durationSeconds
+                    null    // thumbnailUrl
+            );
+
+            boolean ok = MessageDatabase.saveMessageWithOptionalAttachments(
+                    messageId, senderId, receiverId, rType, text, messageType.toUpperCase(), java.util.List.of(att)
+            );
+
+            JSONObject ack = new JSONObject()
+                    .put("status", ok ? "success" : "error")
+                    .put("message_id", messageId.toString())
+                    .put("file_url", fileUrl)
+                    .put("file_size", fileSize)
+                    .put("mime_type", mimeType);
+
+            out.println(ack.toString());
+            out.flush();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            out.println(new JSONObject().put("status","error").put("message","exception").toString());
+            out.flush();
+        }
+    }
+
+    private static void skip(DataInputStream dis, long n) throws IOException {
+        if (n <= 0) return;
+        byte[] buf = new byte[8192];
+        long left = n;
+        while (left > 0) {
+            int toRead = (int) Math.min(buf.length, left);
+            int r = dis.read(buf, 0, toRead);
+            if (r == -1) break; // EOF
+            left -= r;
+        }
+    }
+
+    private static String guessExt(String original, String mime) {
+        // اول از نام اصلی (امن چون فقط برای اکستنشن استفاده می‌کنی)
+        if (original != null && original.contains(".")) {
+            String ext = original.substring(original.lastIndexOf('.'));
+            if (ext.length() <= 10) return ext.toLowerCase();
+        }
+        if (mime == null) return "";
+
+        String m = mime.toLowerCase();
+
+        // تصاویر
+        if (m.equals("image/png"))  return ".png";
+        if (m.equals("image/jpeg") || m.equals("image/jpg")) return ".jpg";
+        if (m.equals("image/gif"))  return ".gif";
+        if (m.equals("image/webp")) return ".webp";
+
+        // صوت
+        if (m.equals("audio/mpeg") || m.equals("audio/mp3")) return ".mp3";
+        if (m.equals("audio/ogg"))  return ".ogg";
+        if (m.equals("audio/opus")) return ".opus";
+        if (m.equals("audio/wav") || m.equals("audio/x-wav")) return ".wav";
+        if (m.equals("audio/m4a") || m.equals("audio/mp4"))  return ".m4a";
+
+        // ویدیو (اگر بعدا اضافه شد)
+        if (m.equals("video/mp4"))  return ".mp4";
+        if (m.equals("video/webm")) return ".webm";
+
+        // fallback
+        if (m.startsWith("image/")) return "";   // بگذار بدون اکستنشن ذخیره شود
+        if (m.startsWith("audio/")) return "";
+        if (m.startsWith("video/")) return "";
+
+        return "";
+    }
+
+
+
+
 
 
 //    private ResponseModel handleSendMessage(JSONObject json) {

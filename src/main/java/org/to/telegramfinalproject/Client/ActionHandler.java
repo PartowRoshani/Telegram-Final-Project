@@ -3345,69 +3345,69 @@ public class ActionHandler {
     }
 
 
-//    public void sendMessage(UUID receiverId, String receiverType) {
-//        Scanner scanner = new Scanner(System.in);
-//
-//        System.out.print("Enter your message: ");
-//        String content = scanner.nextLine();
-//
-//        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE): ");
-//        String messageType = scanner.nextLine();
-//        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
-//        while (!allowedTypes.contains(messageType.toUpperCase())) {
-//            System.out.println("❌ Invalid message type. Try again (TEXT / IMAGE / VIDEO / FILE): ");
-//            messageType = scanner.nextLine();
-//        }
-//        messageType = messageType.toUpperCase();
-//
-//        JSONArray attachmentsArray = new JSONArray();
-//
-//        System.out.print("Do you want to attach files? (yes/no): ");
-//        if (scanner.nextLine().equalsIgnoreCase("yes")) {
-//            while (true) {
-//                System.out.print("File URL: ");
-//                String fileUrl = scanner.nextLine();
-//
-//                System.out.print("File Type (IMAGE / VIDEO / FILE): ");
-//                String fileType = scanner.nextLine();
-//
-//                JSONObject fileJson = new JSONObject();
-//                fileJson.put("file_url", fileUrl);
-//                fileJson.put("file_type", fileType);
-//                attachmentsArray.put(fileJson);
-//
-//                System.out.print("Add another file? (yes/no): ");
-//                if (!scanner.nextLine().equalsIgnoreCase("yes")) {
-//                    break;
-//                }
-//            }
-//        }
-//
-//
-//
-//        JSONObject messageJson = new JSONObject();
-//        messageJson.put("action", "send_message");
-//        messageJson.put("receiver_type", receiverType);
-//        messageJson.put("content", content);
-//        messageJson.put("message_type", messageType);
-//        if (receiverType.equals("private")) {
-//            messageJson.put("receiver_user_id", receiverId.toString());
-//        } else {
-//            messageJson.put("receiver_id", receiverId.toString());
-//        }
-//
-//        if (!attachmentsArray.isEmpty()) {
-//            messageJson.put("attachments", attachmentsArray);
-//        }
-//
-//        JSONObject response = sendWithResponse(messageJson);
-//        if (response != null && response.getString("status").equals("success")) {
-//            System.out.println("✅ Message sent successfully! ID: " + response.getJSONObject("data").getString("message_id"));
-//        } else {
-//            System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "no response"));
-//        }
-//
-//    }
+    public void sendMessage(UUID receiverId, String receiverType) {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("Enter your message: ");
+        String content = scanner.nextLine();
+
+        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE): ");
+        String messageType = scanner.nextLine();
+        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+        while (!allowedTypes.contains(messageType.toUpperCase())) {
+            System.out.println("❌ Invalid message type. Try again (TEXT / IMAGE / VIDEO / FILE): ");
+            messageType = scanner.nextLine();
+        }
+        messageType = messageType.toUpperCase();
+
+        JSONArray attachmentsArray = new JSONArray();
+
+        System.out.print("Do you want to attach files? (yes/no): ");
+        if (scanner.nextLine().equalsIgnoreCase("yes")) {
+            while (true) {
+                System.out.print("File URL: ");
+                String fileUrl = scanner.nextLine();
+
+                System.out.print("File Type (IMAGE / VIDEO / FILE): ");
+                String fileType = scanner.nextLine();
+
+                JSONObject fileJson = new JSONObject();
+                fileJson.put("file_url", fileUrl);
+                fileJson.put("file_type", fileType);
+                attachmentsArray.put(fileJson);
+
+                System.out.print("Add another file? (yes/no): ");
+                if (!scanner.nextLine().equalsIgnoreCase("yes")) {
+                    break;
+                }
+            }
+        }
+
+
+
+        JSONObject messageJson = new JSONObject();
+        messageJson.put("action", "send_message");
+        messageJson.put("receiver_type", receiverType);
+        messageJson.put("content", content);
+        messageJson.put("message_type", messageType);
+        if (receiverType.equals("private")) {
+            messageJson.put("receiver_user_id", receiverId.toString());
+        } else {
+            messageJson.put("receiver_id", receiverId.toString());
+        }
+
+        if (!attachmentsArray.isEmpty()) {
+            messageJson.put("attachments", attachmentsArray);
+        }
+
+        JSONObject response = sendWithResponse(messageJson);
+        if (response != null && response.getString("status").equals("success")) {
+            System.out.println("✅ Message sent successfully! ID: " + response.getJSONObject("data").getString("message_id"));
+        } else {
+            System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "no response"));
+        }
+
+    }
 
 
 
@@ -3465,79 +3465,79 @@ public class ActionHandler {
 //    }
 
 
-    public void sendMessage(UUID chatId, String receiverType) {
-        Scanner scanner = new Scanner(System.in);
-
-        System.out.print("Enter your message (leave empty if file only): ");
-        String content = scanner.nextLine();
-
-        System.out.print("Enter message type (TEXT / IMAGE / AUDIO / FILE / GIF): ");
-        String messageType = scanner.nextLine().toUpperCase();
-        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "AUDIO", "FILE", "GIF");
-        while (!allowedTypes.contains(messageType)) {
-            System.out.print("❌ Invalid type. Try again (TEXT / IMAGE / AUDIO / FILE / GIF): ");
-            messageType = scanner.nextLine().toUpperCase();
-        }
-
-        JSONArray attachmentsArray = new JSONArray();
-        System.out.print("Attach files? (yes/no): ");
-        if (scanner.nextLine().equalsIgnoreCase("yes")) {
-            while (true) {
-                System.out.println("Paste the JSON you got from /upload (or leave empty to enter minimal fields):");
-                String jsonLine = scanner.nextLine().trim();
-
-                JSONObject fileJson;
-                if (!jsonLine.isEmpty()) {
-                    // انتظار خروجی کامل /upload
-                    fileJson = new JSONObject(jsonLine);
-                    // اگه خروجی /upload تو ریشه‌ست، تبدیلش کن به ساختار attachment
-                    fileJson = new JSONObject()
-                            .put("file_url", fileJson.optString("file_url", ""))
-                            .put("file_type", fileJson.optString("file_type", "FILE"))
-                            .put("file_name", fileJson.optString("file_name", ""))
-                            .put("file_size", fileJson.optLong("file_size", 0))
-                            .put("mime_type", fileJson.optString("mime_type", ""))
-                            .put("width", fileJson.isNull("width") ? JSONObject.NULL : fileJson.optInt("width"))
-                            .put("height", fileJson.isNull("height") ? JSONObject.NULL : fileJson.optInt("height"))
-                            .put("duration_seconds", fileJson.isNull("duration_seconds") ? JSONObject.NULL : fileJson.optInt("duration_seconds"))
-                            .put("thumbnail_url", fileJson.isNull("thumbnail_url") ? JSONObject.NULL : fileJson.optString("thumbnail_url", null));
-                } else {
-                    // ورودی حداقلی
-                    System.out.print("File URL: ");
-                    String fileUrl = scanner.nextLine();
-                    System.out.print("File Type (IMAGE / AUDIO / FILE / GIF): ");
-                    String fileType = scanner.nextLine().toUpperCase();
-
-                    fileJson = new JSONObject();
-                    fileJson.put("file_url", fileUrl);
-                    fileJson.put("file_type", fileType);
-                }
-
-                attachmentsArray.put(fileJson);
-
-                System.out.print("Add another file? (yes/no): ");
-                if (!scanner.nextLine().equalsIgnoreCase("yes")) break;
-            }
-        }
-
-        JSONObject messageJson = new JSONObject();
-        messageJson.put("action", "send_message");
-        messageJson.put("receiver_type", receiverType);    // "private"/"group"/"channel"
-        messageJson.put("receiver_id", chatId.toString()); // در private = chat_id
-        messageJson.put("content", content);
-        messageJson.put("message_type", messageType);
-        if (attachmentsArray.length() > 0) {
-            messageJson.put("attachments", attachmentsArray);
-        }
-
-        JSONObject response = sendWithResponse(messageJson);
-        if (response != null && response.getString("status").equals("success")) {
-            System.out.println("✅ Message sent! ID: " + response.getJSONObject("data").getString("message_id"));
-        } else {
-            System.out.println("❌ Failed to send message: " + (response != null ? response.optString("message","No message") : "No response"));
-        }
-    }
-
+//    public void sendMessage(UUID chatId, String receiverType) {
+//        Scanner scanner = new Scanner(System.in);
+//
+//        System.out.print("Enter your message (leave empty if file only): ");
+//        String content = scanner.nextLine();
+//
+//        System.out.print("Enter message type (TEXT / IMAGE / AUDIO / FILE / GIF): ");
+//        String messageType = scanner.nextLine().toUpperCase();
+//        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "AUDIO", "FILE", "GIF");
+//        while (!allowedTypes.contains(messageType)) {
+//            System.out.print("❌ Invalid type. Try again (TEXT / IMAGE / AUDIO / FILE / GIF): ");
+//            messageType = scanner.nextLine().toUpperCase();
+//        }
+//
+//        JSONArray attachmentsArray = new JSONArray();
+//        System.out.print("Attach files? (yes/no): ");
+//        if (scanner.nextLine().equalsIgnoreCase("yes")) {
+//            while (true) {
+//                System.out.println("Paste the JSON you got from /upload (or leave empty to enter minimal fields):");
+//                String jsonLine = scanner.nextLine().trim();
+//
+//                JSONObject fileJson;
+//                if (!jsonLine.isEmpty()) {
+//                    // انتظار خروجی کامل /upload
+//                    fileJson = new JSONObject(jsonLine);
+//                    // اگه خروجی /upload تو ریشه‌ست، تبدیلش کن به ساختار attachment
+//                    fileJson = new JSONObject()
+//                            .put("file_url", fileJson.optString("file_url", ""))
+//                            .put("file_type", fileJson.optString("file_type", "FILE"))
+//                            .put("file_name", fileJson.optString("file_name", ""))
+//                            .put("file_size", fileJson.optLong("file_size", 0))
+//                            .put("mime_type", fileJson.optString("mime_type", ""))
+//                            .put("width", fileJson.isNull("width") ? JSONObject.NULL : fileJson.optInt("width"))
+//                            .put("height", fileJson.isNull("height") ? JSONObject.NULL : fileJson.optInt("height"))
+//                            .put("duration_seconds", fileJson.isNull("duration_seconds") ? JSONObject.NULL : fileJson.optInt("duration_seconds"))
+//                            .put("thumbnail_url", fileJson.isNull("thumbnail_url") ? JSONObject.NULL : fileJson.optString("thumbnail_url", null));
+//                } else {
+//                    // ورودی حداقلی
+//                    System.out.print("File URL: ");
+//                    String fileUrl = scanner.nextLine();
+//                    System.out.print("File Type (IMAGE / AUDIO / FILE / GIF): ");
+//                    String fileType = scanner.nextLine().toUpperCase();
+//
+//                    fileJson = new JSONObject();
+//                    fileJson.put("file_url", fileUrl);
+//                    fileJson.put("file_type", fileType);
+//                }
+//
+//                attachmentsArray.put(fileJson);
+//
+//                System.out.print("Add another file? (yes/no): ");
+//                if (!scanner.nextLine().equalsIgnoreCase("yes")) break;
+//            }
+//        }
+//
+//        JSONObject messageJson = new JSONObject();
+//        messageJson.put("action", "send_message");
+//        messageJson.put("receiver_type", receiverType);    // "private"/"group"/"channel"
+//        messageJson.put("receiver_id", chatId.toString()); // در private = chat_id
+//        messageJson.put("content", content);
+//        messageJson.put("message_type", messageType);
+//        if (attachmentsArray.length() > 0) {
+//            messageJson.put("attachments", attachmentsArray);
+//        }
+//
+//        JSONObject response = sendWithResponse(messageJson);
+//        if (response != null && response.getString("status").equals("success")) {
+//            System.out.println("✅ Message sent! ID: " + response.getJSONObject("data").getString("message_id"));
+//        } else {
+//            System.out.println("❌ Failed to send message: " + (response != null ? response.optString("message","No message") : "No response"));
+//        }
+//    }
+//
     private void refreshContactList() {
         JSONObject req = new JSONObject();
         req.put("action", "get_contact_list");
