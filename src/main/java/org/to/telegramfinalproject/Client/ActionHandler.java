@@ -151,7 +151,7 @@ public class ActionHandler {
         req.put("keyword", keyword);
         req.put("user_id", Session.currentUser.getString("user_id"));
         req.put("entity_id", entityId.toString());
-        req.put("entity_type", entityType);  // group یا channel
+        req.put("entity_type", entityType);  // group or channel
 
         JSONObject res = sendWithResponse(req);
 
@@ -3710,9 +3710,13 @@ public class ActionHandler {
                         ContactEntry entry = new ContactEntry(
                                 UUID.fromString(c.getString("contact_id")),
                                 c.getString("user_id"),
+                                c.getString("contact_displayId"),
                                 c.getString("profile_name"),
                                 c.optString("image_url", ""),
-                                c.optBoolean("is_blocked", false)
+                                c.optBoolean("is_blocked", false),
+                                c.isNull("last_seen")
+                                        ? null
+                                        : LocalDateTime.parse(c.getString("last_seen"))
                         );
 
                         contactList.add(entry);
