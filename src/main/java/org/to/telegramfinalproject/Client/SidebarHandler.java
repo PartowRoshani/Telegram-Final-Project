@@ -255,106 +255,106 @@ public class SidebarHandler {
         actionHandler.showContactList();
     }
 
-    public void getSavedMessagesData(String userId) {
-        try {
-            // Step 1: Create the request
-            JSONObject request = new JSONObject();
-            request.put("action", "get_saved_messages");
-            request.put("user_id", userId);
+//    public void getSavedMessagesData(String userId) {
+//        try {
+//            // Step 1: Create the request
+//            JSONObject request = new JSONObject();
+//            request.put("action", "get_saved_messages");
+//            request.put("user_id", userId);
+//
+//            // Step 2: Send request and wait for response
+//            JSONObject response = ActionHandler.sendWithResponse(request);
+//
+//            // Step 3: Check the response
+//            if (!response.optString("status", "fail").equals("success")) {
+//                System.out.println("Failed to open Saved Messages chat: " + response.optString("message", "Unknown error"));
+//                return;
+//            }
+//
+//            // Step 4: Extract "data" object
+//            JSONObject data = response.getJSONObject("data");
+//            UUID chatId = UUID.fromString(data.getString("chat_id"));
+//            JSONArray messagesArray = data.getJSONArray("messages");
+//
+//            // Step 5: Parse messages
+//            List<Message> messages = new ArrayList<>();
+//            if (!messagesArray.isEmpty()) {
+//                for (int i = 0; i < messagesArray.length(); i++) {
+//                    JSONObject msgJson = messagesArray.getJSONObject(i);
+//
+//                    // Safely extract optional UUIDs
+//                    UUID replyToId = null;
+//                    String replyToIdStr = msgJson.optString("reply_to_id", null);
+//                    if (replyToIdStr != null && !replyToIdStr.equals("null")) {
+//                        replyToId = UUID.fromString(replyToIdStr);
+//                    }
+//
+//                    UUID originalMessageId = null;
+//                    String originalMessageIdStr = msgJson.optString("original_message_id", null);
+//                    if (originalMessageIdStr != null && !originalMessageIdStr.equals("null")) {
+//                        originalMessageId = UUID.fromString(originalMessageIdStr);
+//                    }
+//
+//                    UUID forwardedBy = null;
+//                    String forwardedByStr = msgJson.optString("forwarded_by", null);
+//                    if (forwardedByStr != null && !forwardedByStr.equals("null")) {
+//                        forwardedBy = UUID.fromString(forwardedByStr);
+//                    }
+//
+//                    UUID forwardedFrom = null;
+//                    String forwardedFromStr = msgJson.optString("forwarded_from", null);
+//                    if (forwardedFromStr != null && !forwardedFromStr.equals("null")) {
+//                        forwardedFrom = UUID.fromString(forwardedFromStr);
+//                    }
+//
+//                    Message msg = new Message(
+//                            UUID.fromString(msgJson.getString("message_id")),
+//                            UUID.fromString(msgJson.getString("sender_id")),
+//                            msgJson.getString("receiver_type"),
+//                            UUID.fromString(msgJson.getString("receiver_id")),
+//                            msgJson.getString("content"),
+//                            msgJson.getString("message_type"),
+//                            LocalDateTime.parse(msgJson.getString("send_at").replace(" ", "T")),
+//                            msgJson.getString("status"),
+//                            replyToId,
+//                            msgJson.getBoolean("is_edited"),
+//                            originalMessageId,
+//                            forwardedBy,
+//                            forwardedFrom,
+//                            msgJson.getBoolean("is_deleted_globally"),
+//                            LocalDateTime.parse(msgJson.getString("edited_at").replace(" ", "T"))
+//                    );
+//
+//                    messages.add(msg);
+//                }
+//            }
+//
+//            // Step 6: Add to active chats if not already present
+//            boolean alreadyExists = Session.activeChats.stream()
+//                    .anyMatch(entry -> entry.getId().equals(chatId));
+//            if (!alreadyExists) {
+//                ChatEntry savedEntry = new ChatEntry(
+//                        chatId,
+//                        "Saved-Messages",
+//                        "Saved Messages",
+//                        "📌", // or use a URL string if you have an icon for saved messages
+//                        "private",
+//                        messages.isEmpty() ? null : messages.get(messages.size() - 1).getSend_at()
+//                );
+//                savedEntry.setSavedMessages(true);
+//                Session.activeChats.add(savedEntry);
+//            }
+//
+//            // Step 7: Show chat
+//            showSavedMessages(chatId, messages);
+//
+//        } catch (Exception e) {
+//            System.out.println("An error occurred while retrieving Saved Messages.");
+//            e.printStackTrace();
+//        }
+//    }
 
-            // Step 2: Send request and wait for response
-            JSONObject response = ActionHandler.sendWithResponse(request);
-
-            // Step 3: Check the response
-            if (!response.optString("status", "fail").equals("success")) {
-                System.out.println("Failed to open Saved Messages chat: " + response.optString("message", "Unknown error"));
-                return;
-            }
-
-            // Step 4: Extract "data" object
-            JSONObject data = response.getJSONObject("data");
-            UUID chatId = UUID.fromString(data.getString("chat_id"));
-            JSONArray messagesArray = data.getJSONArray("messages");
-
-            // Step 5: Parse messages
-            List<Message> messages = new ArrayList<>();
-            if (!messagesArray.isEmpty()) {
-                for (int i = 0; i < messagesArray.length(); i++) {
-                    JSONObject msgJson = messagesArray.getJSONObject(i);
-
-                    // Safely extract optional UUIDs
-                    UUID replyToId = null;
-                    String replyToIdStr = msgJson.optString("reply_to_id", null);
-                    if (replyToIdStr != null && !replyToIdStr.equals("null")) {
-                        replyToId = UUID.fromString(replyToIdStr);
-                    }
-
-                    UUID originalMessageId = null;
-                    String originalMessageIdStr = msgJson.optString("original_message_id", null);
-                    if (originalMessageIdStr != null && !originalMessageIdStr.equals("null")) {
-                        originalMessageId = UUID.fromString(originalMessageIdStr);
-                    }
-
-                    UUID forwardedBy = null;
-                    String forwardedByStr = msgJson.optString("forwarded_by", null);
-                    if (forwardedByStr != null && !forwardedByStr.equals("null")) {
-                        forwardedBy = UUID.fromString(forwardedByStr);
-                    }
-
-                    UUID forwardedFrom = null;
-                    String forwardedFromStr = msgJson.optString("forwarded_from", null);
-                    if (forwardedFromStr != null && !forwardedFromStr.equals("null")) {
-                        forwardedFrom = UUID.fromString(forwardedFromStr);
-                    }
-
-                    Message msg = new Message(
-                            UUID.fromString(msgJson.getString("message_id")),
-                            UUID.fromString(msgJson.getString("sender_id")),
-                            msgJson.getString("receiver_type"),
-                            UUID.fromString(msgJson.getString("receiver_id")),
-                            msgJson.getString("content"),
-                            msgJson.getString("message_type"),
-                            LocalDateTime.parse(msgJson.getString("send_at").replace(" ", "T")),
-                            msgJson.getString("status"),
-                            replyToId,
-                            msgJson.getBoolean("is_edited"),
-                            originalMessageId,
-                            forwardedBy,
-                            forwardedFrom,
-                            msgJson.getBoolean("is_deleted_globally"),
-                            LocalDateTime.parse(msgJson.getString("edited_at").replace(" ", "T"))
-                    );
-
-                    messages.add(msg);
-                }
-            }
-
-            // Step 6: Add to active chats if not already present
-            boolean alreadyExists = Session.activeChats.stream()
-                    .anyMatch(entry -> entry.getId().equals(chatId));
-            if (!alreadyExists) {
-                ChatEntry savedEntry = new ChatEntry(
-                        chatId,
-                        "Saved-Messages",
-                        "Saved Messages",
-                        "📌", // or use a URL string if you have an icon for saved messages
-                        "private",
-                        messages.isEmpty() ? null : messages.get(messages.size() - 1).getSend_at()
-                );
-                savedEntry.setSavedMessages(true);
-                Session.activeChats.add(savedEntry);
-            }
-
-            // Step 7: Show chat
-            showSavedMessages(chatId, messages);
-
-        } catch (Exception e) {
-            System.out.println("An error occurred while retrieving Saved Messages.");
-            e.printStackTrace();
-        }
-    }
-
-    private void showSavedMessages(UUID chatId, List<Message> messages) {
+//    private void showSavedMessages(UUID chatId, List<Message> messages) {
 //        Scanner scanner = new Scanner(System.in);
 //
 //        System.out.println("==== Saved Messages ====");
@@ -453,7 +453,7 @@ public class SidebarHandler {
 //                System.out.println("[" + justSent.getSend_at() + "] " + justSent.getContent());
 //            }
 //        }
-    }
+//    }
 
 
 //    public void openSavedMessages() {

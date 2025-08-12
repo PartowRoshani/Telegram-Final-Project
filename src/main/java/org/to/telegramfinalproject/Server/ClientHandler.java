@@ -2555,16 +2555,16 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
-                    case "get_saved_messages": {
-                        UUID user_Id = UUID.fromString(requestJson.getString("user_id"));
-                        response = SidebarService.handleGetSavedMessages(user_Id);
-                        break;
-                    }
-
-                    case "send_saved_messages": {
-                        response = SidebarService.handleSendMessage(requestJson);
-                        break;
-                    }
+//                    case "get_saved_messages": {
+//                        UUID user_Id = UUID.fromString(requestJson.getString("user_id"));
+//                        response = SidebarService.handleGetSavedMessages(user_Id);
+//                        break;
+//                    }
+//
+//                    case "send_saved_messages": {
+//                        response = SidebarService.handleSendMessage(requestJson);
+//                        break;
+//                    }
 
                     case "search_contacts": {
                         String user_id = requestJson.getString("user_id");
