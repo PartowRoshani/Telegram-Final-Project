@@ -5,6 +5,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.*;
 import org.to.telegramfinalproject.Models.*;
+import org.to.telegramfinalproject.Security.PasswordHashing;
 import org.to.telegramfinalproject.Utils.ChannelPermissionUtil;
 import org.to.telegramfinalproject.Utils.GroupPermissionUtil;
 
@@ -205,7 +206,6 @@ public class ClientHandler implements Runnable {
                                         chat.getUser1_id().equals(chat.getUser2_id()) &&
                                                 chat.getUser1_id().equals(currentUser.getInternal_uuid());
 
-                                // در غیر self، otherId = طرف مقابل
                                 UUID otherId = isSelf
                                         ? currentUser.getInternal_uuid()
                                         : (chat.getUser1_id().equals(currentUser.getInternal_uuid())
@@ -2139,6 +2139,8 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+
+
                     case "get_contact_list": {
                         if (currentUser == null) {
                             response = new ResponseModel("error", "Unauthorized. Please login first.");
@@ -2148,27 +2150,30 @@ public class ClientHandler implements Runnable {
                         List<Contact> contacts = ContactDatabase.getContacts(currentUser.getInternal_uuid());
                         List<ContactEntry> contactEntries = new ArrayList<>();
 
+                        JSONArray contactList = new JSONArray();
                         for (Contact contact : contacts) {
-                            UUID contactId = contact.getContact_id();
-                            User contactUser = userDatabase.findByInternalUUID(contactId);
-                            if (contactUser == null) continue;
+                            User target = userDatabase.findByInternalUUID(contact.getContact_id());
+                            if (target == null) continue;
 
-                            ContactEntry entry = new ContactEntry(
-                                    contactId,
-                                    contactUser.getUser_id(),
-                                    contactUser.getProfile_name(),
-                                    contactUser.getImage_url(),
-                                    contact.getIs_blocked()
-                            );
+                            JSONObject c = new JSONObject();
+                            c.put("user_id", contact.getUser_id().toString());
+                            c.put("contact_id", contact.getContact_id().toString());
+                            User Contact = userDatabase.findByInternalUUID(contact.getContact_id());
+                            c.put("contact_displayId", Contact.getUser_id());
+                            c.put("is_blocked", contact.getIs_blocked());
 
-                            contactEntries.add(entry);
+                            c.put("profile_name", target.getProfile_name());
+                            c.put("image_url", target.getImage_url());
+                            c.put("last_seen", Contact.getLast_seen());
+
+                            contactList.put(c);
                         }
 
                         // Optional: sort alphabetically
                         contactEntries.sort(Comparator.comparing(ContactEntry::getProfileName, String.CASE_INSENSITIVE_ORDER));
 
                         JSONObject data = new JSONObject();
-                        data.put("contact_list", JsonUtil.contactEntryListToJson(contactEntries));
+                        data.put("contact_list", contactList);
 
                         response = new ResponseModel("success", "Contact list refreshed", data);
                         break;
@@ -2579,9 +2584,63 @@ public class ClientHandler implements Runnable {
 
                     case "get_or_create_saved_messages": {
                         response = handleGetOrCreateSavedMessages(requestJson);
-                    }
                         break;
+                    }
 
+                    case "get_blocked_users": {
+                         userId = currentUser.getInternal_uuid();
+                        var list = ContactDatabase.getBlockedUsers(userId);
+                        org.json.JSONObject data = new org.json.JSONObject();
+                        data.put("blocked_users", list);
+                        response = new ResponseModel("success", "ok", data);
+                        break;
+                    }
+
+                    case "verify_password": {
+                         userId = currentUser.getInternal_uuid();
+                        String cur = requestJson.getString("current_password");
+                        User user = userDatabase.findByInternalUUID(userId);
+                        boolean ok = PasswordHashing.verify(cur, user.getPassword());
+                        response = ok
+                                ? new ResponseModel("success", "verified")
+                                : new ResponseModel("error", "Invalid password.");
+                        break;
+                    }
+
+                    case "update_username": {
+                         userId = currentUser.getInternal_uuid();
+                        String cur = requestJson.getString("current_password");
+                        String newUsername = requestJson.getString("new_username");
+                        boolean useBCrypt = true;
+
+                        try {
+                            boolean ok = userDatabase.updateUsername(userId, newUsername);
+                            if (ok) response = new ResponseModel("success", "username updated");
+                            else    response = new ResponseModel("error", "Invalid current password.");
+                        } catch (java.sql.SQLException e) {
+                            if ("23505".equals(e.getSQLState())) {
+                                response = new ResponseModel("error", "Username already taken.");
+                            } else {
+                                e.printStackTrace();
+                                response = new ResponseModel("error", "Failed to update username.");
+                            }
+                        }
+                        break;
+                    }
+
+                    case "update_password": {
+                         userId = currentUser.getInternal_uuid();
+                        String cur = requestJson.getString("current_password");
+                        String newPass = requestJson.getString("new_password");
+
+                        String newHash = PasswordHashing.hash(newPass);
+
+                        boolean ok = userDatabase.updatePasswordHash(userId, newHash);
+                        response = ok
+                                ? new ResponseModel("success", "password updated")
+                                : new ResponseModel("error", "Invalid current password.");
+                        break;
+                    }
 
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);

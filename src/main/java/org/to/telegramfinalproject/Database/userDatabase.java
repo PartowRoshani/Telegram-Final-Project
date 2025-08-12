@@ -409,5 +409,42 @@ public class userDatabase {
 
         return "Unknown";
     }
+
+    public static String getPasswordHash(UUID userId) {
+        String sql = "SELECT password FROM users WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString("password");
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return null;
+    }
+
+    public static boolean updateUsername(UUID userId, String newUsername) throws SQLException {
+        String sql = "UPDATE users SET username = ? WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newUsername);
+            ps.setObject(2, userId);
+            ps.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            // 23505 = unique_violation در PostgreSQL
+            if ("23505".equals(e.getSQLState())) throw e;
+            throw e;
+        }
+    }
+
+    public static boolean updatePasswordHash(UUID userId, String newHash) {
+        String sql = "UPDATE users SET password = ? WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newHash);
+            ps.setObject(2, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
 }
 

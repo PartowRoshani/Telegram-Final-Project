@@ -531,9 +531,264 @@ public class SidebarHandler {
 
 
 
-
     private void openSettings() {
-        System.out.println("⚙️ Opening settings...");
+        while (true) {
+            System.out.println("⚙️  Settings\n");
+
+            String imageUrl    = Session.currentUser.optString("image_url", "—");
+            String profileName = Session.currentUser.optString("profile_name", "—");
+            String userId      = Session.currentUser.optString("user_id", "—");
+
+            renderUserCard(imageUrl, profileName, userId);
+            System.out.println();
+            renderMenu();
+
+            System.out.print("\nChoose an option (0-4): ");
+            String pick = scanner.nextLine().trim();
+
+            switch (pick) {
+                case "1": openUserProfile(); break;
+                case "2": showPrivacySettings(); break;
+                case "3": showTelegramQA(); break;
+                case "4": showTelegramFeatures(); break;
+                case "0": return;
+                default:
+                    System.out.println("❌ Invalid choice. Press Enter to continue...");
+                    scanner.nextLine();
+            }
+        }
+    }
+
+
+
+    private void showPrivacySettings() {
+        while (true) {
+            System.out.println("🔒 Privacy\n");
+            System.out.println("1) Blocked users");
+            System.out.println("2) Change username / password");
+            System.out.println("0) Back");
+            System.out.print("\nChoose: ");
+            String pick = scanner.nextLine().trim();
+
+            switch (pick) {
+                case "1": viewBlockedUsers(); break;
+                case "2": changeCredentialsFlow(); break;
+                case "0": return;
+                default:
+                    System.out.println("❌ Invalid choice. Press Enter...");
+                    scanner.nextLine();
+            }
+        }
+    }
+
+    private void viewBlockedUsers() {
+        System.out.println("🚫 Blocked Users\n");
+
+        org.json.JSONObject req = new org.json.JSONObject();
+        req.put("action", "get_blocked_users");
+
+        org.json.JSONObject res = sendWithResponse(req);
+        if (res == null || !res.optString("status","error").equals("success")) {
+            System.out.println("❌ Failed to fetch blocked users. Press Enter...");
+            scanner.nextLine();
+            return;
+        }
+
+        org.json.JSONArray arr = res.getJSONObject("data").optJSONArray("blocked_users");
+        if (arr == null || arr.isEmpty()) {
+            System.out.println("📭 No blocked users.");
+            System.out.println("\nPress Enter...");
+            scanner.nextLine();
+            return;
+        }
+
+        for (int i = 0; i < arr.length(); i++) {
+            org.json.JSONObject u = arr.getJSONObject(i);
+            String profileName = u.optString("profile_name", "—");
+            String userId = u.optString("user_id", "—");
+            System.out.printf("%d) %s  (@%s)\n", i + 1, profileName, userId);
+        }
+        System.out.println("\n0) Back");
+        System.out.print("\nChoose a user to UNBLOCK (number): ");
+        String pick = scanner.nextLine().trim();
+
+        if (pick.equals("0")) return;
+        int idx;
+        try { idx = Integer.parseInt(pick) - 1; } catch (Exception e) { idx = -1; }
+        if (idx < 0 || idx >= arr.length()) {
+            System.out.println("❌ Invalid index. Press Enter...");
+            scanner.nextLine();
+            return;
+        }
+
+        org.json.JSONObject target = arr.getJSONObject(idx);
+        String targetDisplayId = target.optString("user_id", "");
+        java.util.UUID targetInternalId = java.util.UUID.fromString(target.getString("internal_uuid"));
+
+        System.out.printf("Unblock %s (@%s)? (yes/no): ", target.optString("profile_name","—"), targetDisplayId);
+        if (!scanner.nextLine().trim().equalsIgnoreCase("yes")) return;
+
+        org.json.JSONObject unReq = new org.json.JSONObject();
+        unReq.put("action", "toggle_block");
+        unReq.put("user_id",Session.getUserUUID());
+        unReq.put("target_id", targetInternalId.toString());
+
+        org.json.JSONObject unRes = sendWithResponse(unReq);
+        if (unRes != null && unRes.optString("status","error").equals("success")) {
+            System.out.println("✅ User unblocked.");
+        } else {
+            System.out.println("❌ Failed to unblock.");
+        }
+        System.out.println("Press Enter...");
+        scanner.nextLine();
+    }
+
+
+    private void changeCredentialsFlow() {
+        System.out.println("🛡️  Change Username / Password\n");
+
+        System.out.print("Enter current password: ");
+        String currentPassword = scanner.nextLine();
+
+        org.json.JSONObject verReq = new org.json.JSONObject();
+        verReq.put("action", "verify_password");
+        verReq.put("current_password", currentPassword);
+
+        org.json.JSONObject verRes = sendWithResponse(verReq);
+        if (verRes == null || !verRes.optString("status","error").equals("success")) {
+            System.out.println("❌ Current password is incorrect.");
+            System.out.println("Press Enter...");
+            scanner.nextLine();
+            return;
+        }
+
+        String currentUsername = Session.currentUser.optString("username", "—");
+        System.out.println("\n✅ Verified.");
+        System.out.println("Current username: " + currentUsername);
+        System.out.println("Current password: ******** (hidden)");
+        System.out.println("\nWhat do you want to change?");
+        System.out.println("1) Username");
+        System.out.println("2) Password");
+        System.out.println("3) Both");
+        System.out.println("0) Back");
+        System.out.print("\nChoose: ");
+        String pick = scanner.nextLine().trim();
+
+        switch (pick) {
+            case "1":
+                changeUsername(currentPassword);
+                break;
+            case "2":
+                changePassword(currentPassword);
+                break;
+            case "3":
+                boolean uOk = changeUsername(currentPassword);
+                boolean pOk = changePassword(currentPassword);
+                if (uOk && pOk) System.out.println("✅ Username and password updated.");
+                System.out.println("Press Enter...");
+                scanner.nextLine();
+                break;
+            case "0":
+                return;
+            default:
+                System.out.println("❌ Invalid choice. Press Enter...");
+                scanner.nextLine();
+        }
+    }
+
+
+    private boolean changeUsername(String currentPassword) {
+        System.out.print("\nNew username: ");
+        String newUsername = scanner.nextLine().trim();
+
+        if (!isValidUsername(newUsername)) {
+            System.out.println("❌ Invalid username. Use 4–32 chars: letters, digits, underscore.");
+            return false;
+        }
+
+        org.json.JSONObject req = new org.json.JSONObject();
+        req.put("action", "update_username");
+        req.put("current_password", currentPassword);
+        req.put("new_username", newUsername);
+
+        org.json.JSONObject res = sendWithResponse(req);
+        if (res != null && res.optString("status","error").equals("success")) {
+            Session.currentUser.put("username", newUsername);
+            System.out.println("✅ Username updated.");
+            return true;
+        } else {
+            String msg = (res == null) ? "No response." : res.optString("message","Update failed.");
+            System.out.println("❌ " + msg);
+            return false;
+        }
+    }
+
+    private boolean isValidUsername(String s) {
+        //4-32 char
+        return s != null && s.matches("^[A-Za-z0-9_]{4,32}$");
+    }
+
+    private boolean changePassword(String currentPassword) {
+        System.out.print("\nNew password: ");
+        String newPassword = scanner.nextLine();
+        System.out.print("Repeat new password: ");
+        String repeat = scanner.nextLine();
+
+        if (!newPassword.equals(repeat)) {
+            System.out.println("❌ Passwords do not match.");
+            return false;
+        }
+        if (!isStrongPassword(newPassword)) {
+            System.out.println("❌ Weak password. Min 8 chars, include letters and digits.");
+            return false;
+        }
+
+        org.json.JSONObject req = new org.json.JSONObject();
+        req.put("action", "update_password");
+        req.put("current_password", currentPassword);
+        req.put("new_password", newPassword);
+
+        org.json.JSONObject res = sendWithResponse(req);
+        if (res != null && res.optString("status","error").equals("success")) {
+            System.out.println("✅ Password updated.");
+            return true;
+        } else {
+            String msg = (res == null) ? "No response." : res.optString("message","Update failed.");
+            System.out.println("❌ " + msg);
+            return false;
+        }
+    }
+
+
+    private void renderUserCard(String imageUrl, String profileName, String userId) {
+        int w = 60;
+        String top = "┌" + "─".repeat(w - 2) + "┐";
+        String bot = "└" + "─".repeat(w - 2) + "┘";
+        System.out.println(top);
+        System.out.println(padBoxLine("Profile", w));
+        System.out.println("├" + "─".repeat(w - 2) + "┤");
+        System.out.println(padBoxLine("Image URL: "   + imageUrl, w));
+        System.out.println(padBoxLine("Profile Name: "+ profileName, w));
+        System.out.println(padBoxLine("User ID: "     + userId, w));
+        System.out.println(bot);
+    }
+
+    private String padBoxLine(String text, int width) {
+        // عرض: width، دو طرف │ │
+        final int inner = width - 2;
+        if (text.length() > inner) {
+            text = text.substring(0, inner - 1) + "…";
+        }
+        int spaces = inner - text.length();
+        return "│" + text + " ".repeat(Math.max(0, spaces)) + "│";
+    }
+
+    private void renderMenu() {
+        System.out.println("1) My Account");
+        System.out.println("2) Privacy");
+        System.out.println("3) Telegram Q&A");
+        System.out.println("4) Telegram Features");
+        System.out.println("0) Back");
     }
 
     private void showTelegramFeatures() {
@@ -544,6 +799,10 @@ public class SidebarHandler {
         System.out.println("❓ Showing Q&A...");
     }
 
+    private boolean isStrongPassword(String s) {
+        boolean approved = s.matches("\\b(?=[^\\s]*[A-Z])(?=[^\\s]*[a-z])(?=[^\\s]*\\d)(?=[^\\s]*[!@#$%^&*])[^\\s]{8,}\\b");
+        return approved ;
+    }
 
     private List<Message> parseMessages(JSONArray msgs) {
         List<Message> list = new ArrayList<>();
