@@ -156,5 +156,14 @@ CREATE TABLE IF NOT EXISTS message_attachments (
 
 );
 
+--Run this part in your pg
+ALTER TABLE message_attachments
+  ADD COLUMN IF NOT EXISTS media_key UUID;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+UPDATE message_attachments
+SET media_key = gen_random_uuid()
+WHERE media_key IS NULL;
+
 
 
