@@ -1,5 +1,6 @@
 package org.to.telegramfinalproject.Database;
 
+import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.Contact;
 import org.to.telegramfinalproject.Models.ContactEntry;
 import org.to.telegramfinalproject.Models.User;
@@ -99,6 +100,32 @@ public class ContactDatabase {
     }
 
 
+    public static List<JSONObject> getBlockedUsers(UUID userId) {
+        String sql = """
+            SELECT u.internal_uuid, u.user_id, u.profile_name
+            FROM contacts c
+            JOIN users u ON u.internal_uuid = c.contact_id
+            WHERE c.user_id = ? AND c.is_blocked = TRUE
+            ORDER BY u.profile_name NULLS LAST, u.user_id
+        """;
+        List<JSONObject> out = new ArrayList<>();
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    JSONObject j = new JSONObject();
+                    j.put("internal_uuid", rs.getObject("internal_uuid").toString());
+                    j.put("user_id", rs.getString("user_id"));
+                    j.put("profile_name", rs.getString("profile_name"));
+                    out.add(j);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return out;
+    }
 
     public boolean unblockContact(UUID user_id, UUID contact_id) {
         String sql = "UPDATE contacts SET is_blocked = FALSE WHERE user_id = ? AND contact_id = ?";

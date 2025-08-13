@@ -151,7 +151,7 @@ public class ActionHandler {
         req.put("keyword", keyword);
         req.put("user_id", Session.currentUser.getString("user_id"));
         req.put("entity_id", entityId.toString());
-        req.put("entity_type", entityType);  // group یا channel
+        req.put("entity_type", entityType);  // group or channel
 
         JSONObject res = sendWithResponse(req);
 
@@ -339,6 +339,7 @@ public class ActionHandler {
         if (chat.has("other_user_id") && !chat.isNull("other_user_id")) {
             entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
         }
+        entry.setSavedMessages(chat.optBoolean("is_saved_messages", false));
 
         return entry;
     }
@@ -479,79 +480,95 @@ public class ActionHandler {
                     JSONArray Archived = Session.currentUser.getJSONArray("archived_chat_list");
                     JSONArray Active = Session.currentUser.getJSONArray("active_chat_list");
                     JSONArray contactList = Session.currentUser.getJSONArray("contact_list");
+//                    List<ChatEntry> chatList = new ArrayList<>();
+//
+//
+//                    for (Object obj : chatListJson) {
+//                        JSONObject chat = (JSONObject) obj;
+//
+//                        ChatEntry entry = new ChatEntry(
+//                                UUID.fromString(chat.getString("internal_id")),
+//                                chat.getString("id"),
+//                                chat.getString("name"),
+//                                chat.optString("image_url", ""),
+//                                chat.getString("type"),
+//                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
+//                                chat.optBoolean("is_owner", false),
+//                                chat.optBoolean("is_admin", false)
+//
+//
+//                        );
+//
+//                        if (chat.has("other_user_id")) {
+//                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
+//                        }
+//
+//                        if (chat.has("is_saved_messages")) {
+//                            entry.setSavedMessages(chat.getBoolean("is_saved_messages"));
+//                        }
+//
+//                        chatList.add(entry);
+//
+//                    }
+//
+//                    List<ChatEntry> archivedChats = new ArrayList<>();
+//                    for (Object obj : Archived){
+//                        JSONObject chat = (JSONObject)  obj;
+//
+//                        ChatEntry entry = new ChatEntry(
+//                                UUID.fromString(chat.getString("internal_id")),
+//                                chat.getString("id"),
+//                                chat.getString("name"),
+//                                chat.optString("image_url", ""),
+//                                chat.getString("type"),
+//                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
+//                                chat.optBoolean("is_owner", false),
+//                                chat.optBoolean("is_admin", false)
+//                        );
+//                        if (chat.has("other_user_id")) {
+//                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
+//                        }
+//                        archivedChats.add(entry);
+//
+//                    }
+//
+//                    List<ChatEntry> activeChats = new ArrayList<>();
+//                    for (Object obj : Active){
+//                        JSONObject chat = (JSONObject)  obj;
+//
+//                        ChatEntry entry = new ChatEntry(
+//                                UUID.fromString(chat.getString("internal_id")),
+//                                chat.getString("id"),
+//                                chat.getString("name"),
+//                                chat.optString("image_url", ""),
+//                                chat.getString("type"),
+//                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
+//                                chat.optBoolean("is_owner", false),
+//                                chat.optBoolean("is_admin", false)
+//                        );
+//                        if (chat.has("other_user_id")) {
+//                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
+//                        }
+//
+//                        activeChats.add(entry);
+//
+//                    }
+
                     List<ChatEntry> chatList = new ArrayList<>();
-
-
                     for (Object obj : chatListJson) {
-                        JSONObject chat = (JSONObject) obj;
-
-                        ChatEntry entry = new ChatEntry(
-                                UUID.fromString(chat.getString("internal_id")),
-                                chat.getString("id"),
-                                chat.getString("name"),
-                                chat.optString("image_url", ""),
-                                chat.getString("type"),
-                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
-                                chat.optBoolean("is_owner", false),
-                                chat.optBoolean("is_admin", false)
-
-
-                        );
-
-                        if (chat.has("other_user_id")) {
-                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
-                        }
-
-                        if (chat.has("is_saved_messages")) {
-                            entry.setSavedMessages(chat.getBoolean("is_saved_messages"));
-                        }
-
-                        chatList.add(entry);
-
+                        chatList.add(parseChatEntry((JSONObject) obj));
                     }
 
                     List<ChatEntry> archivedChats = new ArrayList<>();
-                    for (Object obj : Archived){
-                        JSONObject chat = (JSONObject)  obj;
-
-                        ChatEntry entry = new ChatEntry(
-                                UUID.fromString(chat.getString("internal_id")),
-                                chat.getString("id"),
-                                chat.getString("name"),
-                                chat.optString("image_url", ""),
-                                chat.getString("type"),
-                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
-                                chat.optBoolean("is_owner", false),
-                                chat.optBoolean("is_admin", false)
-                        );
-                        if (chat.has("other_user_id")) {
-                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
-                        }
-                        archivedChats.add(entry);
-
+                    for (Object obj : Archived) {
+                        archivedChats.add(parseChatEntry((JSONObject) obj));
                     }
 
                     List<ChatEntry> activeChats = new ArrayList<>();
-                    for (Object obj : Active){
-                        JSONObject chat = (JSONObject)  obj;
-
-                        ChatEntry entry = new ChatEntry(
-                                UUID.fromString(chat.getString("internal_id")),
-                                chat.getString("id"),
-                                chat.getString("name"),
-                                chat.optString("image_url", ""),
-                                chat.getString("type"),
-                                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
-                                chat.optBoolean("is_owner", false),
-                                chat.optBoolean("is_admin", false)
-                        );
-                        if (chat.has("other_user_id")) {
-                            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
-                        }
-
-                        activeChats.add(entry);
-
+                    for (Object obj : Active) {
+                        activeChats.add(parseChatEntry((JSONObject) obj));
                     }
+
 
                     Session.contactEntries.clear();
                     for (Object obj : contactList) {
@@ -828,6 +845,8 @@ public class ActionHandler {
             e.printStackTrace();
         }
     }
+
+
 
 
     public void userMenu(UUID internal_uuid) throws IOException {
@@ -1131,84 +1150,156 @@ public class ActionHandler {
 //    }
 
 
+//    public void showChatListAndSelect() {
+//        if (Session.activeChats == null || Session.activeChats.isEmpty()) {
+//            System.out.println("No active chats.");
+//            return;
+//        }
+//
+//        System.out.println("\nYour Chats:");
+//        System.out.println("0. 📦 Archived Chats");
+//
+//        // Track index dynamically
+//        int index = 1;
+//
+//        // Check if Saved Messages exists in the list
+//        int savedMessagesIndex = -1;
+//        for (int i = 0; i < Session.activeChats.size(); i++) {
+//            ChatEntry entry = Session.activeChats.get(i);
+//
+//            if (entry.isSavedMessages()) {
+//                savedMessagesIndex = index;
+//                System.out.println(index + ". 📦 Saved Messages Chat");
+//                index++;
+//                break;
+//            }
+//        }
+//
+//        // Print the rest of the chats
+//        for (int i = 0; i < Session.activeChats.size(); i++) {
+//            ChatEntry entry = Session.activeChats.get(i);
+//            if (entry.isSavedMessages()) {
+//                continue; // Already printed above
+//            }
+//
+//            String time = (entry.getLastMessageTime() == null)
+//                    ? "No messages yet"
+//                    : entry.getLastMessageTime().toString();
+//            System.out.println(index + ". [" + entry.getType() + "] " +
+//                    entry.getName() + " - Last: " + time);
+//            index++;
+//        }
+//
+//        System.out.print("Select a chat by number: ");
+//        int choice = Integer.parseInt(scanner.nextLine());
+//
+//        if (choice == 0) {
+//            showArchivedChats();
+//            return;
+//        }
+//
+//        if (choice == savedMessagesIndex) {
+//            new SidebarHandler(scanner, this).getSavedMessagesData(Session.getUserUUID());
+//            return;
+//        }
+//
+//        // Adjust for Saved Messages if it was in the list
+//        int baseIndex = (savedMessagesIndex != -1 && choice > savedMessagesIndex) ? 1 : 0;
+//        int chatIndex = choice - 1 - baseIndex;
+//
+//        if (chatIndex < 0 || chatIndex >= Session.activeChats.size()) {
+//            System.out.println("Invalid selection.");
+//            return;
+//        }
+//
+//        // Find the actual index of the chat, skipping the saved_messages entry
+//        int actualIndex = 0;
+//        for (int i = 0; i < Session.activeChats.size(); i++) {
+//            if (Session.activeChats.get(i).getType().equalsIgnoreCase("saved_messages")) {
+//                continue; // Skip saved_messages
+//            }
+//            if (actualIndex == chatIndex) {
+//                break;
+//            }
+//            actualIndex++;
+//        }
+//
+//        ChatEntry selected = Session.activeChats.get(actualIndex);
+//        openChat(selected);
+//    }
+
+
+
     public void showChatListAndSelect() {
         if (Session.activeChats == null || Session.activeChats.isEmpty()) {
-            System.out.println("No active chats.");
+            System.out.println("📭 You have no chats.");
             return;
         }
 
         System.out.println("\nYour Chats:");
         System.out.println("0. 📦 Archived Chats");
 
-        // Track index dynamically
-        int index = 1;
-
-        // Check if Saved Messages exists in the list
-        int savedMessagesIndex = -1;
+        // پیدا کردن Saved در لیست
+        Integer savedIdxInActive = null;
         for (int i = 0; i < Session.activeChats.size(); i++) {
-            ChatEntry entry = Session.activeChats.get(i);
-
-            if (entry.isSavedMessages()) {
-                savedMessagesIndex = index;
-                System.out.println(index + ". 📦 Saved Messages Chat");
-                index++;
+            if (Session.activeChats.get(i).isSavedMessages()) {
+                savedIdxInActive = i;
                 break;
             }
         }
 
-        // Print the rest of the chats
-        for (int i = 0; i < Session.activeChats.size(); i++) {
-            ChatEntry entry = Session.activeChats.get(i);
-            if (entry.isSavedMessages()) {
-                continue; // Already printed above
-            }
+        // مپ شمارهٔ نمایش → ایندکس واقعی در activeChats
+        Map<Integer, Integer> displayToActive = new HashMap<>();
 
-            String time = (entry.getLastMessageTime() == null)
-                    ? "No messages yet"
-                    : entry.getLastMessageTime().toString();
-            System.out.println(index + ". [" + entry.getType() + "] " +
-                    entry.getName() + " - Last: " + time);
-            index++;
+        int displayIndex = 1;
+
+        // چاپ Saved (در صورت وجود) و ثبت در مپ
+        if (savedIdxInActive != null) {
+            ChatEntry saved = Session.activeChats.get(savedIdxInActive);
+            String last = (saved.getLastMessageTime() == null) ? "No messages yet" : saved.getLastMessageTime().toString();
+            System.out.println(displayIndex + ". 💾 Saved Messages - Last: " + last);
+
+            // نکتهٔ کلیدی: مپ کن تا مثل بقیه با openChat باز شود
+            displayToActive.put(displayIndex, savedIdxInActive);
+            displayIndex++;
         }
 
+        // چاپ بقیهٔ چت‌ها + ثبت مپ
+        for (int i = 0; i < Session.activeChats.size(); i++) {
+            if (savedIdxInActive != null && i == savedIdxInActive) continue;
+
+            ChatEntry e = Session.activeChats.get(i);
+            String last = (e.getLastMessageTime() == null) ? "No messages yet" : e.getLastMessageTime().toString();
+            System.out.println(displayIndex + ". [" + e.getType() + "] " + e.getName() + " - Last: " + last);
+
+            displayToActive.put(displayIndex, i);
+            displayIndex++;
+        }
+
+        // انتخاب
         System.out.print("Select a chat by number: ");
-        int choice = Integer.parseInt(scanner.nextLine());
+        int choice;
+        try {
+            choice = Integer.parseInt(scanner.nextLine().trim());
+        } catch (Exception e) {
+            System.out.println("❌ Invalid selection.");
+            return;
+        }
 
         if (choice == 0) {
             showArchivedChats();
             return;
         }
 
-        if (choice == savedMessagesIndex) {
-            new SidebarHandler(scanner, this).getSavedMessagesData(Session.getUserUUID());
+        Integer activeIdx = displayToActive.get(choice);
+        if (activeIdx == null) {
+            System.out.println("❌ Invalid selection.");
             return;
         }
 
-        // Adjust for Saved Messages if it was in the list
-        int baseIndex = (savedMessagesIndex != -1 && choice > savedMessagesIndex) ? 1 : 0;
-        int chatIndex = choice - 1 - baseIndex;
-
-        if (chatIndex < 0 || chatIndex >= Session.activeChats.size()) {
-            System.out.println("Invalid selection.");
-            return;
-        }
-
-        // Find the actual index of the chat, skipping the saved_messages entry
-        int actualIndex = 0;
-        for (int i = 0; i < Session.activeChats.size(); i++) {
-            if (Session.activeChats.get(i).getType().equalsIgnoreCase("saved_messages")) {
-                continue; // Skip saved_messages
-            }
-            if (actualIndex == chatIndex) {
-                break;
-            }
-            actualIndex++;
-        }
-
-        ChatEntry selected = Session.activeChats.get(actualIndex);
-        openChat(selected);
+        ChatEntry selected = Session.activeChats.get(activeIdx);
+        openChat(selected); // برای Saved هم همین مسیر اجرا می‌شود
     }
-
 
 
     private void showArchivedChats() {
@@ -1371,6 +1462,116 @@ public class ActionHandler {
 
 
 
+//
+//    private boolean showPrivateChatMenu(ChatEntry chat) {
+//
+//        if (forceExitChat) {
+//            forceExitChat = false;
+//            System.out.println("🚪 Exiting chat due to real-time update.");
+//            return false;
+//        }
+//
+//
+//            JSONObject reqTarget = new JSONObject();
+//            reqTarget.put("action", "get_private_chat_target");
+//            reqTarget.put("chat_id", chat.getId());
+//
+//            JSONObject resTarget = sendWithResponse(reqTarget);
+//            if (resTarget == null || !resTarget.getString("status").equals("success")) {
+//                System.out.println("❌ Failed to fetch target user for private chat.");
+//                return false;
+//            }
+//
+//            String otherUserId = resTarget.getJSONObject("data").getString("target_id");
+//            chat.setOtherUserId(UUID.fromString(otherUserId));
+//
+//
+//        JSONObject req = new JSONObject();
+//        req.put("action", "view_profile");
+//        req.put("target_id", chat.getOtherUserId());  // internal UUID
+//
+//        JSONObject res = sendWithResponse(req);
+//
+//        if (res.getString("status").equals("success")) {
+//            JSONObject data = res.getJSONObject("data");
+//
+//            System.out.println("\n💬 Private Chat with: " + data.getString("profile_name"));
+//
+//            if (data.getBoolean("is_online")) {
+//                System.out.println("✅ Status: Online");
+//            } else {
+//                System.out.println("📅 Last seen: " + data.getString("last_seen"));
+//            }
+//
+//            System.out.println("────────────────────────────────────────────");
+//        }
+//
+//
+//        System.out.println("1. Send message");
+//        System.out.println("2. Block/Unblock");
+//        System.out.println("3. Delete chat (one-sided)");
+//        System.out.println("4. Delete chat (both sides)");
+//        System.out.println("5. View profile");
+//        System.out.println("6. Archive/Unarchived");
+//        System.out.println("7. View messages");
+//        System.out.println("8. Back");
+//
+//
+//        String input = scanner.nextLine();
+//        switch (input) {
+//            case "1" -> sendMessage(chat.getId(), "private");
+//            case "2" -> toggleBlock(chat.getOtherUserId());
+//            case "3" -> {
+//                deleteChat(chat.getId(), false);
+//                return true;
+//            }
+//            case "4" -> {
+//                deleteChat(chat.getId(), true);
+//                return true;
+//            }
+//            case "5" -> {
+//                JSONObject reqProfile = new JSONObject();
+//                reqProfile.put("action", "view_profile");
+//                reqProfile.put("target_id", chat.getOtherUserId());
+//
+//                JSONObject resProfile = sendWithResponse(reqProfile);
+//
+//                if (resProfile.getString("status").equals("success")) {
+//                    JSONObject profile = resProfile.getJSONObject("data");
+//                    System.out.println("\n👤 Profile Info:");
+//                    System.out.println("🔷 Name: " + profile.optString("profile_name", "Unknown"));
+//                    System.out.println("📄 Bio: " + profile.optString("bio", "No bio set"));
+//                    System.out.println("🖼️ Image URL: " + profile.optString("image_url", "N/A"));
+//
+//                    if (profile.getBoolean("is_online")) {
+//                        System.out.println("✅ Status: Online");
+//                    } else {
+//                        System.out.println("📅 Last seen: " + profile.optString("last_seen", "Unknown"));
+//                    }
+//                    System.out.println("────────────────────────────────────────────");
+//                } else {
+//                    System.out.println("❌ Could not load profile.");
+//                }
+//                return true;
+//            }
+//
+//            case "6" ->{
+//                toggleArchive(chat.getId() , "private");
+//
+//                return true;
+//            }
+//            case "7" ->{
+//                viewMessagesInChat(chat);
+//            }
+//
+//            case "8" -> {
+//                return false;
+//            }
+//            default -> System.out.println("Invalid choice.");
+//        }
+//        return true;
+//    }
+
 
     private boolean showPrivateChatMenu(ChatEntry chat) {
 
@@ -1380,41 +1581,57 @@ public class ActionHandler {
             return false;
         }
 
+        UUID chatId = chat.getId();
 
-            JSONObject reqTarget = new JSONObject();
-            reqTarget.put("action", "get_private_chat_target");
-            reqTarget.put("chat_id", chat.getId());
+        if (chat.getOtherUserId() == null) {
+            JSONObject reqTarget = new JSONObject()
+                    .put("action", "get_private_chat_target")
+                    .put("chat_id", chatId.toString());
 
             JSONObject resTarget = sendWithResponse(reqTarget);
-            if (resTarget == null || !resTarget.getString("status").equals("success")) {
+            if (resTarget == null || !"success".equals(resTarget.optString("status"))) {
                 System.out.println("❌ Failed to fetch target user for private chat.");
                 return false;
             }
-
-            String otherUserId = resTarget.getJSONObject("data").getString("target_id");
-            chat.setOtherUserId(UUID.fromString(otherUserId));
-
-
-        JSONObject req = new JSONObject();
-        req.put("action", "view_profile");
-        req.put("target_id", chat.getOtherUserId());  // internal UUID
-
-        JSONObject res = sendWithResponse(req);
-
-        if (res.getString("status").equals("success")) {
-            JSONObject data = res.getJSONObject("data");
-
-            System.out.println("\n💬 Private Chat with: " + data.getString("profile_name"));
-
-            if (data.getBoolean("is_online")) {
-                System.out.println("✅ Status: Online");
-            } else {
-                System.out.println("📅 Last seen: " + data.getString("last_seen"));
-            }
-
-            System.out.println("────────────────────────────────────────────");
+            chat.setOtherUserId(UUID.fromString(resTarget.getJSONObject("data").getString("target_id")));
         }
 
+        UUID me = UUID.fromString(Session.currentUser.getString("internal_uuid"));
+        boolean isSaved = chat.isSavedMessages() || me.equals(chat.getOtherUserId());
+
+        System.out.println();
+        if (isSaved) {
+            System.out.println("💬 Private Chat with: Saved Messages");
+            System.out.println("────────────────────────────────────────────");
+        } else {
+            JSONObject req = new JSONObject()
+                    .put("action", "view_profile")
+                    .put("target_id", chat.getOtherUserId());
+
+            JSONObject res = sendWithResponse(req);
+            if (res != null && "success".equals(res.optString("status"))) {
+                JSONObject data = res.getJSONObject("data");
+                System.out.println("\n💬 Private Chat with: " + data.optString("profile_name", chat.getName()));
+                if (data.optBoolean("is_online", false)) System.out.println("✅ Status: Online");
+                else System.out.println("📅 Last seen: " + data.optString("last_seen", "Unknown"));
+                System.out.println("────────────────────────────────────────────");
+            }
+        }
+
+        if (isSaved) {
+            System.out.println("1. Send message");
+            System.out.println("2. View messages");
+            System.out.println("3. Back");
+
+            String input = scanner.nextLine().trim();
+            switch (input) {
+                case "1" -> sendMessage(chatId, "private");
+                case "2" -> { viewMessagesInChat(chat); }
+                case "3" -> { return false; }
+                default -> System.out.println("Invalid choice.");
+            }
+            return true;
+        }
 
         System.out.println("1. Send message");
         System.out.println("2. Block/Unblock");
@@ -1425,57 +1642,35 @@ public class ActionHandler {
         System.out.println("7. View messages");
         System.out.println("8. Back");
 
-
-        String input = scanner.nextLine();
+        String input = scanner.nextLine().trim();
         switch (input) {
-            case "1" -> sendMessage(chat.getId(), "private");
+            case "1" -> sendMessage(chatId, "private");
             case "2" -> toggleBlock(chat.getOtherUserId());
-            case "3" -> {
-                deleteChat(chat.getId(), false);
-                return true;
-            }
-            case "4" -> {
-                deleteChat(chat.getId(), true);
-                return true;
-            }
+            case "3" -> { deleteChat(chatId, false); return true; }
+            case "4" -> { deleteChat(chatId, true);  return true; }
             case "5" -> {
-                JSONObject reqProfile = new JSONObject();
-                reqProfile.put("action", "view_profile");
-                reqProfile.put("target_id", chat.getOtherUserId());
+                JSONObject reqProfile = new JSONObject()
+                        .put("action", "view_profile")
+                        .put("target_id", chat.getOtherUserId());
 
                 JSONObject resProfile = sendWithResponse(reqProfile);
-
-                if (resProfile.getString("status").equals("success")) {
+                if (resProfile != null && "success".equals(resProfile.optString("status"))) {
                     JSONObject profile = resProfile.getJSONObject("data");
                     System.out.println("\n👤 Profile Info:");
                     System.out.println("🔷 Name: " + profile.optString("profile_name", "Unknown"));
                     System.out.println("📄 Bio: " + profile.optString("bio", "No bio set"));
                     System.out.println("🖼️ Image URL: " + profile.optString("image_url", "N/A"));
-
-                    if (profile.getBoolean("is_online")) {
-                        System.out.println("✅ Status: Online");
-                    } else {
-                        System.out.println("📅 Last seen: " + profile.optString("last_seen", "Unknown"));
-                    }
+                    if (profile.optBoolean("is_online", false)) System.out.println("✅ Status: Online");
+                    else System.out.println("📅 Last seen: " + profile.optString("last_seen", "Unknown"));
                     System.out.println("────────────────────────────────────────────");
                 } else {
                     System.out.println("❌ Could not load profile.");
                 }
                 return true;
             }
-
-            case "6" ->{
-                toggleArchive(chat.getId() , "private");
-
-                return true;
-            }
-            case "7" ->{
-                viewMessagesInChat(chat);
-            }
-
-            case "8" -> {
-                return false;
-            }
+            case "6" -> { toggleArchive(chatId, "private"); return true; }
+            case "7" -> { viewMessagesInChat(chat); break; }
+            case "8" -> { return false; }
             default -> System.out.println("Invalid choice.");
         }
         return true;
@@ -3515,9 +3710,13 @@ public class ActionHandler {
                         ContactEntry entry = new ContactEntry(
                                 UUID.fromString(c.getString("contact_id")),
                                 c.getString("user_id"),
+                                c.getString("contact_displayId"),
                                 c.getString("profile_name"),
                                 c.optString("image_url", ""),
-                                c.optBoolean("is_blocked", false)
+                                c.optBoolean("is_blocked", false),
+                                c.isNull("last_seen")
+                                        ? null
+                                        : LocalDateTime.parse(c.getString("last_seen"))
                         );
 
                         contactList.add(entry);

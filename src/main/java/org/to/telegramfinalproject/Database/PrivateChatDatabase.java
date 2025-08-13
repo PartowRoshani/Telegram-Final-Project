@@ -307,12 +307,86 @@ public class PrivateChatDatabase {
         return null;
     }
 
+//    public static UUID getOtherParticipant(UUID chatId, UUID me) {
+//        List<UUID> members = getMembers(chatId);
+//        for (UUID u : members) {
+//            if (!u.equals(me)) return u;
+//        }
+//        return null;
+//    }
+
     public static UUID getOtherParticipant(UUID chatId, UUID me) {
-        List<UUID> members = getMembers(chatId);
+        List<UUID> members = getMembers(chatId); // باید [user1_id, user2_id] بده
+        if (members == null || members.isEmpty()) return null;
+
+        boolean isMember = false;
+        UUID other = null;
+
         for (UUID u : members) {
-            if (!u.equals(me)) return u;
+            if (u == null) continue;
+            if (u.equals(me)) {
+                isMember = true;
+            } else {
+                other = u;
+            }
         }
+
+        if (!isMember) return null;
+        return (other != null) ? other
+                : me;
+    }
+
+
+
+
+
+    public static PrivateChat findSelfChat(UUID userId) {
+        String sql = """
+            SELECT chat_id, user1_id, user2_id, user1_deleted, user2_deleted
+            FROM private_chat
+            WHERE user1_id = ? AND user2_id = ?
+            LIMIT 1
+        """;
+        try (Connection c = ConnectionDb.connect();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setObject(1, userId);
+            ps.setObject(2, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return map(rs);
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
         return null;
+    }
+
+    public static UUID createSelfChat(UUID userId) {
+        String sql = """
+            INSERT INTO private_chat (chat_id, user1_id, user2_id, user1_deleted, user2_deleted, created_at)
+            VALUES (gen_random_uuid(), ?, ?, FALSE, FALSE, NOW())
+            RETURNING chat_id
+        """;
+        try (Connection c = ConnectionDb.connect();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setObject(1, userId);
+            ps.setObject(2, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return (UUID) rs.getObject("chat_id");
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return null;
+    }
+
+
+
+
+
+    private static PrivateChat map(ResultSet rs) throws SQLException {
+        return new PrivateChat(
+                (UUID) rs.getObject("chat_id"),
+                (UUID) rs.getObject("user1_id"),
+                (UUID) rs.getObject("user2_id"),
+                rs.getBoolean("user1_deleted"),
+                rs.getBoolean("user2_deleted")
+        );
     }
 
 }

@@ -211,7 +211,6 @@ public class SidebarService {
         }
     }
 
-    // Get saved messages data
 //    public static ResponseModel handleGetSavedMessages(UUID userId) {
 //        try {
 //
@@ -220,7 +219,7 @@ public class SidebarService {
 //                return new ResponseModel("error", "Failed to create or find saved messages chat.");
 //            }
 //
-//            List<Message> messages = MessageDatabase.privateChatHistory(chatId);
+//            List<Message> messages = MessageDatabase.privateChatHistory(chatId, userId);
 //
 //            JSONArray messageArray = new JSONArray();
 //            if (!messages.isEmpty()) {
@@ -257,41 +256,36 @@ public class SidebarService {
 //    }
 
     // Save messages to DB
-    public static ResponseModel handleSendMessage(JSONObject requestJson) {
-        try {
-            Message message = new Message(
-                    UUID.fromString(requestJson.getString("message_id")),
-                    UUID.fromString(requestJson.getString("sender_id")),
-                    requestJson.getString("receiver_type"),
-                    UUID.fromString(requestJson.getString("receiver_id")),
-                    requestJson.optString("content", null),
-                    requestJson.optString("message_type", "TEXT"),
-                    LocalDateTime.now(), // send_at
-                    requestJson.optString("status", "SEND"),
-                    requestJson.isNull("reply_to_id") ? null : UUID.fromString(requestJson.getString("reply_to_id")),
-                    requestJson.optBoolean("is_edited", false),
-                    requestJson.isNull("original_message_id") ? null : UUID.fromString(requestJson.getString("original_message_id")),
-                    requestJson.isNull("forwarded_by") ? null : UUID.fromString(requestJson.getString("forwarded_by")),
-                    requestJson.isNull("forwarded_from") ? null : UUID.fromString(requestJson.getString("forwarded_from")),
-                    requestJson.optBoolean("is_deleted_globally", false),
-                    requestJson.isNull("edited_at") ? null :
-                            LocalDateTime.ofInstant(
-                                    Instant.ofEpochMilli(requestJson.getLong("edited_at")),
-                                    ZoneId.systemDefault()
-                            )
-                    );
-
-            MessageDatabase.insertSavedMessage(message);
-            return new ResponseModel("success", "Message saved successfully.");
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new ResponseModel("error", "Unexpected server error.");
-        }
-    }
-
-    // Changes username
-    public static boolean updateUserName(String userId, String newUserName) {
-        return false;
-    }
+//    public static ResponseModel handleSendMessage(JSONObject requestJson) {
+//        try {
+//            Message message = new Message(
+//                    UUID.fromString(requestJson.getString("message_id")),
+//                    UUID.fromString(requestJson.getString("sender_id")),
+//                    requestJson.getString("receiver_type"),
+//                    UUID.fromString(requestJson.getString("receiver_id")),
+//                    requestJson.optString("content", null),
+//                    requestJson.optString("message_type", "TEXT"),
+//                    LocalDateTime.now(), // send_at
+//                    requestJson.optString("status", "SEND"),
+//                    requestJson.isNull("reply_to_id") ? null : UUID.fromString(requestJson.getString("reply_to_id")),
+//                    requestJson.optBoolean("is_edited", false),
+//                    requestJson.isNull("original_message_id") ? null : UUID.fromString(requestJson.getString("original_message_id")),
+//                    requestJson.isNull("forwarded_by") ? null : UUID.fromString(requestJson.getString("forwarded_by")),
+//                    requestJson.isNull("forwarded_from") ? null : UUID.fromString(requestJson.getString("forwarded_from")),
+//                    requestJson.optBoolean("is_deleted_globally", false),
+//                    requestJson.isNull("edited_at") ? null :
+//                            LocalDateTime.ofInstant(
+//                                    Instant.ofEpochMilli(requestJson.getLong("edited_at")),
+//                                    ZoneId.systemDefault()
+//                            )
+//                    );
+//
+//            MessageDatabase.insertSavedMessage(message);
+//            return new ResponseModel("success", "Message saved successfully.");
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return new ResponseModel("error", "Unexpected server error.");
+//        }
+//    }
 }

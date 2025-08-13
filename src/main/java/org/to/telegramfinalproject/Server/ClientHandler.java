@@ -5,6 +5,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.*;
 import org.to.telegramfinalproject.Models.*;
+import org.to.telegramfinalproject.Security.PasswordHashing;
 import org.to.telegramfinalproject.Utils.ChannelPermissionUtil;
 import org.to.telegramfinalproject.Utils.GroupPermissionUtil;
 
@@ -159,42 +160,87 @@ public class ClientHandler implements Runnable {
 //                            }
 
 
+//
+//                            List<PrivateChat> privateChats = PrivateChatDatabase.findChatsOfUser(currentUser.getInternal_uuid());
+//                            for (PrivateChat chat : privateChats) {
+//                                UUID otherId = chat.getUser1_id().equals(currentUser.getInternal_uuid()) ?
+//                                        chat.getUser2_id() : chat.getUser1_id();
+//
+//                                User otherUser = userDatabase.findByInternalUUID(otherId);
+//                                if (otherUser == null) continue;
+//
+//                                LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTime(chat.getChat_id(), "private");
+//
+//
+//                                ChatEntry entry = new ChatEntry(
+//                                        chat.getChat_id(),
+//                                        otherUser.getUser_id(),
+//                                        otherUser.getProfile_name(),
+//                                        otherUser.getImage_url(),
+//                                        "private",
+//                                        lastMessageTime,
+//                                        false,
+//                                        false
+//                                );
+//                                entry.setOtherUserId(otherId);
+//
+//                                if (currentUser.getInternal_uuid() == otherId) {
+//                                    entry.setSavedMessages(true);
+//                                }
+//
+//                                if (archivedChatIds.contains(chat.getChat_id())) {
+//                                    archivedChatList.add(entry);
+//                                    chatList.add(entry);
+//                                } else {
+//                                    activeChatList.add(entry);
+//                                    chatList.add(entry);
+//                                }
+//                            }
 
                             List<PrivateChat> privateChats = PrivateChatDatabase.findChatsOfUser(currentUser.getInternal_uuid());
+
+                            ChatEntry savedEntry = null;
+
                             for (PrivateChat chat : privateChats) {
-                                UUID otherId = chat.getUser1_id().equals(currentUser.getInternal_uuid()) ?
-                                        chat.getUser2_id() : chat.getUser1_id();
+                                boolean isSelf =
+                                        chat.getUser1_id().equals(chat.getUser2_id()) &&
+                                                chat.getUser1_id().equals(currentUser.getInternal_uuid());
+
+                                UUID otherId = isSelf
+                                        ? currentUser.getInternal_uuid()
+                                        : (chat.getUser1_id().equals(currentUser.getInternal_uuid())
+                                        ? chat.getUser2_id()
+                                        : chat.getUser1_id());
 
                                 User otherUser = userDatabase.findByInternalUUID(otherId);
                                 if (otherUser == null) continue;
 
                                 LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTime(chat.getChat_id(), "private");
 
-
-                                ChatEntry entry = new ChatEntry(
-                                        chat.getChat_id(),
-                                        otherUser.getUser_id(),
-                                        otherUser.getProfile_name(),
-                                        otherUser.getImage_url(),
+                                  ChatEntry entry = new ChatEntry(
+                                        chat.getChat_id(),                               // internal_id = chat_id
+                                        isSelf ? "Saved Messages" : otherUser.getUser_id(),      // id/display
+                                        isSelf ? "Saved Messages" : otherUser.getProfile_name(), // name
+                                        isSelf ? null : otherUser.getImage_url(),
                                         "private",
                                         lastMessageTime,
-                                        false,
-                                        false
+                                        false, // isOwner
+                                        false  // isAdmin
                                 );
                                 entry.setOtherUserId(otherId);
-
-                                if (currentUser.getInternal_uuid() == otherId) {
-                                    entry.setSavedMessages(true);
+                                if (isSelf) {
+                                    entry.setSavedMessages(true);   // فلگ مهم
+                                    savedEntry = entry;             // برای بردن به اول لیست
                                 }
 
-                                if (archivedChatIds.contains(chat.getChat_id())) {
+                                if (!isSelf && archivedChatIds.contains(chat.getChat_id())) {
                                     archivedChatList.add(entry);
-                                    chatList.add(entry);
                                 } else {
                                     activeChatList.add(entry);
-                                    chatList.add(entry);
                                 }
+                                chatList.add(entry);
                             }
+
 
 
 
@@ -2075,6 +2121,15 @@ public class ClientHandler implements Runnable {
 
                         UUID targetId = PrivateChatDatabase.getOtherUserInChat(chatId, userId);
                         if (targetId == null) {
+                            PrivateChat chat = PrivateChatDatabase.findById(chatId);
+                            if (chat != null
+                                    && (userId.equals(chat.getUser1_id()) || userId.equals(chat.getUser2_id()))
+                                    && chat.getUser1_id().equals(chat.getUser2_id())) {
+                                targetId = userId;
+                            }
+                        }
+
+                        if (targetId == null) {
                             response = new ResponseModel("error", "Could not find other user.");
                         } else {
                             JSONObject data = new JSONObject();
@@ -2083,6 +2138,8 @@ public class ClientHandler implements Runnable {
                         }
                         break;
                     }
+
+
 
                     case "get_contact_list": {
                         if (currentUser == null) {
@@ -2093,27 +2150,30 @@ public class ClientHandler implements Runnable {
                         List<Contact> contacts = ContactDatabase.getContacts(currentUser.getInternal_uuid());
                         List<ContactEntry> contactEntries = new ArrayList<>();
 
+                        JSONArray contactList = new JSONArray();
                         for (Contact contact : contacts) {
-                            UUID contactId = contact.getContact_id();
-                            User contactUser = userDatabase.findByInternalUUID(contactId);
-                            if (contactUser == null) continue;
+                            User target = userDatabase.findByInternalUUID(contact.getContact_id());
+                            if (target == null) continue;
 
-                            ContactEntry entry = new ContactEntry(
-                                    contactId,
-                                    contactUser.getUser_id(),
-                                    contactUser.getProfile_name(),
-                                    contactUser.getImage_url(),
-                                    contact.getIs_blocked()
-                            );
+                            JSONObject c = new JSONObject();
+                            c.put("user_id", contact.getUser_id().toString());
+                            c.put("contact_id", contact.getContact_id().toString());
+                            User Contact = userDatabase.findByInternalUUID(contact.getContact_id());
+                            c.put("contact_displayId", Contact.getUser_id());
+                            c.put("is_blocked", contact.getIs_blocked());
 
-                            contactEntries.add(entry);
+                            c.put("profile_name", target.getProfile_name());
+                            c.put("image_url", target.getImage_url());
+                            c.put("last_seen", Contact.getLast_seen());
+
+                            contactList.put(c);
                         }
 
                         // Optional: sort alphabetically
                         contactEntries.sort(Comparator.comparing(ContactEntry::getProfileName, String.CASE_INSENSITIVE_ORDER));
 
                         JSONObject data = new JSONObject();
-                        data.put("contact_list", JsonUtil.contactEntryListToJson(contactEntries));
+                        data.put("contact_list", contactList);
 
                         response = new ResponseModel("success", "Contact list refreshed", data);
                         break;
@@ -2495,16 +2555,16 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
-                    case "get_saved_messages": {
-                        UUID user_Id = UUID.fromString(requestJson.getString("user_id"));
+//                    case "get_saved_messages": {
+//                        UUID user_Id = UUID.fromString(requestJson.getString("user_id"));
 //                        response = SidebarService.handleGetSavedMessages(user_Id);
-                        break;
-                    }
-
-                    case "send_saved_messages": {
-                        response = SidebarService.handleSendMessage(requestJson);
-                        break;
-                    }
+//                        break;
+//                    }
+//
+//                    case "send_saved_messages": {
+//                        response = SidebarService.handleSendMessage(requestJson);
+//                        break;
+//                    }
 
                     case "search_contacts": {
                         String user_id = requestJson.getString("user_id");
@@ -2519,6 +2579,66 @@ public class ClientHandler implements Runnable {
                         UUID contactId = UUID.fromString(requestJson.getString("contact_id"));
 
                         response = SidebarService.handleRemoveContact(user_id, contactId);
+                        break;
+                    }
+
+                    case "get_or_create_saved_messages": {
+                        response = handleGetOrCreateSavedMessages(requestJson);
+                        break;
+                    }
+
+                    case "get_blocked_users": {
+                         userId = currentUser.getInternal_uuid();
+                        var list = ContactDatabase.getBlockedUsers(userId);
+                        org.json.JSONObject data = new org.json.JSONObject();
+                        data.put("blocked_users", list);
+                        response = new ResponseModel("success", "ok", data);
+                        break;
+                    }
+
+                    case "verify_password": {
+                         userId = currentUser.getInternal_uuid();
+                        String cur = requestJson.getString("current_password");
+                        User user = userDatabase.findByInternalUUID(userId);
+                        boolean ok = PasswordHashing.verify(cur, user.getPassword());
+                        response = ok
+                                ? new ResponseModel("success", "verified")
+                                : new ResponseModel("error", "Invalid password.");
+                        break;
+                    }
+
+                    case "update_username": {
+                         userId = currentUser.getInternal_uuid();
+                        String cur = requestJson.getString("current_password");
+                        String newUsername = requestJson.getString("new_username");
+                        boolean useBCrypt = true;
+
+                        try {
+                            boolean ok = userDatabase.updateUsername(userId, newUsername);
+                            if (ok) response = new ResponseModel("success", "username updated");
+                            else    response = new ResponseModel("error", "Invalid current password.");
+                        } catch (java.sql.SQLException e) {
+                            if ("23505".equals(e.getSQLState())) {
+                                response = new ResponseModel("error", "Username already taken.");
+                            } else {
+                                e.printStackTrace();
+                                response = new ResponseModel("error", "Failed to update username.");
+                            }
+                        }
+                        break;
+                    }
+
+                    case "update_password": {
+                         userId = currentUser.getInternal_uuid();
+                        String cur = requestJson.getString("current_password");
+                        String newPass = requestJson.getString("new_password");
+
+                        String newHash = PasswordHashing.hash(newPass);
+
+                        boolean ok = userDatabase.updatePasswordHash(userId, newHash);
+                        response = ok
+                                ? new ResponseModel("success", "password updated")
+                                : new ResponseModel("error", "Invalid current password.");
                         break;
                     }
 
@@ -2601,6 +2721,7 @@ public class ClientHandler implements Runnable {
                     return new ResponseModel("error", "You can't message this user (blocked).");
                 }
             }
+
 
 
             String content = json.optString("content", "");
@@ -2714,6 +2835,23 @@ public class ClientHandler implements Runnable {
         return !(ContactDatabase.isBlocked(senderId, other) || ContactDatabase.isBlocked(other, senderId));
     }
 
+
+
+    private ResponseModel handleGetOrCreateSavedMessages(JSONObject req) {
+        if (currentUser == null) return new ResponseModel("error", "Unauthorized.");
+
+        UUID uid = currentUser.getInternal_uuid();
+        PrivateChat chat = PrivateChatDatabase.findSelfChat(uid);
+        UUID chatId = (chat != null) ? chat.getChat_id() : PrivateChatDatabase.createSelfChat(uid);
+        if (chatId == null) return new ResponseModel("error", "Failed to create Saved Messages.");
+
+        JSONObject data = new JSONObject();
+        data.put("chat_id", chatId.toString());
+        data.put("name", "Saved Messages");
+        data.put("is_saved_messages", true);
+        data.put("chat_type", "private");
+        return new ResponseModel("success", "Saved Messages ready.", data);
+    }
 
 
 

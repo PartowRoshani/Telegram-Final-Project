@@ -202,12 +202,5 @@ public class Message {
     public boolean getIs_deleted_globally() {
         return is_deleted_globally;
     }
-//
-//    public void setEdited_at(LocalDateTime edited_at) {
-//        this.edited_at = edited_at;
-//    }
-//
-//    public LocalDateTime getEdited_at() {
-//        return edited_at;
-//    }
+
 }

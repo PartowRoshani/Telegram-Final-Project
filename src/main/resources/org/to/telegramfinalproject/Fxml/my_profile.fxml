@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.text.Text?>
+
+<AnchorPane xmlns:fx="http://javafx.com/fxml" fx:controller="org.to.telegramfinalproject.UI.MyProfileController"
+            prefWidth="400" prefHeight="600"
+            styleClass="my-profile-root">
+
+    <VBox spacing="15" padding="20">
+
+        <!-- Top Bar -->
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <ImageView fx:id="profileImage" fitHeight="80" fitWidth="80"
+                       styleClass="profile-image"/>
+            <VBox>
+                <Label fx:id="displayName" text="Display Name" styleClass="profile-name"/>
+                <Label fx:id="status" text="online" styleClass="profile-status"/>
+            </VBox>
+        </HBox>
+
+        <Separator/>
+
+        <!-- Bio -->
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="Bio:" styleClass="field-label"/>
+            <Label fx:id="bio" text="This is the bio..." wrapText="true" styleClass="field-value"/>
+        </HBox>
+
+        <!-- User ID -->
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="User ID:" styleClass="field-label"/>
+            <Label fx:id="userId" text="@user_id" styleClass="field-value"/>
+        </HBox>
+
+    </VBox>
+</AnchorPane>
