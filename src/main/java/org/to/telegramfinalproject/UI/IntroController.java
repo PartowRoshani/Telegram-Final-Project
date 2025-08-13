@@ -1,6 +1,5 @@
 package org.to.telegramfinalproject.UI;
 
-import javafx.animation.TranslateTransition;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -10,12 +9,10 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
-import javafx.util.Duration;
 import javafx.scene.shape.Circle;
 import javafx.scene.paint.Color;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.io.IOException;
@@ -125,7 +122,7 @@ public class IntroController {
     @FXML
     private void handleStartMessaging(ActionEvent event) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/login_view.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/login_view.fxml"));
             Scene loginScene = new Scene(loader.load());
 
             // Get the current stage and its dimensions
