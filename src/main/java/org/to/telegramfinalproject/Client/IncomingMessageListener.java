@@ -28,6 +28,17 @@ public class IncomingMessageListener implements Runnable {
                 JSONObject response = new JSONObject(line);
                 System.out.println("📥 Received raw line: " + line);
 
+
+                //for media
+                String mid = response.optString("message_id", "");
+                if (!mid.isEmpty()) {
+                    BlockingQueue<JSONObject> q = TelegramClient.pendingResponses.get(mid);
+                    if (q != null) {
+                        q.put(response);
+                        continue;
+                    }
+                }
+
                //if it has reqID answer
                 if (response.has("request_id")) {
                     String requestId = response.getString("request_id");

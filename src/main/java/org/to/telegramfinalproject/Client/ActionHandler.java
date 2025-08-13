@@ -2,20 +2,15 @@ package org.to.telegramfinalproject.Client;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.to.telegramfinalproject.Database.PrivateChatDatabase;
-import org.to.telegramfinalproject.Database.ContactDatabase;
 import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Models.ContactEntry;
 import org.to.telegramfinalproject.Models.SearchRequestModel;
-import org.to.telegramfinalproject.Models.SearchResultModel;
 
 import java.io.*;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 
 public class ActionHandler {
@@ -1434,7 +1429,7 @@ public class ActionHandler {
 
         String input = scanner.nextLine();
         switch (input) {
-            case "1" -> sendMessage(chat.getId(), "private");
+            case "1" -> sendMessageInteractive(chat.getId(), "private");
             case "2" -> toggleBlock(chat.getOtherUserId());
             case "3" -> {
                 deleteChat(chat.getId(), false);
@@ -1551,7 +1546,7 @@ public class ActionHandler {
 
         String input = scanner.nextLine();
         switch (input) {
-            case "1" -> sendMessage(chat.getId(), "group");
+            case "1" -> sendMessageInteractive(chat.getId(), "group");
             case "2" -> viewGroupMembers(chat.getId());
             case "3" -> {
                 if (isOwner || (isAdmin && perms.optBoolean("can_add_members", false)))
@@ -1678,7 +1673,7 @@ public class ActionHandler {
         switch (input) {
             case "1" -> {
                 if (isOwner || (isAdmin && perms.optBoolean("can_post", false))) {
-                    sendMessage(chat.getId(), "channel");
+                    sendMessageInteractive(chat.getId(), "channel");
                 } else {
                     System.out.println("❌ You don't have permission to post.");
                 }
@@ -4018,42 +4013,49 @@ public class ActionHandler {
     }
 
     private void sendTextMessage(UUID receiverId, String receiverType, String content) {
-        org.json.JSONObject msg = new org.json.JSONObject()
+        JSONObject req = new JSONObject()
                 .put("action", "send_message")
                 .put("receiver_type", receiverType)
                 .put("receiver_id", receiverId.toString())
                 .put("message_type", "TEXT")
                 .put("content", content == null ? "" : content);
 
-           sendWithResponse(msg);
-        try {
-            String line = in.readLine(); // Ack
-            if (line == null) { System.out.println("❌ No response"); return; }
-            org.json.JSONObject resp = new org.json.JSONObject(line);
-            if ("success".equalsIgnoreCase(resp.optString("status"))) {
-                System.out.println("✅ Sent. id=" + resp.optJSONObject("data").optString("message_id",""));
-            } else {
-                System.out.println("❌ Failed: " + resp.optString("message"));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        JSONObject resp = sendWithResponse(req);
+        if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
+            System.out.println("✅ Sent. id=" + resp.optJSONObject("data").optString("message_id",""));
+        } else {
+            System.out.println("❌ Failed: " + (resp != null ? resp.optString("message") : "no response"));
         }
     }
 
 
-    public void sendMediaMessage(UUID receiverId, String receiverType, String type /*IMAGE/AUDIO*/, File file, String caption) {
-        try {
-            String mime = java.nio.file.Files.probeContentType(file.toPath());
-            if (mime == null) mime = type.equalsIgnoreCase("IMAGE") ? "image/*" : "audio/*";
+    public void sendMediaMessage(UUID receiverId, String receiverType, String type /* IMAGE/AUDIO */, File file, String caption) {
+        // اعتبارسنجی ورودی فایل (اگر ورودی از یوزر میاد، قبل از ساخت File کوتیشن‌ها رو حذف کن)
+        if (file == null) {
+            System.out.println("❌ File is null");
+            return;
+        }
+        if (!file.exists()) {
+            System.out.println("❌ File not found: " + file.getAbsolutePath());
+            return;
+        }
+        if (file.isDirectory()) {
+            System.out.println("❌ Path is a directory, expected a file: " + file.getAbsolutePath());
+            return;
+        }
 
-            UUID messageId = UUID.randomUUID();
+        final UUID messageId = UUID.randomUUID();
+
+        try {
+            String mime = detectMime(file, type.toUpperCase());
+            if (mime == null) mime = type.equalsIgnoreCase("IMAGE") ? "image/*" : "audio/*";
 
             JSONObject header = new JSONObject()
                     .put("message_id", messageId.toString())
-                    .put("sender_id",  TelegramClient.loggedInUserId.toString())
-                    .put("receiver_type", receiverType)         // private|group|channel
+                    .put("sender_id", TelegramClient.loggedInUserId.toString())
+                    .put("receiver_type", receiverType)      // private|group|channel
                     .put("receiver_id", receiverId.toString())
-                    .put("message_type", type.toUpperCase())    // IMAGE | AUDIO
+                    .put("message_type", type.toUpperCase()) // IMAGE | AUDIO
                     .put("file_name", file.getName())
                     .put("mime_type", mime)
                     .put("text", caption == null ? "" : caption);
@@ -4061,45 +4063,71 @@ public class ActionHandler {
             byte[] headerBytes = header.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
             long contentLen = file.length();
 
-            // قبل از ارسال، صف برای ACK ثبت کن
+            // صف ACK
             BlockingQueue<JSONObject> q = new LinkedBlockingQueue<>(1);
             TelegramClient.pendingResponses.put(messageId.toString(), q);
 
-            // 1) خط سوئیچ به MEDIA
-            out.print("MEDIA\n");
-            out.flush();
+            try {
+                // ⛔ مهم: فقط از outBin استفاده کن تا بافرها قاطی نشن
+                // 1) خط سوئیچ به MEDIA
+                outBin.write("MEDIA\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                outBin.flush();
 
-            // 2) فریم باینری: magic + headerLen + header + contentLen + content
-            outBin.writeInt(0x4D444D31);                      // "MDM1"
-            outBin.writeInt(headerBytes.length);              // headerLen
-            outBin.write(headerBytes);                        // header
-            outBin.writeLong(contentLen);                     // contentLen
+                // 2) فریم باینری: magic + headerLen + header + contentLen + content
+                outBin.writeInt(0x4D444D31);                 // "MDM1"
+                outBin.writeInt(headerBytes.length);         // headerLen (int)
+                outBin.write(headerBytes);                   // header
+                outBin.writeLong(contentLen);                // contentLen (long) ← مطمئن شو سرور هم Long می‌خونه
 
-            try (InputStream fis = new BufferedInputStream(new FileInputStream(file))) {
-                byte[] buf = new byte[8192];
-                int n;
-                while ((n = fis.read(buf)) != -1) {
-                    outBin.write(buf, 0, n);
+                try (InputStream fis = new BufferedInputStream(new FileInputStream(file))) {
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = fis.read(buf)) != -1) {
+                        outBin.write(buf, 0, n);
+                    }
                 }
-            }
-            outBin.flush();
+                outBin.flush();
 
-            // 3) منتظر ACK از Listener (با message_id)
-            JSONObject ack = q.take(); // بلاک تا بیاد
-            TelegramClient.pendingResponses.remove(messageId.toString());
+                // 3) منتظر ACK با تایم‌اوت (فقط یکی!)
+                JSONObject ack = q.poll(20, java.util.concurrent.TimeUnit.SECONDS);
+                if (ack == null) {
+                    System.out.println("❌ Media ACK timeout for " + messageId);
+                    return;
+                }
 
-            if ("success".equalsIgnoreCase(ack.optString("status"))) {
-                System.out.println("✅ Media sent. id=" + ack.optString("message_id") +
-                        " url=" + ack.optString("file_url"));
-            } else {
-                System.out.println("❌ Media failed: " + ack.optString("message"));
+                String status = ack.optString("status", "error");
+                if ("success".equalsIgnoreCase(status)) {
+                    System.out.println("✅ Media sent. id=" + ack.optString("message_id") +
+                            " url=" + ack.optString("file_url"));
+                } else {
+                    System.out.println("❌ Media failed: " + ack.optString("message"));
+                }
+
+            } finally {
+                TelegramClient.pendingResponses.remove(messageId.toString());
             }
+
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("❌ sendMediaMessage error: " + e.getMessage());
         }
     }
 
+
+    private static String detectMime(File f, String typeUpper /* IMAGE or AUDIO */) {
+        try {
+            String m = java.nio.file.Files.probeContentType(f.toPath());
+            if (m != null) return m;
+        } catch (Exception ignored) {}
+        String name = f.getName().toLowerCase();
+        if (name.endsWith(".png"))  return "image/png";
+        if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+        if (name.endsWith(".gif"))  return "image/gif";
+        if (name.endsWith(".mp3"))  return "audio/mpeg";
+        if (name.endsWith(".wav"))  return "audio/wav";
+        if (name.endsWith(".ogg"))  return "audio/ogg";
+        return typeUpper.equals("IMAGE") ? "image/*" : "audio/*";
+    }
 
 
 }

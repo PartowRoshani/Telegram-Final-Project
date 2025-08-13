@@ -10,7 +10,7 @@ import java.awt.image.BufferedImage;
 
 
 
-public class MediaSender {
+class MediaSender {
 
     public static void sendImageOrAudio(Socket socket,
                                         UUID senderId,

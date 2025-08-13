@@ -32,7 +32,7 @@ public class ClientHandler implements Runnable {
 //                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 //                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
                 BufferedInputStream bis = new BufferedInputStream(socket.getInputStream());
-                DataInputStream dis = new DataInputStream(bis); // برای MEDIA و هدرهای باینری
+                DataInputStream dis = new DataInputStream(bis); //for binary headers
 
                 PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8), true);
 
@@ -2871,8 +2871,7 @@ public class ClientHandler implements Runnable {
             String receiverType = json.getString("receiver_type");
             UUID receiverId = UUID.fromString(json.getString("receiver_id"));
 
-            // private validations...
-            // ...
+
 
             String content = json.optString("content", "");
             String messageType = json.optString("message_type", "TEXT");
@@ -2935,7 +2934,6 @@ public class ClientHandler implements Runnable {
             // Real-Time
             Message msg = new Message(messageId, senderId, receiverId, receiverType, content, messageType, LocalDateTime.now());
 
-            // رویداد با پیوست‌ها
             JSONObject payload = new JSONObject();
             payload.put("action", "new_message");
             JSONObject data = new JSONObject();
@@ -2969,21 +2967,41 @@ public class ClientHandler implements Runnable {
             if (sender != null) data.put("sender_name", sender.getProfile_name());
             payload.put("data", data);
 
-            List<UUID> receivers = getReceiversForChat(receiverId, receiverType);
-            receivers.remove(senderId);
-            RealTimeEventDispatcher.broadcastToUsers(receivers, payload);
+//            List<UUID> receivers = getReceiversForChat(receiverId, receiverType);
+//            receivers.remove(senderId);
+//            RealTimeEventDispatcher.broadcastToUsers(receivers, payload);
+//
+//
+//
+//            // chat_updated
+//            JSONObject chatUpdate = new JSONObject()
+//                    .put("chat_id", receiverId.toString())
+//                    .put("chat_type", receiverType)
+//                    .put("last_message_time", LocalDateTime.now().toString());
+//
+//            JSONObject chatPayload = new JSONObject()
+//                    .put("action", "chat_updated")
+//                    .put("data", chatUpdate);
+//
+//            for (UUID r : receivers) RealTimeEventDispatcher.sendToUser(r, chatPayload);
 
-            // chat_updated
+
+            List<UUID> allMembers = getReceiversForChat(receiverId, receiverType); // شامل sender
+                // به همه chat_updated بده
             JSONObject chatUpdate = new JSONObject()
                     .put("chat_id", receiverId.toString())
                     .put("chat_type", receiverType)
                     .put("last_message_time", LocalDateTime.now().toString());
-
             JSONObject chatPayload = new JSONObject()
                     .put("action", "chat_updated")
                     .put("data", chatUpdate);
+            for (UUID u : allMembers) RealTimeEventDispatcher.sendToUser(u, chatPayload);
 
-            for (UUID r : receivers) RealTimeEventDispatcher.sendToUser(r, chatPayload);
+            // حالا new_message را فقط به غیر از sender
+            List<UUID> others = new ArrayList<>(allMembers);
+            others.remove(senderId);
+            RealTimeEventDispatcher.broadcastToUsers(others, payload);
+
 
             JSONObject respData = new JSONObject().put("message_id", messageId.toString());
             return new ResponseModel("success", "Message sent successfully.", respData);
