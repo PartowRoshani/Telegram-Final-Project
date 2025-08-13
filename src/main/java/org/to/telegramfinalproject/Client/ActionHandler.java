@@ -1313,7 +1313,7 @@ public class ActionHandler {
             JSONObject m = messages.getJSONObject(i);
             String senderId = m.getString("sender_id");
             String senderName = m.optString("sender_name", "Other");
-            String content = m.getString("content");
+            String content = m.optString("content", "");
             String time = m.getString("send_at");
 
             String label = senderId.equals(Session.currentUser.getString("internal_uuid")) ? "You" : senderName;

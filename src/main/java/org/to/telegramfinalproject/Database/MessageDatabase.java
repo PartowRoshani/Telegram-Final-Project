@@ -84,25 +84,54 @@ public class MessageDatabase {
 
     public static boolean insertAttachmentsTx(Connection conn, UUID messageId, List<FileAttachment> attachments) throws SQLException {
         if (attachments == null || attachments.isEmpty()) return true;
-        String sql = """
-        INSERT INTO message_attachments
-            (attachment_id, message_id, file_url, file_type, file_name, file_size, mime_type, width, height, duration_seconds, thumbnail_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+        final String sql = """
+        INSERT INTO message_attachments(
+            attachment_id, message_id,
+            file_url, file_type, file_name, file_size, mime_type,
+            width, height, duration_seconds, thumbnail_url,
+            media_key, storage_path
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
     """;
+
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (FileAttachment att : attachments) {
-                ps.setObject(1, UUID.randomUUID());
-                ps.setObject(2, messageId);
-                ps.setString(3, att.getFileUrl());
-                ps.setString(4, att.getFileType()); // IMAGE/VIDEO/AUDIO/FILE/GIF/STICKER
-                ps.setString(5, att.getFileName());
-                if (att.getFileSize() != null) ps.setLong(6, att.getFileSize()); else ps.setNull(6, java.sql.Types.BIGINT);
-                ps.setString(7, att.getMimeType());
-                if (att.getWidth() != null) ps.setInt(8, att.getWidth()); else ps.setNull(8, java.sql.Types.INTEGER);
-                if (att.getHeight() != null) ps.setInt(9, att.getHeight()); else ps.setNull(9, java.sql.Types.INTEGER);
-                if (att.getDurationSeconds() != null) ps.setInt(10, att.getDurationSeconds()); else ps.setNull(10, java.sql.Types.INTEGER);
-                ps.setString(11, att.getThumbnailUrl());
+                if (att == null) throw new IllegalArgumentException("Attachment is null");
+                UUID attachmentId = att.getAttachmentId() != null ? att.getAttachmentId() : UUID.randomUUID();
+                UUID mediaKey     = att.getMediaKey()     != null ? att.getMediaKey()     : attachmentId; // ساده‌ترین حالت
+
+                String ft = att.getFileType();
+                if (!"IMAGE".equalsIgnoreCase(ft) && !"AUDIO".equalsIgnoreCase(ft)) {
+                    throw new IllegalArgumentException("file_type must be IMAGE or AUDIO");
+                }
+                if (att.getStoragePath() == null || att.getStoragePath().isBlank()) {
+                    throw new IllegalArgumentException("storage_path is required for socket downloads");
+                }
+
+                int i = 1;
+                ps.setObject(i++, attachmentId);
+                ps.setObject(i++, messageId);
+                //file url (display link)
+                if (att.getFileUrl() == null || att.getFileUrl().isBlank()) ps.setNull(i++, java.sql.Types.VARCHAR);
+                else ps.setString(i++, att.getFileUrl());
+
+                ps.setString(i++, ft.toUpperCase());
+                ps.setString(i++, att.getFileName());
+                if (att.getFileSize() == null) ps.setNull(i++, java.sql.Types.BIGINT); else ps.setLong(i++, att.getFileSize());
+                if (att.getMimeType() == null) ps.setNull(i++, java.sql.Types.VARCHAR); else ps.setString(i++, att.getMimeType());
+                if (att.getWidth() == null) ps.setNull(i++, java.sql.Types.INTEGER); else ps.setInt(i++, att.getWidth());
+                if (att.getHeight() == null) ps.setNull(i++, java.sql.Types.INTEGER); else ps.setInt(i++, att.getHeight());
+                if (att.getDurationSeconds() == null) ps.setNull(i++, java.sql.Types.INTEGER); else ps.setInt(i++, att.getDurationSeconds());
+                if (att.getThumbnailUrl() == null || att.getThumbnailUrl().isBlank()) ps.setNull(i++, java.sql.Types.VARCHAR);
+                else ps.setString(i++, att.getThumbnailUrl());
+
+                ps.setObject(i++, mediaKey);
+                ps.setString(i++, att.getStoragePath());
+
                 ps.addBatch();
+
+                att.setAttachmentId(attachmentId);
+                att.setMediaKey(mediaKey);
             }
             ps.executeBatch();
             return true;
@@ -110,15 +139,24 @@ public class MessageDatabase {
     }
 
 
-    public static boolean saveMessageWithOptionalAttachments(UUID messageId, UUID senderId, UUID receiverId,
-                                                             String receiverType, String content, String messageType,
-                                                             List<FileAttachment> attachments) {
+
+    public static boolean saveMessageWithOptionalAttachments(
+            UUID messageId, UUID senderId, UUID receiverId,
+            String receiverType, String content, String messageType,
+            List<FileAttachment> attachments
+    ) {
         Connection conn = null;
         try {
             conn = ConnectionDb.connect();
             conn.setAutoCommit(false);
 
-            boolean isText = "TEXT".equalsIgnoreCase(messageType);
+            boolean isText  = "TEXT".equalsIgnoreCase(messageType);
+            boolean isImage = "IMAGE".equalsIgnoreCase(messageType);
+            boolean isAudio = "AUDIO".equalsIgnoreCase(messageType);
+            if (!isText && !isImage && !isAudio) {
+                throw new IllegalArgumentException("messageType must be TEXT, IMAGE, or AUDIO");
+            }
+
             if (isText) {
                 if (attachments != null && !attachments.isEmpty())
                     throw new IllegalArgumentException("TEXT must not have attachments");
@@ -127,9 +165,18 @@ public class MessageDatabase {
             } else {
                 if (attachments == null || attachments.isEmpty())
                     throw new IllegalArgumentException("Non-TEXT must have at least one attachment");
+
+                for (FileAttachment a : attachments) {
+                    if (a == null) throw new IllegalArgumentException("Attachment is null");
+                    String ft = a.getFileType();
+                    if (isImage && !"IMAGE".equalsIgnoreCase(ft))
+                        throw new IllegalArgumentException("All attachments must be IMAGE for messageType=IMAGE");
+                    if (isAudio && !"AUDIO".equalsIgnoreCase(ft))
+                        throw new IllegalArgumentException("All attachments must be AUDIO for messageType=AUDIO");
+                }
             }
 
-            insertMessageTx(conn, messageId, senderId, receiverId, receiverType, content, messageType);
+            insertMessageTx(conn, messageId, senderId, receiverId, receiverType, content, messageType.toUpperCase());
             if (!isText) insertAttachmentsTx(conn, messageId, attachments);
 
             conn.commit();

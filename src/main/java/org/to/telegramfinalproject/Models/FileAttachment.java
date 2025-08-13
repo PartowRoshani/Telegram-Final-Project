@@ -2,18 +2,22 @@ package org.to.telegramfinalproject.Models;
 
 import org.json.JSONObject;
 import java.util.Objects;
+import java.util.UUID;
 
 public class FileAttachment {
 
-    private final String fileUrl;
-    private final String fileType;          // IMAGE, VIDEO, AUDIO, FILE, GIF, STICKER
-    private final String fileName;
-    private final Long   fileSize;
-    private final String mimeType;          // e.g., image/png
-    private final Integer width;
-    private final Integer height;
-    private final Integer durationSeconds;  // for audio/video
-    private final String  thumbnailUrl;
+    private UUID attachmentId;     // اختیاری؛ اگر null بود، تولید می‌کنیم
+    private UUID mediaKey;
+    private String fileUrl;
+    private String fileType;          // IMAGE, VIDEO, AUDIO, FILE, GIF, STICKER
+    private String fileName;
+    private Long   fileSize;
+    private String mimeType;          // e.g., image/png
+    private Integer width;
+    private Integer height;
+    private Integer durationSeconds;  // for audio/video
+    private String  thumbnailUrl;
+    private String storagePath;
 
     public FileAttachment(String fileUrl,
                           String fileType,
@@ -39,6 +43,10 @@ public class FileAttachment {
         this(fileUrl, fileType, null, null, null, null, null, null, null);
     }
 
+    public FileAttachment() {
+    }
+
+
     // ساخت از JSON /upload
     public static FileAttachment fromUploadJson(JSONObject j) {
         return new FileAttachment(
@@ -54,7 +62,6 @@ public class FileAttachment {
         );
     }
 
-    // خروجی JSON برای RT/کلاینت
     public JSONObject toJson() {
         JSONObject out = new JSONObject()
                 .put("file_url", fileUrl)
@@ -122,5 +129,34 @@ public class FileAttachment {
                 ", durationSeconds=" + durationSeconds +
                 ", thumbnailUrl='" + thumbnailUrl + '\'' +
                 '}';
+    }
+
+    public UUID getAttachmentId() {return attachmentId;
+    }
+
+    public UUID getMediaKey() {return mediaKey;
+    }
+
+    public String getStoragePath() {return storagePath;
+    }
+
+    public void setAttachmentId(UUID attachmentId) {this.attachmentId = attachmentId;
+    }
+
+    public void setMediaKey(UUID mediaKey) {this.mediaKey = mediaKey;
+    }
+
+
+    public void setFileUrl(String fileUrl) {this.fileUrl = fileUrl;
+    }
+    public void setFileType(String fileType){this.fileType = fileType;}
+    public void setFileName(String fileName){this.fileName = fileName;}
+    public void setFileSize(Long fileSize){this.fileSize = fileSize;}
+    public void setMimeType(String mimeType){this.mimeType = mimeType;}
+    public void setWidth(int width){this.width = width;}
+    public void setHeight(int height){this.height = height;}
+    public void setDurationSeconds(Integer durationSeconds){this.durationSeconds = durationSeconds;}
+    public void setThumbnailUrl(String thumbnailUrl){this.thumbnailUrl = thumbnailUrl;}
+    public void setStoragePath(String storagePath) {this.storagePath = storagePath;
     }
 }
