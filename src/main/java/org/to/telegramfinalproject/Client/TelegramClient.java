@@ -2,10 +2,7 @@ package org.to.telegramfinalproject.Client;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
 import java.util.Map;
 import java.util.Scanner;
@@ -37,14 +34,17 @@ public class TelegramClient {
     public static TelegramClient getInstance() {
         return instance;
     }
+    private DataOutputStream outBin;
 
     public void start() {
         try {
             socket = new Socket(SERVER_HOST, SERVER_PORT);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
+            outBin = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream())); // برای MEDIA
+
             System.out.println("✅ Connected to Telegram Server");
-            handler = new ActionHandler(out, in, scanner);
+            handler = new ActionHandler(out, in, outBin, scanner);
 
             Thread listenerThread = new Thread(new IncomingMessageListener(in));
             listenerThread.setDaemon(true);
