@@ -17,10 +17,9 @@ import java.net.URL;
 
 public class SidebarMenuController {
 
-    private static final String CSS_PATH = "/org/to/telegramfinalproject/CSS/";
     private static final String ICON_PATH = "/org/to/telegramfinalproject/Icons/";
 
-    @FXML private VBox sidebarRoot; // fx:id must match FXML
+    @FXML private VBox sidebarRoot;
     @FXML private ImageView profileImage;
     @FXML private Label usernameLabel;
 
@@ -38,32 +37,42 @@ public class SidebarMenuController {
     @FXML private Region toggleThumb;
     @FXML private ImageView nightModeIcon;
 
-    private boolean nightModeOn = false; // start light by default
+    // convenience handle
+    private final ThemeManager themeManager = ThemeManager.getInstance();
 
     @FXML
     public void initialize() {
-        // Load default profile picture (if present)
+        // Load default profile image (if present)
         Image profile = loadImage("/org/to/telegramfinalproject/Images/profile.png");
         if (profile != null) profileImage.setImage(profile);
 
-        // Set up handlers and defer theme application until the scene is available
         setupButtonActions();
         setupToggleAction();
 
-        // When the scene is set, apply the initial theme (light) and initialize icons/positions
+        // When the Scene is ready:
         sidebarRoot.sceneProperty().addListener((obs, oldScene, newScene) -> {
             if (newScene != null) {
-                // Apply light theme at startup
-                updateTheme(false);
+                // 1) Register with ThemeManager so this scene auto-updates on theme changes
+                themeManager.registerScene(newScene);
 
-                // Position the thumb after layout pass (to use actual widths)
-                Platform.runLater(() -> {
-                    double initialX = nightModeOn
-                            ? nightModeToggle.getWidth() - toggleThumb.getWidth() - 4
-                            : 2;
-                    toggleThumb.setTranslateX(initialX);
-                });
+                // 2) Make sure we start in LIGHT mode (if that's what you want)
+                //    (If you already set the initial mode elsewhere, remove the next line)
+                themeManager.setDarkMode(false);
+
+                // 3) Sync icons & toggle with current mode
+                boolean dark = themeManager.isDarkMode();
+                updateIcons(dark);
+                syncToggleVisual(dark, /*animate=*/true);
+
+                // Ensure the thumb is correctly positioned after layout pass
+                Platform.runLater(() -> syncToggleVisual(themeManager.isDarkMode(), false));
             }
+        });
+
+        // If theme is changed from somewhere else (another screen), keep sidebar in sync
+        themeManager.darkModeProperty().addListener((o, wasDark, isDark) -> {
+            updateIcons(isDark);
+            syncToggleVisual(isDark, /*animate=*/true);
         });
     }
 
@@ -80,58 +89,22 @@ public class SidebarMenuController {
 
     private void setupToggleAction() {
         nightModeToggle.setOnMouseClicked(e -> {
-            nightModeOn = !nightModeOn;
-            updateTheme(nightModeOn);
+            boolean newDark = !themeManager.isDarkMode();
 
-            // animate thumb
-            double targetX = nightModeOn
-                    ? nightModeToggle.getWidth() - toggleThumb.getWidth() - 4
-                    : 2;
-            TranslateTransition tt = new TranslateTransition(Duration.millis(200), toggleThumb);
-            tt.setToX(targetX);
-            tt.play();
+            // Update the global theme via ThemeManager
+            themeManager.setDarkMode(newDark);
+
+            // Animate the thumb to its new position (listener will handle icons & final position sync)
+            syncToggleVisual(newDark, /*animate=*/true);
         });
     }
 
-    /**
-     * Apply theme and swap icons. darkMode == true => apply dark theme (dark background),
-     * and use light (white) icons. darkMode == false => apply light theme and use dark icons.
+    /** Update all button icons to match theme.
+     *  darkMode == true  => white icons => use *_light.png
+     *  darkMode == false => dark icons  => use *_dark.png
      */
-    private void updateTheme(boolean darkMode) {
-        Scene scene = sidebarRoot.getScene();
-        if (scene == null) return; // safety
-
-        // clear & apply the correct stylesheet
-        scene.getStylesheets().clear();
-        String cssFile = darkMode ? "dark_theme.css" : "light_theme.css";
-        URL cssUrl = getClass().getResource(CSS_PATH + cssFile);
-        if (cssUrl != null) {
-            scene.getStylesheets().add(cssUrl.toExternalForm());
-        } else {
-            System.err.println("CSS not found: " + CSS_PATH + cssFile);
-        }
-
-        // Keep toggle's "on" class in sync
-        if (darkMode) {
-            if (!nightModeToggle.getStyleClass().contains("on"))
-                nightModeToggle.getStyleClass().add("on");
-        } else {
-            nightModeToggle.getStyleClass().remove("on");
-        }
-
-        // Icon file suffix mapping:
-        // - For darkMode == true (dark background) we want white icons => use "_light.png"
-        // - For darkMode == false (light background) we want dark icons => use "_dark.png"
-        String iconSuffix = darkMode ? "_light.png" : "_dark.png";
-
-        setIcons(iconSuffix);
-
-        // night mode icon itself (moon)
-        Image moon = loadImage(ICON_PATH + "night_mode" + iconSuffix);
-        if (moon != null) nightModeIcon.setImage(moon);
-    }
-
-    private void setIcons(String suffix) {
+    private void updateIcons(boolean darkMode) {
+        String suffix = darkMode ? "_light.png" : "_dark.png";
         myProfileButton.setGraphic(makeIcon(ICON_PATH + "my_profile" + suffix));
         newGroupButton.setGraphic(makeIcon(ICON_PATH + "new_group" + suffix));
         newChannelButton.setGraphic(makeIcon(ICON_PATH + "new_channel" + suffix));
@@ -139,8 +112,40 @@ public class SidebarMenuController {
         savedMessagesButton.setGraphic(makeIcon(ICON_PATH + "saved_messages" + suffix));
         settingsButton.setGraphic(makeIcon(ICON_PATH + "settings" + suffix));
         telegramFeaturesButton.setGraphic(makeIcon(ICON_PATH + "telegram_features" + suffix));
-        telegramQnAButton.setGraphic(makeIcon(ICON_PATH + "telegram_qna" + suffix)); // prefer safe filename
+        telegramQnAButton.setGraphic(makeIcon(ICON_PATH + "telegram_qna" + suffix));
+
+        // Night-mode moon icon
+        Image moon = loadImage(ICON_PATH + "night_mode" + suffix);
+        if (moon != null) nightModeIcon.setImage(moon);
     }
+
+    /** Keep the toggle’s CSS class and thumb position in sync with the current mode. */
+    private void syncToggleVisual(boolean darkMode, boolean animate) {
+        // CSS class "on" on the track
+        if (darkMode) {
+            if (!nightModeToggle.getStyleClass().contains("on")) {
+                nightModeToggle.getStyleClass().add("on");
+            }
+        } else {
+            nightModeToggle.getStyleClass().remove("on");
+        }
+
+        // Compute target X for the thumb
+        double offX = 2;
+        double onX  = Math.max(2, nightModeToggle.getWidth() - toggleThumb.getWidth() - 4);
+        double targetX = darkMode ? onX : offX;
+
+        if (animate) {
+            TranslateTransition tt = new TranslateTransition(Duration.millis(200), toggleThumb);
+            tt.setToX(targetX);
+            tt.play();
+        } else {
+            toggleThumb.setTranslateX(targetX);
+        }
+    }
+
+
+    // --- helpers -------------------------------------------------------------
 
     private Image loadImage(String path) {
         URL res = getClass().getResource(path);
