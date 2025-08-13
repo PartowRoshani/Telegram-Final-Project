@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Separator?>
+
+<VBox fx:id="sidebarRoot" spacing="20" alignment="TOP_LEFT"
+      prefWidth="250.0"
+      xmlns="http://javafx.com/javafx/17"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.to.telegramfinalproject.UI.SidebarMenuController">
+
+    <padding>
+        <Insets top="20" left="10" right="10" bottom="10"/>
+    </padding>
+
+
+    <!-- Profile Section -->
+    <VBox alignment="TOP_LEFT" spacing="10">
+        <padding>
+            <Insets top="10" left="10" bottom="0" right="0"/>
+        </padding>
+        <ImageView fx:id="profileImage" fitWidth="80" fitHeight="80" pickOnBounds="true" preserveRatio="true"/>
+        <Label fx:id="usernameLabel" text="   Asal Lotfi" textFill="white" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+    </VBox>
+
+    <!-- Menu Buttons -->
+    <VBox spacing="8" alignment="TOP_LEFT">
+
+        <!-- Thin Telegram-style line -->
+        <Separator orientation="HORIZONTAL" styleClass="thin-separator" />
+
+        <Button fx:id="myProfileButton" text="  My Profile" styleClass="sidebar-btn"/>
+
+        <!-- Thin Telegram-style line -->
+        <Separator orientation="HORIZONTAL" styleClass="thin-separator" />
+
+        <Button fx:id="newGroupButton" text="  New Group" styleClass="sidebar-btn"/>
+        <Button fx:id="newChannelButton" text="  New Channel" styleClass="sidebar-btn"/>
+        <Button fx:id="contactsButton" text="  Contacts" styleClass="sidebar-btn"/>
+        <Button fx:id="savedMessagesButton" text="  Saved Messages" styleClass="sidebar-btn"/>
+        <Button fx:id="settingsButton" text="  Settings" styleClass="sidebar-btn"/>
+        <Button fx:id="telegramFeaturesButton" text="  Telegram Features" styleClass="sidebar-btn"/>
+        <Button fx:id="telegramQnAButton" text="  Telegram Q&amp;A" styleClass="sidebar-btn"/>
+
+        <!-- Night Mode Toggle -->
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <padding>
+                <!-- Match button's left padding -->
+                <Insets left="15"/>
+            </padding>
+            <ImageView fx:id="nightModeIcon" fitWidth="22" fitHeight="22" pickOnBounds="true" preserveRatio="true"/>
+            <Label text="Night Mode" textFill="white" style="-fx-font-size: 13px;"/>
+            <HBox fx:id="nightModeToggle" styleClass="telegram-toggle">
+                <Region fx:id="toggleThumb" styleClass="toggle-thumb"/>
+            </HBox>
+        </HBox>
+    </VBox>
+</VBox>

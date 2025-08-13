@@ -1,0 +1,52 @@
+/* Sidebar buttons */
+.sidebar-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: black;
+    -fx-font-size: 14px;
+    -fx-pref-width: 230;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 8 0 8 16;
+}
+.sidebar-btn:hover {
+    -fx-background-color: #e6e6e6;
+    -fx-cursor: hand;
+}
+
+/* Telegram-style toggle switch */
+.telegram-toggle {
+    -fx-background-color: #aaa;
+    -fx-background-radius: 15;
+    -fx-padding: 2;
+    -fx-pref-width: 40;
+    -fx-pref-height: 20;
+    -fx-alignment: center-left;
+    -fx-cursor: hand;
+}
+.telegram-toggle.on {
+    -fx-background-color: #4fa8f0;
+}
+.toggle-thumb {
+    -fx-background-color: white;
+    -fx-background-radius: 50%;
+    -fx-pref-width: 16;
+    -fx-pref-height: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 3, 0, 0, 1);
+}
+
+/* Separator */
+.thin-separator {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+.thin-separator .line {
+    -fx-border-color: #ccc;
+    -fx-border-width: 0.5px;
+}
+
+/* Theme background & text */
+#sidebarRoot {
+    -fx-background-color: white;
+}
+.button, .label {
+    -fx-text-fill: black;
+}
