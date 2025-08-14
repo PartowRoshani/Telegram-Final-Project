@@ -2681,7 +2681,7 @@ public class ClientHandler implements Runnable {
                 if (len > 0 && sb.charAt(len - 1) == '\r') sb.setLength(len - 1);
                 return sb.toString();
             }
-            sb.append((char) b); // برای کنترل‌لاین‌های ASCII/UTF-8 OK
+            sb.append((char) b);
         }
     }
 
@@ -2853,7 +2853,6 @@ public class ClientHandler implements Runnable {
 
             if (fileName.length() > 200) fileName = fileName.substring(0, 200);
 
-            // مسیر ذخیره (فیزیکی)
             java.nio.file.Path baseDir = java.nio.file.Paths.get("uploads").toAbsolutePath().normalize();
             java.nio.file.Files.createDirectories(baseDir);
             String kind = "IMAGE".equals(messageType) ? "images" : "audios";
@@ -2865,7 +2864,6 @@ public class ClientHandler implements Runnable {
             String storedName = java.util.UUID.randomUUID() + ext;
             java.nio.file.Path target = dir.resolve(storedName).normalize();
 
-            // دریافت باینری فایل
             try (OutputStream fos = new BufferedOutputStream(java.nio.file.Files.newOutputStream(
                     target, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING))) {
                 long remaining = contentLen;
@@ -2881,13 +2879,13 @@ public class ClientHandler implements Runnable {
 
             long fileSize = java.nio.file.Files.size(target);
 
-            String storagePath = target.toString(); // فقط سرور استفاده کنه
-            String fileUrl = "/" + subdir.replace('\\','/') + "/" + storedName; // اختیاری/نمایشی (HTTP لازم نیست)
+            String storagePath = target.toString();
+            String fileUrl = "/" + subdir.replace('\\','/') + "/" + storedName;
             String mt = messageType; // "IMAGE" یا "AUDIO"
             int safeWidth  = ("IMAGE".equals(mt) && width  != null) ? width  : 0;
             int safeHeight = ("IMAGE".equals(mt) && height != null) ? height : 0;
             FileAttachment att = new FileAttachment();
-            att.setFileUrl(fileUrl);               // اختیاری
+            att.setFileUrl(fileUrl);
             att.setFileType(messageType);          // IMAGE/AUDIO
             att.setFileName(fileName);
             att.setFileSize(fileSize);
@@ -2896,8 +2894,7 @@ public class ClientHandler implements Runnable {
             att.setHeight(safeHeight);
             att.setDurationSeconds(0);
             att.setThumbnailUrl(null);
-            att.setStoragePath(storagePath);       // اجباری برای سوکت
-            // اجازه بده insertAttachmentsTx برایش mediaKey و attachmentId بسازد
+            att.setStoragePath(storagePath);
             java.util.List<FileAttachment> atts = java.util.List.of(att);
 
             boolean ok = MessageDatabase.saveMessageWithOptionalAttachments(
@@ -2914,18 +2911,17 @@ public class ClientHandler implements Runnable {
                     if (rs.next()) mediaKey = (UUID) rs.getObject(1);
                 }
             } catch (SQLException sqle) {
-                // در بدترین حالت بدون media_key ACK می‌دیم، ولی بهتره خطا رو لاگ کنیم
                 sqle.printStackTrace();
             }
 
             JSONObject ack = new JSONObject()
                     .put("status", ok ? "success" : "error")
                     .put("message_id", messageId.toString())
-                    .put("media_key", mediaKey != null ? mediaKey.toString() : JSONObject.NULL) // برای دانلود سوکتی
+                    .put("media_key", mediaKey != null ? mediaKey.toString() : JSONObject.NULL)
                     .put("file_name", fileName)
                     .put("file_size", fileSize)
                     .put("mime_type", mimeType)
-                    .put("display_path", fileUrl); // صرفاً نمایشی
+                    .put("display_path", fileUrl);
 
             out.println(ack.toString());
             out.flush();
@@ -3026,7 +3022,6 @@ public class ClientHandler implements Runnable {
             logf("MediaRow: chatType=%s chatId=%s sender=%s receiver=%s storage=%s",
                     mr.chatType, mr.chatId, mr.senderId, mr.receiverId, mr.storagePath);
 
-            // تست مستقیم دیتابیس (موقت برای دیباگ)
             try (java.sql.Connection c = ConnectionDb.connect();
                  java.sql.PreparedStatement st = c.prepareStatement(
                          "SELECT 1 FROM channel_subscribers WHERE channel_id = ? AND user_id = ? LIMIT 1")) {
@@ -3105,7 +3100,6 @@ public class ClientHandler implements Runnable {
     }
 
     private static String guessExt(String original, String mime) {
-        // اول از نام اصلی (امن چون فقط برای اکستنشن استفاده می‌کنی)
         if (original != null && original.contains(".")) {
             String ext = original.substring(original.lastIndexOf('.'));
             if (ext.length() <= 10) return ext.toLowerCase();
@@ -3114,25 +3108,22 @@ public class ClientHandler implements Runnable {
 
         String m = mime.toLowerCase();
 
-        // تصاویر
         if (m.equals("image/png"))  return ".png";
         if (m.equals("image/jpeg") || m.equals("image/jpg")) return ".jpg";
         if (m.equals("image/gif"))  return ".gif";
         if (m.equals("image/webp")) return ".webp";
 
-        // صوت
         if (m.equals("audio/mpeg") || m.equals("audio/mp3")) return ".mp3";
         if (m.equals("audio/ogg"))  return ".ogg";
         if (m.equals("audio/opus")) return ".opus";
         if (m.equals("audio/wav") || m.equals("audio/x-wav")) return ".wav";
         if (m.equals("audio/m4a") || m.equals("audio/mp4"))  return ".m4a";
 
-        // ویدیو (اگر بعدا اضافه شد)
-        if (m.equals("video/mp4"))  return ".mp4";
-        if (m.equals("video/webm")) return ".webm";
+//        if (m.equals("video/mp4"))  return ".mp4";
+//        if (m.equals("video/webm")) return ".webm";
 
         // fallback
-        if (m.startsWith("image/")) return "";   // بگذار بدون اکستنشن ذخیره شود
+        if (m.startsWith("image/")) return "";
         if (m.startsWith("audio/")) return "";
         if (m.startsWith("video/")) return "";
 

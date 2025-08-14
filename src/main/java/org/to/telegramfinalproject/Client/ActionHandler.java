@@ -3824,12 +3824,11 @@ public class ActionHandler {
         long declaredSize = att.optLong("file_size", 0L);
 
         //  ~/Downloads/TeleSock/<Account>/<Chat>/
-        String accFolder  = accountFolderName();   // ← از یوزر لاگین‌شده
-        String chatFolder = chatFolderName(chat);  // ← برای پرایوت: اسم طرف مقابل
+        String accFolder  = accountFolderName();
+        String chatFolder = chatFolderName(chat);
         Path saveDir = Paths.get(System.getProperty("user.home"),
                 "Downloads", "TeleSock", accFolder, chatFolder);
 
-        // دیباگ اختیاری
         System.out.println("👤 AccountFolder = " + accFolder);
         System.out.println("💬 ChatFolder    = " + chatFolder);
         System.out.println("📁 SaveDir       = " + saveDir);
@@ -3840,7 +3839,6 @@ public class ActionHandler {
             return;
         }
 
-        // اگر قبلاً دانلود شده (و فایل واقعاً وجود دارد) — ایندکس مخصوص همین اکانت
         DownloadsIndex di = Session.downloadsIndex;
         if (di != null) {
             Path existing = di.find(mediaKey);
@@ -3849,11 +3847,8 @@ public class ActionHandler {
                 return;
             }
         }
-
-        // جلوگیری از overwrite
         Path target = uniquePath(saveDir, fileName);
 
-        // دانلود روی همان سوکت
         TelegramClient.mediaBusy.set(true);
         try {
             Path saved = TelegramClient.getDownloader()
@@ -3873,7 +3868,6 @@ public class ActionHandler {
 
 
 
-    // نام یکتا اگر فایل موجود است: name.png -> name (1).png
     private static Path uniquePath(Path dir, String fileName) {
         Path p = dir.resolve(fileName);
         if (!Files.exists(p)) return p;
@@ -3894,12 +3888,9 @@ public class ActionHandler {
     }
 
     private static String sanitizeFileName(String s) {
-        // حذف مسیر و کاراکترهای غیرمجاز (برای ویندوز/یونیکس)
         s = s.replace("\\", "/");
         if (s.contains("/")) s = s.substring(s.lastIndexOf('/') + 1);
-        // کاراکترهای نامعتبر ویندوز: \ / : * ? " < > |
         s = s.replaceAll("[\\\\/:*?\"<>|]", "_");
-        // جلوگیری از parent traversal
         if (s.equals(".") || s.equals("..") || s.isBlank()) s = "file";
         return s;
     }
@@ -4183,7 +4174,6 @@ public class ActionHandler {
 
 
     public void sendMediaMessage(UUID receiverId, String receiverType, String type /* IMAGE/AUDIO */, File file, String caption) {
-        // اعتبارسنجی ورودی فایل (اگر ورودی از یوزر میاد، قبل از ساخت File کوتیشن‌ها رو حذف کن)
         if (file == null) {
             System.out.println("❌ File is null");
             return;
@@ -4216,21 +4206,19 @@ public class ActionHandler {
             byte[] headerBytes = header.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
             long contentLen = file.length();
 
-            // صف ACK
             BlockingQueue<JSONObject> q = new LinkedBlockingQueue<>(1);
             TelegramClient.pendingResponses.put(messageId.toString(), q);
 
             try {
-                // ⛔ مهم: فقط از outBin استفاده کن تا بافرها قاطی نشن
-                // 1) خط سوئیچ به MEDIA
+
                 outBin.write("MEDIA\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
                 outBin.flush();
 
-                // 2) فریم باینری: magic + headerLen + header + contentLen + content
+                // 2) binary frame: magic + headerLen + header + contentLen + content
                 outBin.writeInt(0x4D444D31);                 // "MDM1"
                 outBin.writeInt(headerBytes.length);         // headerLen (int)
                 outBin.write(headerBytes);                   // header
-                outBin.writeLong(contentLen);                // contentLen (long) ← مطمئن شو سرور هم Long می‌خونه
+                outBin.writeLong(contentLen);                // contentLen (long)
 
                 try (InputStream fis = new BufferedInputStream(new FileInputStream(file))) {
                     byte[] buf = new byte[8192];
@@ -4241,7 +4229,6 @@ public class ActionHandler {
                 }
                 outBin.flush();
 
-                // 3) منتظر ACK با تایم‌اوت (فقط یکی!)
                 JSONObject ack = q.poll(20, java.util.concurrent.TimeUnit.SECONDS);
                 if (ack == null) {
                     System.out.println("❌ Media ACK timeout for " + messageId);
@@ -4294,7 +4281,6 @@ public class ActionHandler {
     }
 
     private static String accountFolderName() {
-        // اولویت: username → user_id → profile_name → internal_uuid
         JSONObject me = Session.currentUser;
         String acc = me.optString("username",
                 me.optString("user_id",
@@ -4304,10 +4290,8 @@ public class ActionHandler {
     }
 
     private static String chatFolderName(ChatEntry chat) {
-        // پرایوت: اسم طرف مقابل؛ گروه/کانال: اسم چت
         String name = chat.getName();
         if (name == null || name.isBlank()) {
-            // fallback به displayId یا id
             name = chat.getDisplayId() != null && !chat.getDisplayId().isBlank()
                     ? chat.getDisplayId()
                     : String.valueOf(chat.getId());

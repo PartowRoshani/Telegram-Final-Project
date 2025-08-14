@@ -18,11 +18,9 @@ public final class SocketMediaDownloader {
 
 
     public java.nio.file.Path download(java.util.UUID mediaKey, java.nio.file.Path saveDir, String fileNameHint) throws Exception {
-        // 1) سوییچ مود با PrintWriter
         outText.print("MEDIA_DL\n");
         outText.flush();
 
-        // 2) هدر باینری درخواست
         org.json.JSONObject req = new org.json.JSONObject()
                 .put("op","download")
                 .put("media_key", mediaKey.toString())
@@ -34,7 +32,6 @@ public final class SocketMediaDownloader {
         outBin.write(hb);
         outBin.flush();
 
-        // 3) پاسخ
         int magic = inBin.readInt();
         if (magic != MAGIC_DL) throw new java.io.IOException("bad magic");
 

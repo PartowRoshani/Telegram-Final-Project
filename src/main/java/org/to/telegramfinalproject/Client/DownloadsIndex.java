@@ -22,7 +22,6 @@ public final class DownloadsIndex {
     }
 
 
-    /** مسیر فایل ایندکس مخصوص هر اکانت */
     private static Path resolveIndexPath(String accountId) {
         String os = System.getProperty("os.name", "").toLowerCase();
         String home = System.getProperty("user.home");
@@ -40,7 +39,6 @@ public final class DownloadsIndex {
         return dir.resolve("downloads-index-" + accountId + ".json");
     }
 
-    /** لود از دیسک (اگر فایل وجود داشته باشد) */
     private synchronized void load() {
         map.clear();
         try {
@@ -65,7 +63,6 @@ public final class DownloadsIndex {
         }
     }
 
-    /** ذخیره اتمیک روی دیسک */
     private synchronized void save() throws IOException {
         JSONObject items = new JSONObject();
         for (Map.Entry<UUID, Entry> it : map.entrySet()) {
@@ -86,12 +83,10 @@ public final class DownloadsIndex {
         }
     }
 
-    /** ذخیره‌ی بی‌سر‌وصدا */
     public void saveQuietly() {
         try { save(); } catch (Exception ignored) {}
     }
 
-    /** اگر قبلاً دانلود شده و فایلش هست، مسیر را برمی‌گرداند؛ وگرنه رکورد کهنه پاک می‌شود. */
     public Path find(UUID mediaKey) {
         Entry e = map.get(mediaKey);
         if (e == null) return null;
@@ -102,13 +97,11 @@ public final class DownloadsIndex {
         return null;
     }
 
-    /** بعد از دانلود موفق */
     public void put(UUID mediaKey, Path path, long size) {
         map.put(mediaKey, new Entry(path.toString(), size, System.currentTimeMillis()));
         saveQuietly();
     }
 
-    /** اختیاری */
     public void remove(UUID mediaKey) {
         map.remove(mediaKey);
         saveQuietly();
