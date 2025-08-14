@@ -22,6 +22,15 @@ public class ClientHandler implements Runnable {
     private final AuthService authService = new AuthService();
     private User currentUser;
 
+    // ClientHandler.java
+    private static void log(String msg) {
+        System.out.println(java.time.LocalDateTime.now() + " [ClientHandler] " + msg);
+    }
+    private static void logf(String fmt, Object... args) {
+        log(String.format(fmt, args));
+    }
+
+
 
     public ClientHandler(Socket socket) {
         this.socket = socket;
@@ -72,12 +81,17 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
+
                 if ("MEDIA_DL".equalsIgnoreCase(line)) {
-                    if (this.currentUser.getInternal_uuid() == null) {
+                    UUID cu = (currentUser == null ? null : currentUser.getInternal_uuid());
+                    logf("MEDIA_DL received. currentUser.internal_uuid=%s", cu);
+
+                    if (cu == null) {
+                        log("MEDIA_DL rejected: currentUser is null or no internal_uuid");
                         sendDlErr(dos, "not authorized");
                         continue;
                     }
-                    handleMediaDownload(dis, dos, this.currentUser.getInternal_uuid());
+                    handleMediaDownload(dis, dos, cu);
                     continue;
                 }
 
@@ -2925,8 +2939,68 @@ public class ClientHandler implements Runnable {
 
     private static final int MAGIC_DL = 0x4D444D32; // "MDM2"
 
+//    private void handleMediaDownload(DataInputStream inBin, DataOutputStream outBin, UUID requesterId) {
+//        try {
+//            int magic = inBin.readInt();
+//            if (magic != MAGIC_DL) { sendDlErr(outBin, "bad magic"); return; }
+//
+//            int hlen = inBin.readInt();
+//            if (hlen <= 0 || hlen > 64 * 1024) { sendDlErr(outBin, "bad header length"); return; }
+//
+//            byte[] hb = inBin.readNBytes(hlen);
+//            if (hb.length != hlen) { sendDlErr(outBin, "header truncated"); return; }
+//
+//            JSONObject hdr = new JSONObject(new String(hb, java.nio.charset.StandardCharsets.UTF_8));
+//            if (!"download".equalsIgnoreCase(hdr.optString("op"))) { sendDlErr(outBin, "bad op"); return; }
+//
+//            UUID mediaKey = UUID.fromString(hdr.getString("media_key"));
+//            long offset   = Math.max(0L, hdr.optLong("offset", 0L));
+//
+//            MediaRow mr = MessageDatabase.findMediaByKey(mediaKey);
+//            if (mr == null) { sendDlErr(outBin, "not found"); return; }
+//            if (!MessageDatabase.canAccess(requesterId, mr)) { sendDlErr(outBin, "not authorized"); return; }
+//
+//            java.nio.file.Path path = java.nio.file.Paths.get(mr.storagePath).normalize();
+//            long size = java.nio.file.Files.size(path);
+//            if (offset > size) offset = 0L;
+//
+//            JSONObject ok = new JSONObject()
+//                    .put("status","success")
+//                    .put("media_key", mediaKey.toString())
+//                    .put("file_name", mr.fileName)
+//                    .put("mime_type", mr.mimeType)
+//                    .put("file_size", size);
+//
+//            byte[] okb = ok.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+//
+//            outBin.writeInt(MAGIC_DL);
+//            outBin.writeInt(okb.length);
+//            outBin.write(okb);
+//            outBin.writeLong(size - offset);
+//
+//            try (java.io.InputStream fis = new java.io.BufferedInputStream(java.nio.file.Files.newInputStream(path))) {
+//                if (offset > 0) fis.skipNBytes(offset);
+//                byte[] buf = new byte[8192];
+//                long remain = size - offset;
+//                while (remain > 0) {
+//                    int n = fis.read(buf, 0, (int) Math.min(buf.length, remain));
+//                    if (n == -1) break;
+//                    outBin.write(buf, 0, n);
+//                    remain -= n;
+//                }
+//            }
+//            outBin.flush();
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            try { sendDlErr(outBin, "exception"); } catch (Exception ignored) {}
+//        }
+//    }
+
     private void handleMediaDownload(DataInputStream inBin, DataOutputStream outBin, UUID requesterId) {
         try {
+            logf("MEDIA_DL start. requester=%s", requesterId);
+
             int magic = inBin.readInt();
             if (magic != MAGIC_DL) { sendDlErr(outBin, "bad magic"); return; }
 
@@ -2936,15 +3010,38 @@ public class ClientHandler implements Runnable {
             byte[] hb = inBin.readNBytes(hlen);
             if (hb.length != hlen) { sendDlErr(outBin, "header truncated"); return; }
 
-            JSONObject hdr = new JSONObject(new String(hb, java.nio.charset.StandardCharsets.UTF_8));
+            String hdrStr = new String(hb, java.nio.charset.StandardCharsets.UTF_8);
+            logf("MEDIA_DL header: %s", hdrStr);
+
+            JSONObject hdr = new JSONObject(hdrStr);
             if (!"download".equalsIgnoreCase(hdr.optString("op"))) { sendDlErr(outBin, "bad op"); return; }
 
             UUID mediaKey = UUID.fromString(hdr.getString("media_key"));
             long offset   = Math.max(0L, hdr.optLong("offset", 0L));
+            logf("Parsed mediaKey=%s offset=%d", mediaKey, offset);
 
             MediaRow mr = MessageDatabase.findMediaByKey(mediaKey);
             if (mr == null) { sendDlErr(outBin, "not found"); return; }
-            if (!MessageDatabase.canAccess(requesterId, mr)) { sendDlErr(outBin, "not authorized"); return; }
+
+            logf("MediaRow: chatType=%s chatId=%s sender=%s receiver=%s storage=%s",
+                    mr.chatType, mr.chatId, mr.senderId, mr.receiverId, mr.storagePath);
+
+            // تست مستقیم دیتابیس (موقت برای دیباگ)
+            try (java.sql.Connection c = ConnectionDb.connect();
+                 java.sql.PreparedStatement st = c.prepareStatement(
+                         "SELECT 1 FROM channel_subscribers WHERE channel_id = ? AND user_id = ? LIMIT 1")) {
+                st.setObject(1, mr.chatId, java.sql.Types.OTHER);
+                st.setObject(2, requesterId, java.sql.Types.OTHER);
+                boolean direct;
+                try (java.sql.ResultSet r = st.executeQuery()) { direct = r.next(); }
+                logf("[DL] direct channel membership ch=%s user=%s => %s", mr.chatId, requesterId, direct);
+            } catch (Exception e) {
+                logf("[DL] direct membership check ERROR: %s", e.toString());
+            }
+
+            boolean allowed = MessageDatabase.canAccess(requesterId, mr);
+            logf("canAccess(..) -> %s", allowed);
+            if (!allowed) { sendDlErr(outBin, "not authorized"); return; }
 
             java.nio.file.Path path = java.nio.file.Paths.get(mr.storagePath).normalize();
             long size = java.nio.file.Files.size(path);
@@ -2963,6 +3060,7 @@ public class ClientHandler implements Runnable {
             outBin.writeInt(okb.length);
             outBin.write(okb);
             outBin.writeLong(size - offset);
+            logf("Sending OK header. file=%s size=%d offset=%d", mr.fileName, size, offset);
 
             try (java.io.InputStream fis = new java.io.BufferedInputStream(java.nio.file.Files.newInputStream(path))) {
                 if (offset > 0) fis.skipNBytes(offset);
@@ -2976,6 +3074,7 @@ public class ClientHandler implements Runnable {
                 }
             }
             outBin.flush();
+            log("MEDIA_DL done.");
 
         } catch (Exception e) {
             e.printStackTrace();

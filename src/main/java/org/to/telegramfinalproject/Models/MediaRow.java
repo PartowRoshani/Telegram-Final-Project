@@ -19,4 +19,6 @@ public class MediaRow {
     public Integer durationSeconds; //for audio only
     public String thumbnailUrl;
     public String fileUrl;     //display link
+    public String chatType;
+    public UUID chatId;
 }

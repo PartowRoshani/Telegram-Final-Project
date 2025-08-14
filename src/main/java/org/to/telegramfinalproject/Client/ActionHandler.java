@@ -3823,43 +3823,44 @@ public class ActionHandler {
         String fileName = sanitizeFileName(rawName);
         long declaredSize = att.optLong("file_size", 0L);
 
-        // ~/Downloads/TeleSock/<chatDisplayOrId or ChatUUID>/
-        String folderName = (chat.getDisplayId() != null && !chat.getDisplayId().isBlank())
-                ? chat.getDisplayId() : chat.getId().toString();
-        Path saveDir = Paths.get(System.getProperty("user.home"), "Downloads", "TeleSock", folderName);
+        //  ~/Downloads/TeleSock/<Account>/<Chat>/
+        String accFolder  = accountFolderName();   // ← از یوزر لاگین‌شده
+        String chatFolder = chatFolderName(chat);  // ← برای پرایوت: اسم طرف مقابل
+        Path saveDir = Paths.get(System.getProperty("user.home"),
+                "Downloads", "TeleSock", accFolder, chatFolder);
 
-        try { Files.createDirectories(saveDir); } catch (IOException e) {
+        // دیباگ اختیاری
+        System.out.println("👤 AccountFolder = " + accFolder);
+        System.out.println("💬 ChatFolder    = " + chatFolder);
+        System.out.println("📁 SaveDir       = " + saveDir);
+
+        try { Files.createDirectories(saveDir); }
+        catch (IOException e) {
             System.out.println("❌ Cannot create folder: " + saveDir + " -> " + e.getMessage());
             return;
         }
 
-        // اگر قبلاً دانلود شده (و فایل واقعاً وجود دارد)
-        try {
-            Path existing = Session.downloadsIndex.find(mediaKey);
+        // اگر قبلاً دانلود شده (و فایل واقعاً وجود دارد) — ایندکس مخصوص همین اکانت
+        DownloadsIndex di = Session.downloadsIndex;
+        if (di != null) {
+            Path existing = di.find(mediaKey);
             if (existing != null) {
                 System.out.println("✅ Already downloaded: " + existing);
                 return;
             }
-        } catch (IllegalStateException notInit) {
-            System.out.println("⚠️ DownloadsIndex not initialized. Call DownloadsIndex.init(<internal_uuid>) after login.");
-            // ادامه می‌دهیم؛ فقط کش نمی‌شود.
         }
 
-        // جلوگیری از overwrite با انتخاب نام یکتا
+        // جلوگیری از overwrite
         Path target = uniquePath(saveDir, fileName);
 
-
-        // دانلود روی همان سوکت: Listener را موقتاً متوقف کن
+        // دانلود روی همان سوکت
         TelegramClient.mediaBusy.set(true);
         try {
-            Path saved = TelegramClient.getDownloader().download(mediaKey, saveDir, target.getFileName().toString());
+            Path saved = TelegramClient.getDownloader()
+                    .download(mediaKey, saveDir, target.getFileName().toString());
 
             long sizeToRecord = declaredSize > 0 ? declaredSize : Files.size(saved);
-            try {
-               Session.downloadsIndex.put(mediaKey, saved, sizeToRecord);
-            } catch (IllegalStateException notInit) {
-                // اگر init نشده بود، تنها کش نمی‌کنیم
-            }
+            if (di != null) di.put(mediaKey, saved, sizeToRecord);
 
             System.out.println("✅ Saved to: " + saved + "  (" + humanSize(sizeToRecord) + ")");
         } catch (Exception ex) {
@@ -3868,6 +3869,9 @@ public class ActionHandler {
             TelegramClient.mediaBusy.set(false);
         }
     }
+
+
+
 
     // نام یکتا اگر فایل موجود است: name.png -> name (1).png
     private static Path uniquePath(Path dir, String fileName) {

@@ -73,4 +73,29 @@ public class ChannelPermissionUtil {
         }
         return false;
     }
+
+
+
+    public static boolean isUserInChannel(UUID userId, UUID channelId) {
+        final String SQL = "SELECT 1 FROM channel_subscribers WHERE channel_id = ? AND user_id = ? LIMIT 1";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(SQL)) {
+
+            ps.setObject(1, channelId, java.sql.Types.OTHER); // 👈 مهم برای Postgres UUID
+            ps.setObject(2, userId,    java.sql.Types.OTHER);
+
+            System.out.println("[SQL] isUserInChannel ch=" + channelId + " user=" + userId
+                    + " db=" + conn.getMetaData().getURL());
+
+            try (ResultSet rs = ps.executeQuery()) {
+                boolean ok = rs.next();
+                System.out.println("[SQL] isUserInChannel -> " + ok);
+                return ok;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 }

@@ -3,6 +3,7 @@ package org.to.telegramfinalproject.Database;
 import org.to.telegramfinalproject.Models.FileAttachment;
 import org.to.telegramfinalproject.Models.MediaRow;
 import org.to.telegramfinalproject.Models.Message;
+import org.to.telegramfinalproject.Utils.ChannelPermissionUtil;
 
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -1355,7 +1356,7 @@ public class MessageDatabase {
                 return GroupDatabase.isMember(mr.receiverId, requester);
 
             case "channel":
-                return ChannelDatabase.isUserInChannel(mr.receiverId, requester);
+                return ChannelPermissionUtil.isUserInChannel(requester, mr.receiverId);
 
             default:
                 return false;
