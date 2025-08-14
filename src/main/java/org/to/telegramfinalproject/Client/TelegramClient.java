@@ -4,12 +4,14 @@ import org.json.JSONObject;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TelegramClient {
     private static final String SERVER_HOST = "localhost";
@@ -22,13 +24,20 @@ public class TelegramClient {
     public static BlockingQueue<JSONObject> responseQueue = new LinkedBlockingQueue<>();
     public static UUID loggedInUserId = null;
     public static final Map<String, BlockingQueue<JSONObject>> pendingResponses = new ConcurrentHashMap<>();
-
+    private DataInputStream inBin;                     // NEW
+    private static SocketMediaDownloader downloader;   // NEW
+    public static final AtomicBoolean mediaBusy = new AtomicBoolean(false); //
+    private DownloadsIndex downloadIndex;
 
     private static TelegramClient instance;
 
     public TelegramClient() {
         this.scanner = new Scanner(System.in);
         instance = this;
+    }
+
+    public static SocketMediaDownloader getDownloader() {
+        return downloader;
     }
 
     public static TelegramClient getInstance() {
@@ -39,9 +48,14 @@ public class TelegramClient {
     public void start() {
         try {
             socket = new Socket(SERVER_HOST, SERVER_PORT);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            out = new PrintWriter(socket.getOutputStream(), true);
-            outBin = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream())); // برای MEDIA
+            InputStream rawIn  = socket.getInputStream();
+            OutputStream rawOut = socket.getOutputStream();
+            in  = new BufferedReader(new InputStreamReader(rawIn, StandardCharsets.UTF_8));
+            out = new PrintWriter(new OutputStreamWriter(rawOut, StandardCharsets.UTF_8), true);
+
+            inBin  = new DataInputStream(rawIn);
+            outBin = new DataOutputStream(rawOut);
+            downloader = new SocketMediaDownloader(out, inBin, outBin);
 
             System.out.println("✅ Connected to Telegram Server");
             handler = new ActionHandler(out, in, outBin, scanner);
@@ -78,7 +92,7 @@ public class TelegramClient {
 
                         UUID internalId = UUID.fromString(Session.currentUser.getString("internal_uuid"));
                         loggedInUserId = internalId;
-
+                        this.downloadIndex = DownloadIndexRegistry.forAccount(internalId);
                         handler.userMenu(internalId);
                     } else {
                         System.out.println("❌ Login failed.");
@@ -120,3 +134,4 @@ public class TelegramClient {
     }
 
 }
+

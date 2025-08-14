@@ -7,6 +7,9 @@ import org.to.telegramfinalproject.Models.ContactEntry;
 import org.to.telegramfinalproject.Models.SearchRequestModel;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
@@ -23,19 +26,11 @@ public class ActionHandler {
 
 
 
-
-
     private void handleRealTime(JSONObject json) throws IOException {
         IncomingMessageListener listener = new IncomingMessageListener(this.in);
         listener.handleRealTimeEvent (json);
     }
-//    public ActionHandler(PrintWriter out, BufferedReader in, Scanner scanner) {
-//        this.out = out;
-//        this.in = in;
-//        this.scanner = scanner;
-//        ActionHandler.instance = this;
-//
-//    }
+
     public ActionHandler(PrintWriter out, BufferedReader in, DataOutputStream outBin, Scanner scanner) {
         this.out = out;
         this.in = in;
@@ -476,6 +471,12 @@ public class ActionHandler {
                 case "login":
                 case "register":
                     Session.currentUser = response.getJSONObject("data");
+
+                    //for downloaded medias
+                    UUID accountId = UUID.fromString(Session.currentUser.getString("internal_uuid"));
+                    Session.downloadsIndex = new DownloadsIndex(accountId);
+
+
 
                     JSONArray chatListJson = Session.currentUser.getJSONArray("chat_list");
                     JSONArray Archived = Session.currentUser.getJSONArray("archived_chat_list");
@@ -3648,6 +3649,18 @@ public class ActionHandler {
                     replyLabel = "↪️ Reply to " + repliedSender + ": \"" + repliedContent + "\"";
                 }
 
+                JSONArray atts = msg.optJSONArray("attachments");
+                if (atts != null && atts.length() > 0) {
+                    System.out.println("  📎 " + atts.length() + " attachment(s)");
+                    for (int a = 0; a < atts.length(); a++) {
+                        JSONObject att = atts.getJSONObject(a);
+                        String fn = att.optString("file_name", "(unnamed)");
+                        long sz = att.optLong("file_size", 0);
+                        System.out.printf("    - #%d %s (%s)\n", a + 1, fn, humanSize(sz));
+                    }
+                }
+
+
                 JSONArray reactions = msg.optJSONArray("reactions");
                 if (reactions != null && !reactions.isEmpty()) {
                     System.out.print(" 💬 Reactions: ");
@@ -3697,6 +3710,10 @@ public class ActionHandler {
                 boolean isSender = senderId.toString().equals(Session.currentUser.getString("internal_uuid"));
                 boolean isChannel = chat.getType().equals("channel");
                 boolean isOwnerOrAdmin = chat.isOwner() || chat.isAdmin();
+                //for media
+                JSONArray atts = selected.optJSONArray("attachments");
+                boolean hasAttachments = (atts != null && atts.length() > 0);
+
 
                 System.out.println("\n🎯 Selected message by " + selected.getString("sender_name"));
 
@@ -3721,6 +3738,9 @@ public class ActionHandler {
                     if (isSender || isOwnerOrAdmin) {
                         System.out.println("5. Delete");
                     }
+                }
+                if (hasAttachments) {
+                    System.out.println("D. Download attachment");
                 }
 
                 System.out.println("0. Back to message list");
@@ -3754,6 +3774,15 @@ public class ActionHandler {
                             System.out.println("❌ You are not allowed to delete this message.");
                     }
                     case "0" -> {}
+
+                    case "D", "d" -> {
+                        if (hasAttachments) {
+                            downloadAttachmentFlow(chat, selected);
+                        } else {
+                            System.out.println("🚫 No attachments to download.");
+                        }
+                    }
+
                     default -> System.out.println("❌ Invalid option.");
                 }
 
@@ -3762,6 +3791,126 @@ public class ActionHandler {
             }
         }
     }
+
+    private void downloadAttachmentFlow(ChatEntry chat, JSONObject msg) {
+        JSONArray atts = msg.optJSONArray("attachments");
+        if (atts == null || atts.length() == 0) {
+            System.out.println("🚫 No attachments.");
+            return;
+        }
+
+        int idx = 0;
+        if (atts.length() > 1) {
+            System.out.print("Which attachment [1.." + atts.length() + "]? ");
+            try {
+                String ans = scanner.nextLine().trim();
+                if (!ans.isEmpty()) {
+                    int n = Integer.parseInt(ans);
+                    if (n >= 1 && n <= atts.length()) idx = n - 1;
+                }
+            } catch (Exception ignored) { idx = 0; }
+        }
+
+        JSONObject att = atts.getJSONObject(idx);
+        String mediaKeyStr = att.optString("media_key", "");
+        if (mediaKeyStr.isBlank()) {
+            System.out.println("❌ Attachment missing media_key.");
+            return;
+        }
+
+        UUID mediaKey = UUID.fromString(mediaKeyStr);
+        String rawName = att.optString("file_name", mediaKey.toString());
+        String fileName = sanitizeFileName(rawName);
+        long declaredSize = att.optLong("file_size", 0L);
+
+        // ~/Downloads/TeleSock/<chatDisplayOrId or ChatUUID>/
+        String folderName = (chat.getDisplayId() != null && !chat.getDisplayId().isBlank())
+                ? chat.getDisplayId() : chat.getId().toString();
+        Path saveDir = Paths.get(System.getProperty("user.home"), "Downloads", "TeleSock", folderName);
+
+        try { Files.createDirectories(saveDir); } catch (IOException e) {
+            System.out.println("❌ Cannot create folder: " + saveDir + " -> " + e.getMessage());
+            return;
+        }
+
+        // اگر قبلاً دانلود شده (و فایل واقعاً وجود دارد)
+        try {
+            Path existing = Session.downloadsIndex.find(mediaKey);
+            if (existing != null) {
+                System.out.println("✅ Already downloaded: " + existing);
+                return;
+            }
+        } catch (IllegalStateException notInit) {
+            System.out.println("⚠️ DownloadsIndex not initialized. Call DownloadsIndex.init(<internal_uuid>) after login.");
+            // ادامه می‌دهیم؛ فقط کش نمی‌شود.
+        }
+
+        // جلوگیری از overwrite با انتخاب نام یکتا
+        Path target = uniquePath(saveDir, fileName);
+
+
+        // دانلود روی همان سوکت: Listener را موقتاً متوقف کن
+        TelegramClient.mediaBusy.set(true);
+        try {
+            Path saved = TelegramClient.getDownloader().download(mediaKey, saveDir, target.getFileName().toString());
+
+            long sizeToRecord = declaredSize > 0 ? declaredSize : Files.size(saved);
+            try {
+               Session.downloadsIndex.put(mediaKey, saved, sizeToRecord);
+            } catch (IllegalStateException notInit) {
+                // اگر init نشده بود، تنها کش نمی‌کنیم
+            }
+
+            System.out.println("✅ Saved to: " + saved + "  (" + humanSize(sizeToRecord) + ")");
+        } catch (Exception ex) {
+            System.out.println("❌ Download failed: " + ex.getMessage());
+        } finally {
+            TelegramClient.mediaBusy.set(false);
+        }
+    }
+
+    // نام یکتا اگر فایل موجود است: name.png -> name (1).png
+    private static Path uniquePath(Path dir, String fileName) {
+        Path p = dir.resolve(fileName);
+        if (!Files.exists(p)) return p;
+
+        String name = fileName;
+        String ext  = "";
+        int dot = fileName.lastIndexOf('.');
+        if (dot > 0 && dot < fileName.length()-1) {
+            name = fileName.substring(0, dot);
+            ext  = fileName.substring(dot); // includes dot
+        }
+        int i = 1;
+        while (true) {
+            Path cand = dir.resolve(String.format("%s (%d)%s", name, i, ext));
+            if (!Files.exists(cand)) return cand;
+            i++;
+        }
+    }
+
+    private static String sanitizeFileName(String s) {
+        // حذف مسیر و کاراکترهای غیرمجاز (برای ویندوز/یونیکس)
+        s = s.replace("\\", "/");
+        if (s.contains("/")) s = s.substring(s.lastIndexOf('/') + 1);
+        // کاراکترهای نامعتبر ویندوز: \ / : * ? " < > |
+        s = s.replaceAll("[\\\\/:*?\"<>|]", "_");
+        // جلوگیری از parent traversal
+        if (s.equals(".") || s.equals("..") || s.isBlank()) s = "file";
+        return s;
+    }
+
+    private static String humanSize(long b) {
+        if (b <= 0) return "0 B";
+        String[] u = {"B","KB","MB","GB","TB"};
+        int i = (int) Math.floor(Math.log(b) / Math.log(1024));
+        if (i < 0) i = 0;
+        if (i >= u.length) i = u.length - 1;
+        double v = b / Math.pow(1024, i);
+        return String.format("%.1f %s", v, u[i]);
+    }
+
+
 
     private void editMessage(UUID messageId) {
         System.out.print("📝 Enter new content: ");
@@ -4127,6 +4276,39 @@ public class ActionHandler {
         if (name.endsWith(".wav"))  return "audio/wav";
         if (name.endsWith(".ogg"))  return "audio/ogg";
         return typeUpper.equals("IMAGE") ? "image/*" : "audio/*";
+    }
+
+
+
+    private static String safeName(String s) {
+        if (s == null) return "unknown";
+        s = s.replace("\\", "/");
+        if (s.contains("/")) s = s.substring(s.lastIndexOf('/') + 1);
+        s = s.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+        if (s.isEmpty() || s.equals(".") || s.equals("..")) s = "unknown";
+        return s;
+    }
+
+    private static String accountFolderName() {
+        // اولویت: username → user_id → profile_name → internal_uuid
+        JSONObject me = Session.currentUser;
+        String acc = me.optString("username",
+                me.optString("user_id",
+                        me.optString("profile_name",
+                                me.optString("internal_uuid", "me"))));
+        return safeName(acc);
+    }
+
+    private static String chatFolderName(ChatEntry chat) {
+        // پرایوت: اسم طرف مقابل؛ گروه/کانال: اسم چت
+        String name = chat.getName();
+        if (name == null || name.isBlank()) {
+            // fallback به displayId یا id
+            name = chat.getDisplayId() != null && !chat.getDisplayId().isBlank()
+                    ? chat.getDisplayId()
+                    : String.valueOf(chat.getId());
+        }
+        return safeName(name);
     }
 
 

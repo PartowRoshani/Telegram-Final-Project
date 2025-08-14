@@ -1,14 +1,12 @@
 package org.to.telegramfinalproject.Database;
 
 import org.to.telegramfinalproject.Models.FileAttachment;
+import org.to.telegramfinalproject.Models.MediaRow;
 import org.to.telegramfinalproject.Models.Message;
 
 import java.sql.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class MessageDatabase {
@@ -1194,6 +1192,173 @@ public class MessageDatabase {
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
+        }
+    }
+
+
+//
+//    public static MediaRow findMediaByKey(UUID mediaKey) throws SQLException {
+//        final String sql = """
+//        SELECT a.message_id, a.storage_path, a.file_name, a.mime_type, a.file_size,
+//               m.receiver_type, m.receiver_id, m.sender_id
+//        FROM message_attachments a
+//        JOIN messages m ON m.message_id = a.message_id
+//        WHERE a.media_key = ?
+//    """;
+//        try (Connection c = ConnectionDb.connect();
+//             PreparedStatement ps = c.prepareStatement(sql)) {
+//            ps.setObject(1, mediaKey);
+//            try (ResultSet rs = ps.executeQuery()) {
+//                if (!rs.next()) return null;
+//                MediaRow mr = new MediaRow();
+//                mr.messageId   = (UUID) rs.getObject(1);
+//                mr.storagePath = rs.getString(2);
+//                mr.fileName    = rs.getString(3);
+//                mr.mimeType    = rs.getString(4);
+//                mr.fileSize    = rs.getLong(5);
+//                mr.receiverType= rs.getString(6);
+//                mr.receiverId  = (UUID) rs.getObject(7);
+//                mr.senderId    = (UUID) rs.getObject(8);
+//                return mr;
+//            }
+//        }
+//    }
+
+//    public static boolean canAccess(UUID requester, MediaRow mr) {
+//        if ("private".equals(mr.receiverType)) {
+//            return requester.equals(mr.senderId) || requester.equals(mr.receiverId);
+//        } else if ("group".equals(mr.receiverType)) {
+//            return GroupDatabase.isMember(mr.receiverId, requester);
+//        } else if ("channel".equals(mr.receiverType)) {
+//            return ChannelDatabase.isUserInChannel(mr.receiverId, requester);
+//        }
+//        return false;
+//    }
+
+    public static Map<UUID, List<MediaRow>> findAttachmentsForMessages(List<UUID> ids) throws SQLException {
+        Map<UUID, List<MediaRow>> map = new java.util.HashMap<>();
+        if (ids == null || ids.isEmpty()) return map;
+
+        // ساخت IN به‌صورت امن
+        String placeholders = ids.stream().map(x -> "?").collect(java.util.stream.Collectors.joining(","));
+        String sql = """
+        SELECT attachment_id, message_id, media_key, file_name, file_size, mime_type, file_type,
+               width, height, duration_seconds, thumbnail_url, file_url, storage_path
+        FROM message_attachments
+        WHERE message_id IN (""" + placeholders + ") ORDER BY uploaded_at ASC";
+
+        try (Connection c = ConnectionDb.connect();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            int i = 1;
+            for (UUID id : ids) ps.setObject(i++, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    MediaRow a = new MediaRow();
+                    a.attachmentId    = (UUID) rs.getObject("attachment_id");
+                    a.messageId       = (UUID) rs.getObject("message_id");
+                    a.mediaKey        = (UUID) rs.getObject("media_key");
+                    a.fileName        = rs.getString("file_name");
+                    long sz           = rs.getLong("file_size");
+                    a.fileSize        = rs.wasNull() ? null : sz;
+                    a.mimeType        = rs.getString("mime_type");
+                    a.fileType        = rs.getString("file_type");
+                    int w             = rs.getInt("width");
+                    a.width           = rs.wasNull() ? null : w;
+                    int h             = rs.getInt("height");
+                    a.height          = rs.wasNull() ? null : h;
+                    int d             = rs.getInt("duration_seconds");
+                    a.durationSeconds = rs.wasNull() ? null : d;
+                    a.thumbnailUrl    = rs.getString("thumbnail_url");
+                    a.fileUrl         = rs.getString("file_url");
+                    a.storagePath     = rs.getString("storage_path");
+
+                    map.computeIfAbsent(a.messageId, k -> new java.util.ArrayList<>()).add(a);
+                }
+            }
+        }
+        return map;
+    }
+
+
+
+
+
+    public static MediaRow findMediaByKey(UUID mediaKey) throws SQLException {
+        String sql = """
+        SELECT
+          ma.attachment_id,
+          ma.message_id,
+          ma.media_key,
+          ma.file_name,
+          ma.file_size,
+          ma.mime_type,
+          ma.file_type,
+          ma.width,
+          ma.height,
+          ma.duration_seconds,
+          ma.thumbnail_url,
+          ma.file_url,
+          ma.storage_path,
+          m.receiver_type,
+          m.receiver_id,
+          m.sender_id
+        FROM message_attachments ma
+        JOIN messages m ON m.message_id = ma.message_id
+        WHERE ma.media_key = ?
+        LIMIT 1
+    """;
+
+        try (Connection c = ConnectionDb.connect();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setObject(1, mediaKey);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+
+                MediaRow a = new MediaRow();
+                a.attachmentId    = (UUID) rs.getObject("attachment_id");
+                a.messageId       = (UUID) rs.getObject("message_id");
+                a.mediaKey        = (UUID) rs.getObject("media_key");
+                a.fileName        = rs.getString("file_name");
+
+                long sz = rs.getLong("file_size");
+                a.fileSize = rs.wasNull() ? null : sz; // MediaRow.fileSize = Long
+
+                a.mimeType        = rs.getString("mime_type");
+                a.fileType        = rs.getString("file_type");
+                int w = rs.getInt("width");            a.width  = rs.wasNull() ? null : w;
+                int h = rs.getInt("height");           a.height = rs.wasNull() ? null : h;
+                int d = rs.getInt("duration_seconds"); a.durationSeconds = rs.wasNull() ? null : d;
+                a.thumbnailUrl    = rs.getString("thumbnail_url");
+                a.fileUrl         = rs.getString("file_url");
+                a.storagePath     = rs.getString("storage_path");
+                a.receiverType    = rs.getString("receiver_type");
+                a.receiverId      = (UUID) rs.getObject("receiver_id");
+                a.senderId        = (UUID) rs.getObject("sender_id");
+                return a;
+            }
+        }
+    }
+
+
+    public static boolean canAccess(UUID requester, MediaRow mr) {
+        if (requester == null || mr == null || mr.receiverType == null) return false;
+
+        // اختیاری: فرستنده همیشه مجاز
+        if (requester.equals(mr.senderId)) return true;
+
+        switch (mr.receiverType.toLowerCase(Locale.ROOT)) {
+            case "private":
+                // receiver_id در پیام‌های private = UUID چت خصوصی
+                return PrivateChatDatabase.isParticipant(mr.receiverId, requester);
+
+            case "group":
+                return GroupDatabase.isMember(mr.receiverId, requester);
+
+            case "channel":
+                return ChannelDatabase.isUserInChannel(mr.receiverId, requester);
+
+            default:
+                return false;
         }
     }
 

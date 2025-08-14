@@ -32,12 +32,31 @@ public class ClientHandler implements Runnable {
         UUID userId = null;
 
         try (
+
+//                InputStream  rawIn  = socket.getInputStream();
+//                OutputStream rawOut = socket.getOutputStream();
+//
+//                BufferedReader in = new BufferedReader(new InputStreamReader(rawIn, java.nio.charset.StandardCharsets.UTF_8));
+//                PrintWriter    out = new PrintWriter(new OutputStreamWriter(rawOut, java.nio.charset.StandardCharsets.UTF_8), true);
+
+//                DataInputStream  dis  = new DataInputStream(rawIn);
+//                DataOutputStream dos  = new DataOutputStream(new BufferedOutputStream(rawOut));
+
 //                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 //                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
-                BufferedInputStream bis = new BufferedInputStream(socket.getInputStream());
-                DataInputStream dis = new DataInputStream(bis); //for binary headers
+//                BufferedInputStream bis = new BufferedInputStream(socket.getInputStream());
+               // DataInputStream dis = new DataInputStream(bis); //for binary headers
 
-                PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8), true);
+                //PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8), true);
+               InputStream  rawIn  = socket.getInputStream();
+               OutputStream rawOut = socket.getOutputStream();
+
+               BufferedInputStream  bis = new BufferedInputStream(rawIn);
+               BufferedOutputStream bos = new BufferedOutputStream(rawOut);
+
+               DataInputStream  dis = new DataInputStream(bis);
+               DataOutputStream dos = new DataOutputStream(bos);
+               PrintWriter      out = new PrintWriter(new OutputStreamWriter(bos, java.nio.charset.StandardCharsets.UTF_8), true);
 
         ) {
 
@@ -45,8 +64,20 @@ public class ClientHandler implements Runnable {
 
             String inputLine;
             while ((inputLine = readUtf8Line(bis)) != null) {
+
+                String line = inputLine.trim();
+
                 if ("MEDIA".equalsIgnoreCase(inputLine.trim())) {
                     handleMediaFrame(dis, out);
+                    continue;
+                }
+
+                if ("MEDIA_DL".equalsIgnoreCase(line)) {
+                    if (this.currentUser.getInternal_uuid() == null) {
+                        sendDlErr(dos, "not authorized");
+                        continue;
+                    }
+                    handleMediaDownload(dis, dos, this.currentUser.getInternal_uuid());
                     continue;
                 }
 
@@ -2144,6 +2175,13 @@ public class ClientHandler implements Runnable {
 
                         List<Message> messages = MessageDatabase.getMessagesForChat(chatId, chatType, currentUser.getInternal_uuid(), offset, limit);
 
+                        java.util.List<UUID> mids = new java.util.ArrayList<>();
+                        for (Message m : messages) mids.add(m.getMessage_id());
+
+                        // ⬅️ همهٔ اتچمنت‌ها را یک‌جا بگیر: message_id -> list(attachments)
+                        java.util.Map<UUID, java.util.List<MediaRow>> attMap =
+                                MessageDatabase.findAttachmentsForMessages(mids);
+
                         JSONArray result = new JSONArray();
                         for (Message m : messages) {
                             JSONObject obj = new JSONObject();
@@ -2209,6 +2247,26 @@ public class ClientHandler implements Runnable {
                             //For reactions
                             List<String> reactions = MessageReactionDatabase.getReactions(m.getMessage_id());
                             obj.put("reactions", new JSONArray(reactions));
+
+
+                            JSONArray atts = new JSONArray();
+                            java.util.List<MediaRow> list = attMap.getOrDefault(m.getMessage_id(), java.util.Collections.emptyList());
+                            for (MediaRow a : list) {
+                                JSONObject aj = new JSONObject()
+                                        .put("media_key", a.mediaKey != null ? a.mediaKey.toString() : JSONObject.NULL)
+                                        .put("file_name", a.fileName != null ? a.fileName : JSONObject.NULL)
+                                        .put("file_size", a.fileSize != null ? a.fileSize : JSONObject.NULL)
+                                        .put("mime_type", a.mimeType != null ? a.mimeType : JSONObject.NULL)
+                                        .put("file_type", a.fileType != null ? a.fileType : JSONObject.NULL)
+                                        .put("width",     a.width   != null ? a.width   : JSONObject.NULL)
+                                        .put("height",    a.height  != null ? a.height  : JSONObject.NULL)
+                                        .put("duration_seconds", a.durationSeconds != null ? a.durationSeconds : JSONObject.NULL)
+                                        .put("thumbnail_url", a.thumbnailUrl != null ? a.thumbnailUrl : JSONObject.NULL)
+                                        // اختیاری/دیباگ
+                                        .put("file_url", a.fileUrl != null ? a.fileUrl : JSONObject.NULL);
+                                atts.put(aj);
+                            }
+                            obj.put("attachments", atts);
 
 
                             result.put(obj);
@@ -2570,7 +2628,9 @@ public class ClientHandler implements Runnable {
                 userDatabase.updateLastSeen(userId);
                 SessionManager.removeUser(userId);
             }
-        }   finally {
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
             try {
                 if (currentUser != null) {
                     //RealTime
@@ -2863,6 +2923,75 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    private static final int MAGIC_DL = 0x4D444D32; // "MDM2"
+
+    private void handleMediaDownload(DataInputStream inBin, DataOutputStream outBin, UUID requesterId) {
+        try {
+            int magic = inBin.readInt();
+            if (magic != MAGIC_DL) { sendDlErr(outBin, "bad magic"); return; }
+
+            int hlen = inBin.readInt();
+            if (hlen <= 0 || hlen > 64 * 1024) { sendDlErr(outBin, "bad header length"); return; }
+
+            byte[] hb = inBin.readNBytes(hlen);
+            if (hb.length != hlen) { sendDlErr(outBin, "header truncated"); return; }
+
+            JSONObject hdr = new JSONObject(new String(hb, java.nio.charset.StandardCharsets.UTF_8));
+            if (!"download".equalsIgnoreCase(hdr.optString("op"))) { sendDlErr(outBin, "bad op"); return; }
+
+            UUID mediaKey = UUID.fromString(hdr.getString("media_key"));
+            long offset   = Math.max(0L, hdr.optLong("offset", 0L));
+
+            MediaRow mr = MessageDatabase.findMediaByKey(mediaKey);
+            if (mr == null) { sendDlErr(outBin, "not found"); return; }
+            if (!MessageDatabase.canAccess(requesterId, mr)) { sendDlErr(outBin, "not authorized"); return; }
+
+            java.nio.file.Path path = java.nio.file.Paths.get(mr.storagePath).normalize();
+            long size = java.nio.file.Files.size(path);
+            if (offset > size) offset = 0L;
+
+            JSONObject ok = new JSONObject()
+                    .put("status","success")
+                    .put("media_key", mediaKey.toString())
+                    .put("file_name", mr.fileName)
+                    .put("mime_type", mr.mimeType)
+                    .put("file_size", size);
+
+            byte[] okb = ok.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+            outBin.writeInt(MAGIC_DL);
+            outBin.writeInt(okb.length);
+            outBin.write(okb);
+            outBin.writeLong(size - offset);
+
+            try (java.io.InputStream fis = new java.io.BufferedInputStream(java.nio.file.Files.newInputStream(path))) {
+                if (offset > 0) fis.skipNBytes(offset);
+                byte[] buf = new byte[8192];
+                long remain = size - offset;
+                while (remain > 0) {
+                    int n = fis.read(buf, 0, (int) Math.min(buf.length, remain));
+                    if (n == -1) break;
+                    outBin.write(buf, 0, n);
+                    remain -= n;
+                }
+            }
+            outBin.flush();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            try { sendDlErr(outBin, "exception"); } catch (Exception ignored) {}
+        }
+    }
+
+    private void sendDlErr(DataOutputStream outBin, String msg) throws java.io.IOException {
+        JSONObject j = new JSONObject().put("status","error").put("message", msg);
+        byte[] b = j.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        outBin.writeInt(MAGIC_DL);
+        outBin.writeInt(b.length);
+        outBin.write(b);
+        outBin.writeLong(0L);
+        outBin.flush();
+    }
 
     private static void skip(DataInputStream dis, long n) throws IOException {
         if (n <= 0) return;
