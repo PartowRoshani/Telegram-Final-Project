@@ -45,6 +45,7 @@ dependencies {
     }
     implementation 'org.kordamp.ikonli:ikonli-javafx:12.3.1'
     implementation 'org.kordamp.bootstrapfx:bootstrapfx-core:0.4.0'
+    implementation 'org.json:json:20240303'
     implementation('eu.hansolo:tilesfx:21.0.3') {
         exclude group: 'org.openjfx'
     }
