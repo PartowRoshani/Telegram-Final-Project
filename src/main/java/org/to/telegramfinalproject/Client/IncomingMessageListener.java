@@ -26,13 +26,11 @@ public class IncomingMessageListener implements Runnable {
             System.out.println("👂 Real-Time Listener started.");
 
             while (running) {
-                // ✅ اگر دانلود/آپلود مدیا در حال انجامه، اصلاً نخون
                 if (TelegramClient.mediaBusy.get()) {
                     try { Thread.sleep(15); } catch (InterruptedException ignored) {}
                     continue;
                 }
 
-                // ✅ فقط وقتی دادهٔ متنی آماده است بخوان (بدون بلاک شدن روی readLine)
                 if (!in.ready()) {
                     try { Thread.sleep(10); } catch (InterruptedException ignored) {}
                     continue;
@@ -40,19 +38,15 @@ public class IncomingMessageListener implements Runnable {
 
                 String line = in.readLine();
                 if (line == null) {
-                    // socket بسته شده
                     break;
                 }
 
-                // خط‌های خالی/سفید رو رد کن
                 if (line.isBlank()) continue;
 
-                // تلاش برای پارس JSON
                 final JSONObject response;
                 try {
                     response = new JSONObject(line);
                 } catch (Exception badJson) {
-                    // اگر به هر دلیلی خط JSON نبود (مثلاً نویز)، امن رد کن
                     System.out.println("⚠️ [Listener] Non-JSON line ignored: " + line);
                     continue;
                 }
@@ -266,13 +260,12 @@ public class IncomingMessageListener implements Runnable {
             var ta = parseTs(String.valueOf(a.getLastMessageTime()));
             var tb = parseTs(String.valueOf(b.getLastMessageTime()));
             if (ta == null && tb == null) return 0;
-            if (ta == null) return 1;     // nullها برن آخر
+            if (ta == null) return 1;
             if (tb == null) return -1;
-            return tb.compareTo(ta);      // نزولی (جدیدتر بالاتر)
+            return tb.compareTo(ta);
         });
 
-        // اگر «Saved Messages» رو می‌خوای همیشه بالا پین کنی، این ۴ خط رو نگه دار؛
-        // اگر نه، حذفش کن.
+
         for (int i = 0; i < list.size(); i++) {
             if (list.get(i).isSavedMessages()) {
                 list.add(0, list.remove(i));
