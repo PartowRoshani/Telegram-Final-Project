@@ -41,7 +41,7 @@ public class ThemeManager {
         }
     }
 
-    private void applyThemeToAll() {
+    public void applyThemeToAll() {
         for (Scene scene : registeredScenes) {
             applyTheme(scene);
         }

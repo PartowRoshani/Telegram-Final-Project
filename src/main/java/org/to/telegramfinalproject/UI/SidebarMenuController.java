@@ -42,7 +42,7 @@ public class SidebarMenuController {
 
     @FXML
     public void initialize() {
-        // Load default profile image (if present)
+        // Load default profile image
         Image profile = loadImage("/org/to/telegramfinalproject/Images/profile.png");
         if (profile != null) profileImage.setImage(profile);
 
@@ -55,8 +55,7 @@ public class SidebarMenuController {
                 // 1) Register with ThemeManager so this scene auto-updates on theme changes
                 themeManager.registerScene(newScene);
 
-                // 2) Make sure we start in LIGHT mode (if that's what you want)
-                //    (If you already set the initial mode elsewhere, remove the next line)
+                // 2) Make sure we start in LIGHT mode
                 themeManager.setDarkMode(false);
 
                 // 3) Sync icons & toggle with current mode
@@ -93,6 +92,7 @@ public class SidebarMenuController {
 
             // Update the global theme via ThemeManager
             themeManager.setDarkMode(newDark);
+            themeManager.applyThemeToAll();
 
             // Animate the thumb to its new position (listener will handle icons & final position sync)
             syncToggleVisual(newDark, /*animate=*/true);

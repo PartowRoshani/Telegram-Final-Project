@@ -50,3 +50,11 @@
 .button, .label {
     -fx-text-fill: black;
 }
+
+/* Thin Telegram-like SplitPane divider (light) */
+.split-pane:horizontal > .split-pane-divider {
+    -fx-background-color: transparent; /* no big solid block */
+    -fx-border-color: #cccccc; /* the visible thin line */
+    -fx-border-width: 0 1px 0 1px; /* 1px vertical line */
+    -fx-padding: 0 0 0 0.5px; /* big invisible hitbox for the mouse */
+}

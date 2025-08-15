@@ -11,7 +11,7 @@ import java.io.IOException;
 public class TelegramApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(TelegramApplication.class.getResource("/org/to/telegramfinalproject/Fxml/sidebar_menu.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(TelegramApplication.class.getResource("/org/to/telegramfinalproject/Fxml/main.fxml"));
         Scene scene = new Scene(fxmlLoader.load(), 1480, 820);
 
         scene.getStylesheets().add(getClass().getResource("/org/to/telegramfinalproject/CSS/light_theme.css").toExternalForm());

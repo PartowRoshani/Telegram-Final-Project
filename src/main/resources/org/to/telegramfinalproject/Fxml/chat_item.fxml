@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
+
+<HBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.to.telegramfinalproject.UI.ChatItemController"
+      spacing="10" alignment="CENTER_LEFT"
+      style="-fx-padding: 10; -fx-background-color: white; -fx-border-color: #ddd; -fx-border-width: 0 0 1 0;">
+
+    <!-- Profile Image -->
+    <ImageView fx:id="profileImage" fitWidth="40" fitHeight="40" preserveRatio="true"
+               style="-fx-background-radius: 50; -fx-border-radius: 50;"/>
+
+    <!-- Chat Details -->
+    <VBox alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
+        <Label fx:id="chatName" style="-fx-font-size: 14; -fx-font-weight: bold;"/>
+        <Label fx:id="lastMessage" style="-fx-text-fill: gray; -fx-font-size: 12;"/>
+    </VBox>
+
+    <!-- Time + Unread -->
+    <VBox alignment="CENTER_RIGHT" spacing="5">
+        <Label fx:id="chatTime" style="-fx-font-size: 11; -fx-text-fill: gray;"/>
+        <Label fx:id="unreadCount"
+               style="-fx-background-color: #2196f3; -fx-text-fill: white; -fx-font-size: 10;
+                      -fx-padding: 3 6; -fx-background-radius: 10;"/>
+    </VBox>
+</HBox>
