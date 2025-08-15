@@ -3046,6 +3046,59 @@ public class ClientHandler implements Runnable {
             out.println(ack.toString());
             out.flush();
 
+
+            // بعد از out.flush(); و فقط اگر ok==true
+            if (ok) {
+                try {
+                    // 1) دریافت پیام از DB تا send_at و... دقیق باشد
+                    Message m = MessageDatabase.findById(messageId); // اگر چنین متدی نداری، با پارامترهای همین متد بساز/پر کن
+
+                    // 2) لیست دریافت‌کنندگان بر اساس نوع چت
+                    List<UUID> receivers = getReceiversForChat(receiverId, rType.toLowerCase());
+
+
+                    // 3) ساخت payload شامل اتچمنت (media)
+                    User sender = userDatabase.findByInternalUUID(senderId);
+                    JSONObject payload = new JSONObject()
+                            .put("action", "new_message")
+                            .put("data", new JSONObject()
+                                    .put("id", m.getMessage_id().toString())
+                                    .put("chat_id", receiverId.toString())
+                                    .put("chat_type", rType.toLowerCase())
+                                    .put("sender_id", senderId.toString())
+                                    .put("sender_name", sender != null ? sender.getProfile_name() : JSONObject.NULL)
+                                    .put("message_type", messageType.toLowerCase())
+                                    .put("text", (text == null || text.isEmpty()) ? JSONObject.NULL : text)
+                                    .put("media", new JSONObject()
+                                            .put("media_id", mediaKey != null ? mediaKey.toString() : JSONObject.NULL)
+                                            .put("file_name", fileName)
+                                            .put("mime_type", mimeType)
+                                            .put("size_bytes", fileSize)
+                                            .put("url", fileUrl)
+                                            .put("thumbnail_url", JSONObject.NULL)
+                                            .put("width", safeWidth)
+                                            .put("height", safeHeight)
+                                            .put("duration_ms", 0)
+                                    )
+                                    .put("send_at", m.getSend_at().toString())
+                                    .put("status", "SENT")
+                            );
+
+                    // 4) ارسال به همه اعضا (از جمله خودِ فرستنده اگر می‌خواهی UI آن هم یکپارچه آپدیت شود)
+                    for (UUID uid : receivers) {
+                        RealTimeEventDispatcher.sendToUser(uid, payload);
+                    }
+
+                    // (اختیاری) رویداد آپدیت چت‌لیست برای sort بر اساس آخرین پیام
+                    RealTimeEventDispatcher.notifyChatUpdated(receiverId, rType, m);
+
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    // اگر ذخیره شد ولی Broadcast شکست خورد، می‌توانی Log کنی یا Retry سبک انجام دهی
+                }
+            }
+
+
         } catch (Exception e) {
             e.printStackTrace();
             out.println(new JSONObject().put("status","error").put("message","exception").toString());

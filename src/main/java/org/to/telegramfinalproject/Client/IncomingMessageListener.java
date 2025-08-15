@@ -5,6 +5,9 @@ import org.to.telegramfinalproject.Models.ChatEntry;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -117,7 +120,7 @@ public class IncomingMessageListener implements Runnable {
                  "removed_from_group", "removed_from_channel",
                  "became_admin", "removed_admin", "ownership_transferred",
                  "admin_permissions_updated", "created_private_chat",
-                 "message_reacted", "message_unreacted" -> true;
+                 "message_reacted", "message_unreacted" , "chat_updated"-> true;
             default -> false;
         };
     }
@@ -170,57 +173,124 @@ public class IncomingMessageListener implements Runnable {
         System.out.print(">> ");
     }
 
+//    private void updateLastMessageTime(JSONObject msg) {
+//        try {
+//            UUID chatUUID = UUID.fromString(msg.getString("chat_id"));
+//            String newTime = msg.optString("last_message_time", null);
+//
+//            Session.chatList.stream().filter(chat -> chat.getId().equals(chatUUID)).findFirst()
+//                    .ifPresent(chat -> {
+//                        chat.setLastMessageTime(newTime);
+//                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
+//                    });
+//
+//            Session.activeChats.stream().filter(chat -> chat.getId().equals(chatUUID)).findFirst()
+//                    .ifPresent(chat -> {
+//                        chat.setLastMessageTime(newTime);
+//                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
+//                    });
+//
+//            Session.archivedChats.stream().filter(chat -> chat.getId().equals(chatUUID)).findFirst()
+//                    .ifPresent(chat -> {
+//                        chat.setLastMessageTime(newTime);
+//                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
+//                    });
+//
+//            Session.chatList.sort((c1, c2) -> {
+//                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
+//                if (c1.getLastMessageTime() == null) return 1;
+//                if (c2.getLastMessageTime() == null) return -1;
+//                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime());
+//            });
+//            Session.activeChats.sort((c1, c2) -> {
+//                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
+//                if (c1.getLastMessageTime() == null) return 1;
+//                if (c2.getLastMessageTime() == null) return -1;
+//                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime());
+//            });
+//            Session.archivedChats.sort((c1, c2) -> {
+//                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
+//                if (c1.getLastMessageTime() == null) return 1;
+//                if (c2.getLastMessageTime() == null) return -1;
+//                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime());
+//            });
+//
+//            if (Session.inChatListMenu) {
+//                ActionHandler.displayChatList();
+//                System.out.print("Select a chat by number: ");
+//            }
+//
+//        } catch (Exception e) {
+//            System.out.println("❌ Failed to update last message time: " + e.getMessage());
+//        }
+//    }
+
+
     private void updateLastMessageTime(JSONObject msg) {
         try {
             UUID chatUUID = UUID.fromString(msg.getString("chat_id"));
             String newTime = msg.optString("last_message_time", null);
+            if (newTime == null || newTime.isBlank()) return;
 
-            Session.chatList.stream().filter(chat -> chat.getId().equals(chatUUID)).findFirst()
-                    .ifPresent(chat -> {
-                        chat.setLastMessageTime(newTime);
-                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
-                    });
+            updateOneList(Session.chatList, chatUUID, newTime);
+            updateOneList(Session.activeChats, chatUUID, newTime);
+            updateOneList(Session.archivedChats, chatUUID, newTime);
 
-            Session.activeChats.stream().filter(chat -> chat.getId().equals(chatUUID)).findFirst()
-                    .ifPresent(chat -> {
-                        chat.setLastMessageTime(newTime);
-                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
-                    });
-
-            Session.archivedChats.stream().filter(chat -> chat.getId().equals(chatUUID)).findFirst()
-                    .ifPresent(chat -> {
-                        chat.setLastMessageTime(newTime);
-                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
-                    });
-
-            Session.chatList.sort((c1, c2) -> {
-                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
-                if (c1.getLastMessageTime() == null) return 1;
-                if (c2.getLastMessageTime() == null) return -1;
-                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime());
-            });
-            Session.activeChats.sort((c1, c2) -> {
-                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
-                if (c1.getLastMessageTime() == null) return 1;
-                if (c2.getLastMessageTime() == null) return -1;
-                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime());
-            });
-            Session.archivedChats.sort((c1, c2) -> {
-                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
-                if (c1.getLastMessageTime() == null) return 1;
-                if (c2.getLastMessageTime() == null) return -1;
-                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime());
-            });
+            sortByLastMessageTime(Session.chatList);
+            sortByLastMessageTime(Session.activeChats);
+            sortByLastMessageTime(Session.archivedChats);
 
             if (Session.inChatListMenu) {
                 ActionHandler.displayChatList();
                 System.out.print("Select a chat by number: ");
             }
-
         } catch (Exception e) {
             System.out.println("❌ Failed to update last message time: " + e.getMessage());
         }
     }
+
+    private void updateOneList(List<ChatEntry> list, UUID chatUUID, String newTime) {
+        if (list == null) return;
+        for (ChatEntry chat : list) {
+            if (chatUUID.equals(chat.getId())) {            // ✅ internal UUID
+                chat.setLastMessageTime(newTime);
+                System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
+                break;
+            }
+        }
+    }
+
+    private static void sortByLastMessageTime(java.util.List<ChatEntry> list) {
+        if (list == null) return;
+        list.sort((a, b) -> {
+            var ta = parseTs(String.valueOf(a.getLastMessageTime()));
+            var tb = parseTs(String.valueOf(b.getLastMessageTime()));
+            if (ta == null && tb == null) return 0;
+            if (ta == null) return 1;     // nullها برن آخر
+            if (tb == null) return -1;
+            return tb.compareTo(ta);      // نزولی (جدیدتر بالاتر)
+        });
+
+        // اگر «Saved Messages» رو می‌خوای همیشه بالا پین کنی، این ۴ خط رو نگه دار؛
+        // اگر نه، حذفش کن.
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).isSavedMessages()) {
+                list.add(0, list.remove(i));
+                break;
+            }
+        }
+    }
+
+    private static java.time.LocalDateTime parseTs(String s) {
+        if (s == null) return null;
+        s = s.trim();
+        if (s.isEmpty() || s.equalsIgnoreCase("null")) return null;
+        try { return java.time.OffsetDateTime.parse(s).toLocalDateTime(); } catch (Exception ignore) {}
+        try { return java.time.LocalDateTime.parse(s, java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME); } catch (Exception ignore) {}
+        return null;
+    }
+
+
 
     private void handleAdminRoleChanged(JSONObject data) throws IOException {
         String chatType = data.optString("chat_type", "");
@@ -368,4 +438,7 @@ public class IncomingMessageListener implements Runnable {
             }
         }
     }
+
+
+
 }

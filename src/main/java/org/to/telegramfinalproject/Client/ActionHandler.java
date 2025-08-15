@@ -1627,7 +1627,7 @@ public class ActionHandler {
 
             String input = scanner.nextLine().trim();
             switch (input) {
-                case "1" -> sendMessage(chatId, "private");
+                case "1" -> sendMessageInteractive(chatId, "private");
                 case "2" -> { viewMessagesInChat(chat); }
                 case "3" -> { return false; }
                 default -> System.out.println("Invalid choice.");
@@ -3543,69 +3543,69 @@ public class ActionHandler {
     }
 
 
-    public void sendMessage(UUID receiverId, String receiverType) {
-        Scanner scanner = new Scanner(System.in);
-
-        System.out.print("Enter your message: ");
-        String content = scanner.nextLine();
-
-        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE): ");
-        String messageType = scanner.nextLine();
-        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
-        while (!allowedTypes.contains(messageType.toUpperCase())) {
-            System.out.println("❌ Invalid message type. Try again (TEXT / IMAGE / VIDEO / FILE): ");
-            messageType = scanner.nextLine();
-        }
-        messageType = messageType.toUpperCase();
-
-        JSONArray attachmentsArray = new JSONArray();
-
-        System.out.print("Do you want to attach files? (yes/no): ");
-        if (scanner.nextLine().equalsIgnoreCase("yes")) {
-            while (true) {
-                System.out.print("File URL: ");
-                String fileUrl = scanner.nextLine();
-
-                System.out.print("File Type (IMAGE / VIDEO / FILE): ");
-                String fileType = scanner.nextLine();
-
-                JSONObject fileJson = new JSONObject();
-                fileJson.put("file_url", fileUrl);
-                fileJson.put("file_type", fileType);
-                attachmentsArray.put(fileJson);
-
-                System.out.print("Add another file? (yes/no): ");
-                if (!scanner.nextLine().equalsIgnoreCase("yes")) {
-                    break;
-                }
-            }
-        }
-
-
-
-        JSONObject messageJson = new JSONObject();
-        messageJson.put("action", "send_message");
-        messageJson.put("receiver_type", receiverType);
-        messageJson.put("content", content);
-        messageJson.put("message_type", messageType);
-        if (receiverType.equals("private")) {
-            messageJson.put("receiver_user_id", receiverId.toString());
-        } else {
-            messageJson.put("receiver_id", receiverId.toString());
-        }
-
-        if (!attachmentsArray.isEmpty()) {
-            messageJson.put("attachments", attachmentsArray);
-        }
-
-        JSONObject response = sendWithResponse(messageJson);
-        if (response != null && response.getString("status").equals("success")) {
-            System.out.println("✅ Message sent successfully! ID: " + response.getJSONObject("data").getString("message_id"));
-        } else {
-            System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "no response"));
-        }
-
-    }
+//    public void sendMessage(UUID receiverId, String receiverType) {
+//        Scanner scanner = new Scanner(System.in);
+//
+//        System.out.print("Enter your message: ");
+//        String content = scanner.nextLine();
+//
+//        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE): ");
+//        String messageType = scanner.nextLine();
+//        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+//        while (!allowedTypes.contains(messageType.toUpperCase())) {
+//            System.out.println("❌ Invalid message type. Try again (TEXT / IMAGE / VIDEO / FILE): ");
+//            messageType = scanner.nextLine();
+//        }
+//        messageType = messageType.toUpperCase();
+//
+//        JSONArray attachmentsArray = new JSONArray();
+//
+//        System.out.print("Do you want to attach files? (yes/no): ");
+//        if (scanner.nextLine().equalsIgnoreCase("yes")) {
+//            while (true) {
+//                System.out.print("File URL: ");
+//                String fileUrl = scanner.nextLine();
+//
+//                System.out.print("File Type (IMAGE / VIDEO / FILE): ");
+//                String fileType = scanner.nextLine();
+//
+//                JSONObject fileJson = new JSONObject();
+//                fileJson.put("file_url", fileUrl);
+//                fileJson.put("file_type", fileType);
+//                attachmentsArray.put(fileJson);
+//
+//                System.out.print("Add another file? (yes/no): ");
+//                if (!scanner.nextLine().equalsIgnoreCase("yes")) {
+//                    break;
+//                }
+//            }
+//        }
+//
+//
+//
+//        JSONObject messageJson = new JSONObject();
+//        messageJson.put("action", "send_message");
+//        messageJson.put("receiver_type", receiverType);
+//        messageJson.put("content", content);
+//        messageJson.put("message_type", messageType);
+//        if (receiverType.equals("private")) {
+//            messageJson.put("receiver_user_id", receiverId.toString());
+//        } else {
+//            messageJson.put("receiver_id", receiverId.toString());
+//        }
+//
+//        if (!attachmentsArray.isEmpty()) {
+//            messageJson.put("attachments", attachmentsArray);
+//        }
+//
+//        JSONObject response = sendWithResponse(messageJson);
+//        if (response != null && response.getString("status").equals("success")) {
+//            System.out.println("✅ Message sent successfully! ID: " + response.getJSONObject("data").getString("message_id"));
+//        } else {
+//            System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "no response"));
+//        }
+//
+//    }
 
 
 
@@ -3895,7 +3895,7 @@ public class ActionHandler {
             }
 
             if(input.equalsIgnoreCase("S")){
-                sendMessage(chat.getId(), chat.getType());
+                sendMessageInteractive(chat.getId(), chat.getType());
             }
             try {
                 int index = Integer.parseInt(input);
