@@ -28,7 +28,7 @@ public class Session {
     public static ChatEntry currentChatEntry = null;
     public static List<ContactEntry> contactEntries = new ArrayList<>();
     public static boolean inContactListMenu = false;
-
+    public static DownloadsIndex downloadsIndex = null;
 
     public static String getUserUUID() {
         if (currentUser.has("uuid")) return currentUser.getString("uuid");
@@ -110,4 +110,7 @@ public class Session {
                 .filter(ChatEntry::isArchived)
                 .toList();
     }
+
+    public void setDownloadIndex(DownloadsIndex idx){ this.downloadsIndex = idx; }
+
 }

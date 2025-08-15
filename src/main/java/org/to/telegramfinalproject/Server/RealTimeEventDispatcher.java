@@ -1,10 +1,7 @@
 package org.to.telegramfinalproject.Server;
 
 import org.json.JSONObject;
-import org.to.telegramfinalproject.Database.ChannelDatabase;
-import org.to.telegramfinalproject.Database.ContactDatabase;
-import org.to.telegramfinalproject.Database.GroupDatabase;
-import org.to.telegramfinalproject.Database.userDatabase;
+import org.to.telegramfinalproject.Database.*;
 import org.to.telegramfinalproject.Models.Message;
 import org.to.telegramfinalproject.Models.User;
 
@@ -12,7 +9,9 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 public class RealTimeEventDispatcher {
@@ -424,5 +423,82 @@ public class RealTimeEventDispatcher {
         }
     }
 
+
+    public static void notifyChatUpdated(UUID chatId, String chatType, Message lastMsg) {
+        if (chatId == null || chatType == null) return;
+
+        final String type = chatType.toLowerCase(Locale.ROOT);
+
+        List<UUID> receivers;
+        switch (type) {
+            case "private":
+                receivers = PrivateChatDatabase.getMembers(chatId);
+                break;
+
+            case "group":
+                receivers = GroupDatabase.getMemberUUIDs(chatId);
+                break;
+            case "channel":
+                receivers = ChannelDatabase.getSubscriberUUIDs(chatId);
+                break;
+            default:
+                receivers = Collections.emptyList();
+        }
+        if (receivers == null || receivers.isEmpty()) return;
+
+        // 2) ساخت خلاصه آخرین پیام برای نمایش در لیست چت
+        String senderName = null;
+        if (lastMsg != null && lastMsg.getSender_id() != null) {
+            User u = userDatabase.findByInternalUUID(lastMsg.getSender_id());
+            if (u != null) senderName = u.getProfile_name();
+        }
+
+        String messageType = lastMsg != null && lastMsg.getMessage_type() != null
+                ? lastMsg.getMessage_type().toLowerCase(Locale.ROOT) : "text";
+
+        // preview ساده: برای مدیا، برچسب کوتاه؛ برای متن، کوتاه‌سازی
+        String preview;
+        if (!"text".equals(messageType)) {
+            switch (messageType) {
+                case "image":  preview = "[Photo]"; break;
+                case "video":  preview = "[Video]"; break;
+                case "audio":  preview = "[Audio]"; break;
+                case "file":   preview = "[File]";  break;
+                default:       preview = "[Media]";
+            }
+        } else {
+            String t = lastMsg != null ? nullToEmpty(lastMsg.getContent()) : "";
+            preview = t.length() > 80 ? t.substring(0, 80) + "…" : t;
+        }
+
+        String sendAt = (lastMsg != null && lastMsg.getSend_at() != null)
+                ? lastMsg.getSend_at().toString()
+                : java.time.OffsetDateTime.now().toString();
+
+        // 3) payload رویداد chat_updated
+        JSONObject payload = new JSONObject()
+                .put("action", "chat_updated")
+                .put("data", new JSONObject()
+                        .put("chat_id", chatId.toString())
+                        .put("chat_type", type)
+                        .put("last_message", new JSONObject()
+                                .put("id", lastMsg != null ? lastMsg.getMessage_id().toString() : JSONObject.NULL)
+                                .put("sender_id", lastMsg != null ? lastMsg.getSender_id().toString() : JSONObject.NULL)
+                                .put("sender_name", senderName != null ? senderName : JSONObject.NULL)
+                                .put("message_type", messageType)
+                                .put("preview", preview)
+                                .put("send_at", sendAt)
+                        )
+                        .put("last_message_time", sendAt)
+                        .put("update_reason", "new_message") // برای کلاینت مفید است
+                );
+
+        // 4) ارسال به همه اعضای چت
+        for (UUID uid : receivers) {
+            sendToUser(uid, payload);
+        }
+    }
+
+    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
 }
