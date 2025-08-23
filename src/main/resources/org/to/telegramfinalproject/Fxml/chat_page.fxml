@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/17"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.to.telegramfinalproject.UI.ChatPageController"
+      spacing="0"
+      styleClass="chat-root">
+
+    <!-- HEADER: avatar + name/status (left) | search + more (right) -->
+    <HBox fx:id="chatHeader" spacing="10" styleClass="chat-header">
+        <padding>
+            <Insets top="8" right="12" bottom="8" left="12"/>
+        </padding>
+
+        <!-- Avatar -->
+        <ImageView fx:id="userAvatar" fitWidth="36" fitHeight="36" preserveRatio="true"/>
+
+        <!-- Title + status -->
+        <VBox alignment="CENTER_LEFT">
+            <Label fx:id="chatTitle" text="User name" styleClass="chat-title"/>
+            <Label fx:id="chatStatus" text="last seen recently" styleClass="chat-status"/>
+        </VBox>
+
+        <Region HBox.hgrow="ALWAYS"/>
+
+        <!-- Search-in-chat -->
+        <Button fx:id="searchInChatButton" styleClass="icon-btn" onAction="#openSearchPanel">
+            <graphic>
+                <ImageView fx:id="searchIcon" fitWidth="20" fitHeight="20" preserveRatio="true">
+                    <image>
+                        <Image url="@/org/to/telegramfinalproject/Icons/search_light.png"/>
+                    </image>
+                </ImageView>
+            </graphic>
+        </Button>
+
+        <!-- More / overflow -->
+        <Button fx:id="moreButton" styleClass="icon-btn">
+            <graphic>
+                <ImageView fx:id="moreIcon" fitWidth="18" fitHeight="18" preserveRatio="true">
+                    <image>
+                        <Image url="@/org/to/telegramfinalproject/Icons/more_light.png"/>
+                    </image>
+                </ImageView>
+            </graphic>
+            <contextMenu>
+                <ContextMenu fx:id="moreMenu">
+                    <items>
+                        <MenuItem fx:id="viewProfileItem" text="View profile">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image>
+                                        <Image url="@/org/to/telegramfinalproject/Icons/view_profile_light.png"/>
+                                    </image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+                        <MenuItem fx:id="deleteChatItem" text="Delete chat" style="-fx-text-fill: red;">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image>
+                                        <Image url="@/org/to/telegramfinalproject/Icons/delete_red.png"/>
+                                    </image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+                    </items>
+                </ContextMenu>
+            </contextMenu>
+        </Button>
+    </HBox>
+
+    <!-- MESSAGES -->
+    <ScrollPane fx:id="messageScrollPane"
+                fitToWidth="true"
+                vbarPolicy="AS_NEEDED"
+                hbarPolicy="NEVER"
+                VBox.vgrow="ALWAYS"
+                styleClass="chat-scroll">
+        <content>
+            <VBox fx:id="messageContainer" spacing="10">
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10"/>
+                </padding>
+            </VBox>
+        </content>
+    </ScrollPane>
+
+    <!-- INPUT BAR -->
+    <HBox fx:id="inputBar" spacing="8" styleClass="chat-input-bar">
+        <padding>
+            <Insets top="8" right="12" bottom="8" left="12"/>
+        </padding>
+
+        <!-- Attachment -->
+        <Button fx:id="attachmentButton" styleClass="icon-btn">
+            <graphic>
+                <ImageView fx:id="attachmentIcon" fitWidth="20" fitHeight="20" preserveRatio="true">
+                    <image>
+                        <Image url="@/org/to/telegramfinalproject/Icons/attachment_light.png"/>
+                    </image>
+                </ImageView>
+            </graphic>
+        </Button>
+
+        <!-- Expanding input -->
+        <TextArea fx:id="messageInput"
+                  HBox.hgrow="ALWAYS"
+                  promptText="Write a message..."
+                  styleClass="msg-input"
+                  wrapText="true"
+                  prefRowCount="1"
+                  minHeight="40"
+                  maxHeight="120"
+                  VBox.vgrow="NEVER" />
+
+        <!-- Send -->
+        <Button fx:id="sendButton" styleClass="send-btn">
+            <graphic>
+                <ImageView fx:id="sendIcon" fitWidth="20" fitHeight="20" preserveRatio="true">
+                    <image>
+                        <Image url="@/org/to/telegramfinalproject/Icons/send_cyan2.png"/>
+                    </image>
+                </ImageView>
+            </graphic>
+        </Button>
+    </HBox>
+</VBox>

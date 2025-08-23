@@ -1,69 +1,134 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
 <?import javafx.geometry.*?>
-<?import javafx.scene.text.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.image.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.Font?>
 
-<StackPane fx:id="mainRoot" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.to.telegramfinalproject.UI.MainController">
+<StackPane fx:id="mainRoot"
+           xmlns="http://javafx.com/javafx/8"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="org.to.telegramfinalproject.UI.MainController">
 
     <children>
+        <!-- SplitPane: left (chat list / search) + right (chat panel) -->
+        <SplitPane fx:id="mainSplitPane"
+                   dividerPositions="0.32"
+                   orientation="HORIZONTAL"
+                   prefHeight="700" prefWidth="1100"
+                   styleClass="thin-splitpane">
+            <items>
 
-        <!-- Use SplitPane so the two sides are resizable -->
-        <SplitPane fx:id="mainSplitPane" dividerPositions="0.32" orientation="HORIZONTAL" prefHeight="700" prefWidth="1100" styleClass="thin-splitpane">
-   <items>
-   
-               <!-- LEFT: Chat list -->
-               <VBox fx:id="leftPane" minWidth="72" spacing="10" style="-fx-background-color: #FFFFFF;"> <!-- keep at least avatar width when collapsed -->
-                   <children>
-                       <HBox spacing="10">
-                           <padding>
-                               <Insets bottom="10" left="10" right="10" top="10" />
-                           </padding>
-                           <children>
-                               <Button fx:id="menuButton" minHeight="29.0" minWidth="40" onAction="#toggleSidebar" prefHeight="29.0" prefWidth="40.0" style="-fx-background-color: transparent;">
-                                   <graphic>
-                                       <ImageView fx:id="menuIcon" fitHeight="24" fitWidth="17" preserveRatio="true" smooth="true">
-                                           <image>
-                                               <Image url="@/org/to/telegramfinalproject/Icons/menu_dark.png" />
-                                           </image>
-                                       </ImageView>
-                                   </graphic>
-                               </Button>
-   
-                               <TextField fx:id="searchBar" prefHeight="36" prefWidth="430.0" promptText="Search" style="-fx-background-color: #f5f5f5; -fx-background-radius: 15;" />
-                           </children>
-                       </HBox>
-   
-                       <ScrollPane fx:id="scrollPane" fitToWidth="true" hbarPolicy="NEVER" style="-fx-background-color: transparent;" vbarPolicy="AS_NEEDED">
-                           <content>
-                               <VBox fx:id="chatListContainer" spacing="5" style="-fx-background-color: transparent;">
-                                   <padding>
-                                       <Insets bottom="10" left="10" right="10" top="10" />
-                                   </padding>
-                               </VBox>
-                           </content>
-                       </ScrollPane>
-                   </children>
-               </VBox>
-   
-               <!-- RIGHT: Chat panel -->
-               <StackPane fx:id="chatDisplayArea" minWidth="360" style="-fx-background-color: #FAFAFA;"> <!-- don't let chat page collapse -->
-                   <children>
-                       <Label style="-fx-text-fill: #888888;" text="Select a chat to start messaging">
-                           <font>
-                               <Font size="15" />
-                           </font>
-                       </Label>
-                   </children>
-               </StackPane>
-   </items>
+                <!-- LEFT: Sidebar -->
+                <VBox fx:id="leftPane" minWidth="72" style="-fx-background-color: #FFFFFF;">
+
+                    <!-- Top bar (always visible) -->
+                    <HBox spacing="10">
+                        <padding>
+                            <Insets bottom="10" left="10" right="10" top="10"/>
+                        </padding>
+                        <children>
+                            <Button fx:id="menuButton" minHeight="29.0" minWidth="40"
+                                    onAction="#toggleSidebar"
+                                    prefHeight="29.0" prefWidth="40.0"
+                                    style="-fx-background-color: transparent;">
+                                <graphic>
+                                    <ImageView fx:id="menuIcon" fitHeight="24" fitWidth="17"
+                                               preserveRatio="true" smooth="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/menu_dark.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </Button>
+
+                            <TextField fx:id="searchBar"
+                                       prefHeight="36" prefWidth="430.0"
+                                       promptText="Search"
+                                       style="-fx-background-color: #f5f5f5; -fx-background-radius: 15;"/>
+                        </children>
+                    </HBox>
+
+                    <!-- Content area (chat list vs search) -->
+                    <StackPane VBox.vgrow="ALWAYS">
+
+                        <!-- Chat list (default) -->
+                        <ScrollPane fx:id="scrollPane" fitToWidth="true" hbarPolicy="NEVER"
+                                    style="-fx-background-color: transparent;"
+                                    vbarPolicy="AS_NEEDED"
+                                    visible="true" managed="true">
+                            <content>
+                                <VBox fx:id="chatListContainer" spacing="5"
+                                      style="-fx-background-color: transparent;">
+                                    <padding>
+                                        <Insets bottom="10" left="10" right="10" top="10"/>
+                                    </padding>
+                                </VBox>
+                            </content>
+                        </ScrollPane>
+
+                        <!-- Search panel (hidden initially) -->
+                        <VBox fx:id="chatSearchPane" visible="false" managed="false"
+                              styleClass="chat-search-pane">
+
+                            <!-- Section label -->
+                            <Label text="Search messages in"
+                                   style="-fx-text-fill: #7e8a97; -fx-font-size: 11px; -fx-padding: 10 0 5 10;"/>
+
+                            <!-- Tiny separator line -->
+                            <Separator style="-fx-background-color: #e6e6e6;" prefHeight="0.5"/>
+
+                            <!-- User profile + "This chat" + close -->
+                            <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-padding: 8 10; -fx-border-color: #e6e6e6; -fx-border-width: 0 0 1 0;">
+                                <!-- Avatar -->
+                                <ImageView fx:id="searchChatAvatar" fitWidth="32" fitHeight="32" preserveRatio="true">
+                                    <image>
+                                        <Image url="@/org/to/telegramfinalproject/Avatars/profile_test.png"/>
+                                    </image>
+                                </ImageView>
+
+                                <!-- scope -->
+                                <VBox alignment="CENTER_LEFT">
+                                    <Label text="This chat" style="-fx-text-fill: #7e8a97; -fx-font-size: 11px;"/>
+                                </VBox>
+                                <Region HBox.hgrow="ALWAYS"/>
+                                <!-- Close button -->
+                                <Button text="✕" onAction="#closeSearchPanel"
+                                        style="-fx-background-color: transparent; -fx-cursor: hand;"/>
+                            </HBox>
+
+                            <!-- Placeholder -->
+                            <VBox alignment="CENTER" spacing="10" prefHeight="300">
+                                <ImageView fx:id="searchIconLarge" fitWidth="64" fitHeight="64" preserveRatio="true"/>
+                                <Label text="Search for messages" styleClass="search-placeholder"/>
+                            </VBox>
+
+                            <!-- Results -->
+                            <ListView fx:id="chatSearchResults" visible="false" managed="false"/>
+                        </VBox>
+                    </StackPane>
+                </VBox>
+
+                <!-- RIGHT: Chat panel -->
+                <StackPane fx:id="chatDisplayArea" minWidth="360" style="-fx-background-color: #FAFAFA;">
+                    <children>
+                        <Label fx:id="placeholderLabel" alignment="CENTER"
+                               prefHeight="21.0" prefWidth="248.0"
+                               styleClass="placeholder-label"
+                               text="Select a chat to start messaging">
+                            <font><Font size="15"/></font>
+                        </Label>
+                    </children>
+                </StackPane>
+            </items>
         </SplitPane>
 
         <!-- Overlay (for sidebar) -->
-        <Pane fx:id="overlay" mouseTransparent="true" onMouseClicked="#closeSidebar" style="-fx-background-color: rgba(0,0,0,0.3);" visible="false" />
+        <Pane fx:id="overlay"
+              mouseTransparent="true"
+              onMouseClicked="#closeSidebar"
+              style="-fx-background-color: rgba(0,0,0,0.3);"
+              visible="false"/>
     </children>
 </StackPane>

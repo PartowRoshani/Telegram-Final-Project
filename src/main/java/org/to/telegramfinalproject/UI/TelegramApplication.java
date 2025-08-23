@@ -4,6 +4,7 @@ package org.to.telegramfinalproject.UI;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
 import java.io.IOException;
@@ -18,6 +19,11 @@ public class TelegramApplication extends Application {
 
         stage.setTitle("Telegram");
         stage.setScene(scene);
+
+        // Add icon to the stage
+        Image icon = new Image(TelegramApplication.class.getResourceAsStream("/org/to/telegramfinalproject/Images/telegram_icon.png"));
+        stage.getIcons().add(icon);
+
         stage.show();
     }
     public static void main(String[] args) {

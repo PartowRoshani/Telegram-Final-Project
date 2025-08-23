@@ -3,7 +3,6 @@ package org.to.telegramfinalproject.UI;
 import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
@@ -43,7 +42,7 @@ public class SidebarMenuController {
     @FXML
     public void initialize() {
         // Load default profile image
-        Image profile = loadImage("/org/to/telegramfinalproject/Images/profile.png");
+        Image profile = loadImage("/org/to/telegramfinalproject/Avatars/profile.png");
         if (profile != null) profileImage.setImage(profile);
 
         setupButtonActions();

@@ -6,13 +6,9 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.control.Button;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.SplitPane;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -22,22 +18,45 @@ import java.io.IOException;
 
 public class MainController {
 
+    // === LEFT PANE ===
+    @FXML private VBox chatListContainer;     // inside the scrollPane
+    @FXML private ScrollPane scrollPane;      // chat list scroll
+    @FXML private VBox chatSearchPane;        // search results panel
+    @FXML private ListView<String> chatSearchResults;
+    @FXML private MenuButton scopeDropdown;
+
+    // === TOP BAR ===
+    @FXML private TextField searchBar;        // global search bar
+    @FXML private Button menuButton;
+
+    // === RIGHT PANE ===
+    @FXML private VBox leftPane;
+    @FXML private javafx.scene.layout.StackPane chatDisplayArea;
+    @FXML private Label placeholderLabel;
+
+    // === Main root ===
     @FXML private StackPane mainRoot;
-    @FXML private VBox chatListContainer;
-    @FXML private StackPane chatDisplayArea;
+    @FXML private SplitPane mainSplitPane;
+
+    // === Sidebar ===
     @FXML private Pane overlay;
     @FXML private ImageView menuIcon;
-    @FXML private ScrollPane scrollPane;
-    @FXML private SplitPane mainSplitPane;
-    @FXML private VBox leftPane;
-    @FXML private Button menuButton;
-    @FXML private TextField searchBar;
 
+    // === STATE ===
+    private static MainController instance;
     private Node sidebarRoot;
     private boolean isSidebarOpen = false;
 
     // Add ThemeManager handle
     private final ThemeManager themeManager = ThemeManager.getInstance();
+
+    public MainController() {
+        instance = this;
+    }
+
+    public static MainController getInstance() {
+        return instance;
+    }
 
     @FXML
     public void initialize() {
@@ -79,6 +98,44 @@ public class MainController {
         if (!mainSplitPane.getDividers().isEmpty()) {
             mainSplitPane.getDividers().get(0).positionProperty().addListener((o, ov, nv) -> clampDivider());
         }
+
+        // Search in chat field listener
+        searchBar.textProperty().addListener((obs, oldV, newV) -> {
+            if (!chatSearchPane.isVisible()) return; // only react if in search mode
+
+            if (newV.trim().isEmpty()) {
+                chatSearchResults.setVisible(false);
+                chatSearchResults.setManaged(false);
+            } else {
+                chatSearchResults.setVisible(true);
+                chatSearchResults.setManaged(true);
+                chatSearchResults.getItems().setAll(
+                        "Result 1: " + newV,
+                        "Result 2: " + newV,
+                        "Result 3: " + newV
+                );
+            }
+        });
+    }
+
+    // Called from ChatPageController when user clicks search button
+    public void showSearchPanel() {
+        scrollPane.setVisible(false);
+        scrollPane.setManaged(false);
+
+        chatSearchPane.setVisible(true);
+        chatSearchPane.setManaged(true);
+
+        searchBar.requestFocus();
+    }
+
+    @FXML
+    public void closeSearchPanel() {
+        chatSearchPane.setVisible(false);
+        chatSearchPane.setManaged(false);
+
+        scrollPane.setVisible(true);
+        scrollPane.setManaged(true);
     }
 
     private void addSampleChats() {
@@ -117,8 +174,20 @@ public class MainController {
     }
 
     private void openChat(String chatName) {
-        chatDisplayArea.getChildren().clear();
-        chatDisplayArea.getChildren().add(new javafx.scene.control.Label("Chat with " + chatName));
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_page.fxml"));
+            Node chatPage = loader.load();
+
+            ChatPageController controller = loader.getController();
+            controller.setChat("Alice", "/org/to/telegramfinalproject/Avatars/profile_test.png");
+
+
+            chatDisplayArea.getChildren().clear();
+            chatDisplayArea.getChildren().add(chatPage);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @FXML
