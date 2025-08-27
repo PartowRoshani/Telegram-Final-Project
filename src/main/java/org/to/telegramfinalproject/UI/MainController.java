@@ -13,8 +13,15 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
+import org.to.telegramfinalproject.Models.ChatEntry;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class MainController {
 
@@ -57,10 +64,14 @@ public class MainController {
     public static MainController getInstance() {
         return instance;
     }
+    private final Map<UUID, ChatItemController> itemControllers = new HashMap<>();
+
 
     @FXML
     public void initialize() {
-        addSampleChats();
+//        addSampleChats();
+        populateChatListFromSession();
+
 
         // Register the scene for automatic CSS updates
         Platform.runLater(() -> {
@@ -138,57 +149,154 @@ public class MainController {
         scrollPane.setManaged(true);
     }
 
-    private void addSampleChats() {
-        addChat("Archived Chats", "Your archived chats", "10:45", 0);
-        addChat("Saved Messages", "Keep messages for later", "Yesterday", 0);
-        addChat("Alice", "Hey, how are you?", "14:12", 3);
-        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-        addChat("Alice", "Hey, how are you?", "14:12", 3);
-        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-        addChat("Alice", "Hey, how are you?", "14:12", 3);
-        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-        addChat("Alice", "Hey, how are you?", "14:12", 3);
-        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-        addChat("Alice", "Hey, how are you?", "14:12", 3);
-        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-        addChat("Alice", "Hey, how are you?", "14:12", 3);
-        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-        addChat("Alice", "Hey, how are you?", "14:12", 3);
-        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-        addChat("Alice", "Hey, how are you?", "14:12", 3);
-        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
+//    private void addSampleChats() {
+//        addChat("Archived Chats", "Your archived chats", "10:45", 0);
+//        addChat("Saved Messages", "Keep messages for later", "Yesterday", 0);
+//        addChat("Alice", "Hey, how are you?", "14:12", 3);
+//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
+//        addChat("Alice", "Hey, how are you?", "14:12", 3);
+//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
+//        addChat("Alice", "Hey, how are you?", "14:12", 3);
+//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
+//        addChat("Alice", "Hey, how are you?", "14:12", 3);
+//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
+//        addChat("Alice", "Hey, how are you?", "14:12", 3);
+//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
+//        addChat("Alice", "Hey, how are you?", "14:12", 3);
+//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
+//        addChat("Alice", "Hey, how are you?", "14:12", 3);
+//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
+//        addChat("Alice", "Hey, how are you?", "14:12", 3);
+//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
+//
+//
+//    }
+
+
+    private final DateTimeFormatter timeFmt    = DateTimeFormatter.ofPattern("HH:mm");
+    private final DateTimeFormatter dayFmt     = DateTimeFormatter.ofPattern("dd/MM");       // همون سال
+    private final DateTimeFormatter fullDateFmt= DateTimeFormatter.ofPattern("yyyy/MM/dd"); // سال متفاوت
+
+    private String formatListTimestamp(LocalDateTime ts) {
+        if (ts == null) return "";
+        LocalDate today = LocalDate.now();
+        LocalDate d = ts.toLocalDate();
+
+        if (d.isEqual(today)) {
+            // امروز → فقط ساعت
+            return timeFmt.format(ts);
+        }
+        // اگر همان سال است → تاریخ کوتاه + ساعت
+        if (d.getYear() == today.getYear()) {
+            return dayFmt.format(ts) + " " + timeFmt.format(ts);   // مثال: 15/08 13:28
+        }
+        // سال متفاوت → تاریخ کامل + ساعت
+        return fullDateFmt.format(ts) + " " + timeFmt.format(ts);  // مثال: 2024/12/31 21:10
     }
 
-    private void addChat(String name, String lastMsg, String time, int unread) {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
-            Node chatItem = loader.load();
-            ChatItemController controller = loader.getController();
-            controller.setChatData(name, lastMsg, time, unread);
 
-            chatItem.setOnMouseClicked(e -> openChat(name));
-            chatListContainer.getChildren().add(chatItem);
-        } catch (IOException e) {
-            e.printStackTrace();
+
+    private void populateChatListFromSession() {
+        chatListContainer.getChildren().clear();
+
+        var list = (org.to.telegramfinalproject.Client.Session.activeChats != null
+                && !org.to.telegramfinalproject.Client.Session.activeChats.isEmpty())
+                ? org.to.telegramfinalproject.Client.Session.activeChats
+                : org.to.telegramfinalproject.Client.Session.chatList;
+
+        if (list == null || list.isEmpty()) return;
+
+        for (ChatEntry c : list) {
+            addChatNode(c);
         }
     }
 
-    private void openChat(String chatName) {
+
+//    private void addChatNode(ChatEntry chat ) {
+//        try {
+//            FXMLLoader fx = new FXMLLoader(getClass().getResource(
+//                    "/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
+//            Node item = fx.load();
+//            ChatItemController cc = fx.getController();
+//
+//            String lastPreview = "";
+//            String time = (chat.getLastMessageTime() != null)
+//                    ? timeFmt.format(chat.getLastMessageTime()) : "";
+//
+//            cc.setChatData(chat.getName(), lastPreview, time, 0);
+//
+//            item.setOnMouseClicked(e -> openChat(String.valueOf(chat)));
+//            chatListContainer.getChildren().add(item);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
+
+    private void addChatNode(ChatEntry chat) {
+        try {
+            FXMLLoader fx = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
+            Node item = fx.load();
+            ChatItemController cc = fx.getController();
+
+            String preview = chat.getLastMessagePreview() == null ? "" : chat.getLastMessagePreview();
+            String time    = formatListTimestamp(chat.getLastMessageTime());
+
+            cc.setChatData(chat.getName(), preview, time, chat.getUnreadCount());
+            item.setOnMouseClicked(e -> openChat(chat));
+            chatListContainer.getChildren().add(item);
+
+            itemControllers.put(chat.getId(), cc);
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+
+    private String mapTypeToLabel(String t) {
+        switch (t.toUpperCase()) {
+            case "IMAGE": return "[Image]";
+            case "AUDIO": return "[Audio]";
+            case "VIDEO": return "[Video]";
+            case "FILE":  return "[File]";
+            default:      return "[Message]";
+        }
+    }
+
+
+//    private void addChat(String name, String lastMsg, String time, int unread) {
+//        try {
+//            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
+//            Node chatItem = loader.load();
+//            ChatItemController controller = loader.getController();
+//            controller.setChatData(name, lastMsg, time, unread);
+//
+//            chatItem.setOnMouseClicked(e -> openChat(name));
+//            chatListContainer.getChildren().add(chatItem);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
+
+    private void openChat(ChatEntry chat) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_page.fxml"));
             Node chatPage = loader.load();
 
             ChatPageController controller = loader.getController();
-            controller.setChat("Alice", "/org/to/telegramfinalproject/Avatars/profile_test.png");
+            controller.showChat(chat);     // ✅ متد جدید در ChatPageController
 
+            chatDisplayArea.getChildren().setAll(chatPage);
 
-            chatDisplayArea.getChildren().clear();
-            chatDisplayArea.getChildren().add(chatPage);
+            // اختیاری: صفر کردن badge و مارک‌کردن به‌عنوان خوانده در UI
+            ChatItemController item = itemControllers.get(chat.getId());
+            if (item != null) item.setUnread(0);
 
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
     }
+
 
     @FXML
     private void toggleSidebar() {

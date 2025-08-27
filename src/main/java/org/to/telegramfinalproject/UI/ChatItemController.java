@@ -23,4 +23,11 @@ public class ChatItemController {
         unreadCount.setVisible(unread > 0);
         unreadCount.setText(String.valueOf(unread));
     }
+
+    public void setUnread(int unread) {
+        boolean show = unread > 0;
+        unreadCount.setVisible(show);
+        unreadCount.setManaged(show);
+        if (show) unreadCount.setText(String.valueOf(unread));
+    }
 }

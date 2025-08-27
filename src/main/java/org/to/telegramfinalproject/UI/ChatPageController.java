@@ -10,38 +10,62 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
 import javafx.stage.FileChooser;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.to.telegramfinalproject.Client.ActionHandler;
+import org.to.telegramfinalproject.Models.ChatEntry;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.File;
+import java.util.UUID;
 
 public class ChatPageController {
 
     // ===== messages area =====
-    @FXML private VBox messageContainer;
-    @FXML private ScrollPane messageScrollPane;
+    @FXML
+    private VBox messageContainer;
+    @FXML
+    private ScrollPane messageScrollPane;
 
     // ===== input area =====
-    @FXML private TextArea messageInput;
-    @FXML private Button sendButton;
+    @FXML
+    private TextArea messageInput;
+    @FXML
+    private Button sendButton;
 
-    @FXML private Button attachmentButton;
-    @FXML private ImageView attachmentIcon;   // <ImageView> inside the attachment button
+    @FXML
+    private Button attachmentButton;
+    @FXML
+    private ImageView attachmentIcon;   // <ImageView> inside the attachment button
 
     // ===== header =====
-    @FXML private ImageView userAvatar;       // 36x36 in the FXML
-    @FXML private Label chatTitle;            // contact/group title
-    @FXML private Label chatStatus;           // last seen / online
+    @FXML
+    private ImageView userAvatar;       // 36x36 in the FXML
+    @FXML
+    private Label chatTitle;            // contact/group title
+    @FXML
+    private Label chatStatus;           // last seen / online
 
-    @FXML private Button searchInChatButton;  // magnifier button
-    @FXML private ImageView searchIcon;
+    @FXML
+    private Button searchInChatButton;  // magnifier button
+    @FXML
+    private ImageView searchIcon;
 
-    @FXML private Button moreButton;          // 3-dots button
-    @FXML private ImageView moreIcon;
-    @FXML private ContextMenu moreMenu;
-    @FXML private MenuItem viewProfileItem;
-    @FXML private MenuItem deleteChatItem;
+    @FXML
+    private Button moreButton;          // 3-dots button
+    @FXML
+    private ImageView moreIcon;
+    @FXML
+    private ContextMenu moreMenu;
+    @FXML
+    private MenuItem viewProfileItem;
+    @FXML
+    private MenuItem deleteChatItem;
 
     // ===== send icon =====
-    @FXML private ImageView sendIcon;
+    @FXML
+    private ImageView sendIcon;
 
     // ===== state =====
     private String chatName;
@@ -49,9 +73,26 @@ public class ChatPageController {
 
     // Where your icons live
     private static final String ICON_BASE = "/org/to/telegramfinalproject/Icons/";
+    private ChatEntry currentChat;
+    private UUID me;
+
+    private void initCurrentUserId() {
+        try {
+            // از سشنی که سمت کلاینت داری:
+            String meStr = org.to.telegramfinalproject.Client.Session
+                    .currentUser.getString("internal_uuid");
+            me = UUID.fromString(meStr);
+        } catch (Exception ignore) {
+            me = null; // اگر به هر دلیلی نبود، خروجی‌ها رو ورودی فرض نکن
+        }
+    }
+
 
     @FXML
     public void initialize() {
+
+        initCurrentUserId();
+
         // Send button
         if (sendButton != null) {
             sendButton.setOnAction(e -> sendMessage());
@@ -162,7 +203,9 @@ public class ChatPageController {
         MainController.getInstance().showSearchPanel();
     }
 
-    /** Called by main controller when opening a chat. */
+    /**
+     * Called by main controller when opening a chat.
+     */
     public void setChat(String chatName, String avatarPath) {
         this.chatName = chatName;
 
@@ -210,14 +253,16 @@ public class ChatPageController {
 
     // ----- UI helpers -----
 
-    /** Add a normal message bubble (very simple for now). */
+    /**
+     * Add a normal message bubble (very simple for now).
+     */
     public void addMessage(String sender, String content) {
         Label msg = new Label(sender + ": " + content);
         msg.setWrapText(true);
 
         boolean dark = themeManager.isDarkMode();
         String bubbleColor = dark ? "#20405a" : "#4fa8f0";
-        String textColor   = dark ? "#e8f1f8" : "#0f141a";
+        String textColor = dark ? "#e8f1f8" : "#0f141a";
         msg.setStyle(
                 "-fx-background-color: " + bubbleColor + ";" +
                         "-fx-text-fill: " + textColor + ";" +
@@ -235,7 +280,9 @@ public class ChatPageController {
         messageScrollPane.setVvalue(1.0);
     }
 
-    /** Update all header/footer icons according to current theme. */
+    /**
+     * Update all header/footer icons according to current theme.
+     */
     private void syncIconsWithTheme() {
         boolean dark = themeManager.isDarkMode();
         // We use “_light” icons on dark backgrounds, and “_dark” on light backgrounds.
@@ -274,4 +321,153 @@ public class ChatPageController {
         }
         return new Image(url.toExternalForm());
     }
+
+    public void showChat(ChatEntry entry) {
+        this.currentChat = entry;
+
+        // Header
+        chatTitle.setText(entry.getName());
+        chatStatus.setText(""); // اگر last seen داری اینجا بگذار
+        if (entry.getImageUrl() != null && !entry.getImageUrl().isEmpty()) {
+            try {
+                userAvatar.setImage(new Image(entry.getImageUrl())); // یا لود از ریسورس خودت
+                userAvatar.setClip(new Circle(18, 18, 18));
+            } catch (Exception ignored) {
+            }
+        }
+
+        messageContainer.getChildren().clear();
+        loadMessages(entry);
+
+        // مارک به‌عنوان خوانده
+        markAsRead(entry);
+
+        // فوکوس روی ورودی
+        Platform.runLater(() -> messageInput.requestFocus());
+    }
+
+    private void loadMessages(ChatEntry entry) {
+        JSONObject req = new JSONObject();
+        req.put("action", "get_messages");
+        req.put("receiver_id", String.valueOf(entry.getId()));
+        req.put("receiver_type", entry.getType());
+        req.put("limit", 50);
+
+        new Thread(() -> {
+            JSONObject resp;
+            try {
+                resp = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return;
+            }
+            if (resp == null) return;
+
+            // بدون opt* :
+            String status = "";
+            try {
+                status = resp.getString("status");
+            } catch (Exception ignore) {
+            }
+            if (!"success".equals(status)) return;
+
+            JSONObject data = null;
+            try {
+                data = resp.getJSONObject("data");
+            } catch (Exception ignore) {
+            }
+            if (data == null) return;
+
+            JSONArray arr = null;
+            try {
+                arr = data.getJSONArray("messages");
+            } catch (Exception ignore) {
+            }
+            if (arr == null) return;
+
+            JSONArray finalArr = arr;
+            Platform.runLater(() -> renderMessages(finalArr));
+        }).start();
+    }
+
+
+    private void renderMessages(JSONArray arr) {
+        messageContainer.getChildren().clear();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject m = arr.getJSONObject(i);
+            String senderId = m.optString("sender_id", "");
+            String type = m.optString("message_type", "TEXT");
+            String content = m.optString("content", "");
+
+            boolean outgoing = false;
+            if (me != null && senderId != null && !senderId.isEmpty()) {
+                try {
+                    outgoing = me.equals(UUID.fromString(senderId));
+                } catch (Exception ignore) {
+                }
+            }
+
+            String text;
+            switch (type.toUpperCase()) {
+                case "TEXT":
+                    text = content;
+                    break;
+                case "IMAGE":
+                    text = "[Image]";
+                    break;
+                case "AUDIO":
+                    text = "[Audio]";
+                    break;
+                case "VIDEO":
+                    text = "[Video]";
+                    break;
+                case "FILE":
+                    text = "[File]";
+                    break;
+                default:
+                    text = "[Message]";
+            }
+            addBubble(outgoing, text);
+        }
+        messageScrollPane.layout();
+        messageScrollPane.setVvalue(1.0);
+    }
+
+
+    private void markAsRead(ChatEntry entry) {
+        JSONObject readReq = new JSONObject();
+        readReq.put("action", "mark_as_read");
+        readReq.put("receiver_id", entry.getId().toString()); // ⛳️ internal_id
+        readReq.put("receiver_type", entry.getType());
+        ActionHandler.sendWithResponse(readReq);
+    }
+
+    private void addBubble(boolean outgoing, String content) {
+        Label msg = new Label(content);
+        msg.setWrapText(true);
+
+        boolean dark = themeManager.isDarkMode();
+        String mine = dark ? "#2b7cff" : "#d8ecff";
+        String theirs = dark ? "#2c333a" : "#ffffff";
+        String bg = outgoing ? mine : theirs;
+
+        msg.setStyle(
+                "-fx-background-color:" + bg + ";" +
+                        "-fx-padding:8 12;" +
+                        "-fx-background-radius:12;" +
+                        "-fx-max-width: 520;"
+        );
+        msg.setMinHeight(Region.USE_PREF_SIZE);
+
+        javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(msg);
+        row.setFillHeight(true);
+        row.setSpacing(6);
+        row.setAlignment(outgoing
+                ? javafx.geometry.Pos.CENTER_RIGHT
+                : javafx.geometry.Pos.CENTER_LEFT);
+
+        messageContainer.getChildren().add(row);
+    }
+
+
 }

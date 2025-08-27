@@ -1057,4 +1057,73 @@ public class MessageDatabase {
         }
     }
 
+
+    public static Message getLastMessage(UUID targetId, String type) {
+        final String sql =
+                "SELECT * FROM messages " +
+                        "WHERE receiver_type = ? AND receiver_id = ? " +
+                        "ORDER BY send_at DESC LIMIT 1";
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, type.toLowerCase()); // "private" | "group" | "channel"
+            ps.setObject(2, targetId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static int getUnreadCount(UUID me, UUID targetId, String type) {
+        final String sql =
+                "SELECT COUNT(*) FROM messages " +
+                        "WHERE receiver_type = ? AND receiver_id = ? " +
+                        "AND sender_id <> ? " +
+                        "AND (status IS NULL OR status <> 'SEEN')";
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, type.toLowerCase());
+            ps.setObject(2, targetId);
+            ps.setObject(3, me);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 0;
+        }
+
+
+    }
+
+    private static Message mapRow(ResultSet rs) throws SQLException {
+        Message m = new Message();
+        m.setMessage_id((UUID) rs.getObject("message_id"));
+        m.setSender_id((UUID) rs.getObject("sender_id"));
+        m.setReceiver_id((UUID) rs.getObject("receiver_id"));
+        m.setReceiver_type(rs.getString("receiver_type"));
+        if ("private".equalsIgnoreCase(m.getReceiver_type())) {
+            m.setReceiver_id(m.getReceiver_id());
+        } else {
+            m.setReceiver_id(null);
+        }
+        m.setMessage_type(rs.getString("message_type"));
+        m.setContent(rs.getString("content"));
+        Timestamp ts = rs.getTimestamp("send_at");
+        if (ts != null) m.setSend_at(ts.toLocalDateTime());
+        m.setIs_edited(rs.getBoolean("is_edited"));
+        m.setStatus(rs.getString("status"));
+        Object rtid = rs.getObject("reply_to_id");
+        m.setReply_to_id(rtid == null ? null : (UUID) rtid);
+        return m;
+    }
+
 }

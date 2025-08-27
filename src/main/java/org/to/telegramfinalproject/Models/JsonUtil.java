@@ -186,6 +186,12 @@ public class JsonUtil {
             obj.put("is_owner", entry.isOwner());
             obj.put("is_admin", entry.isAdmin());
             obj.put("is_saved_messages", entry.isSavedMessages());
+            obj.put("unread_count", entry.getUnreadCount());
+            obj.put("last_message_preview", entry.getLastMessagePreview());
+            obj.put("last_message_type", entry.getLastMessageType());
+            obj.put("last_message_sender_id",
+                    entry.getLastMessageSenderId() != null ? entry.getLastMessageSenderId().toString() : JSONObject.NULL);
+
 
             jsonArray.put(obj);
         }

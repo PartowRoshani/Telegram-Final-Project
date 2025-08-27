@@ -125,78 +125,6 @@ public class ClientHandler implements Runnable {
                             }
 
 
-
-//                            for (Contact contact : contacts) {
-//                                User target = userDatabase.findByInternalUUID(contact.getContact_id());
-//                                if (target == null) continue;
-//                                LocalDateTime last = MessageDatabase.getLastMessageTimeBetween(user.getInternal_uuid(), target.getInternal_uuid(), "private");
-//
-////                                chatList.add(new ChatEntry(
-////                                        target.getInternal_uuid(),      // internal UUID
-////                                        target.getUser_id(),            // public display ID
-////                                        target.getProfile_name(),
-////                                        target.getImage_url(),
-////                                        "private",
-////                                        last,
-////                                        false,
-////                                        false
-////                                ));
-//
-//                                UUID targetId = target.getInternal_uuid();
-//
-//                                ChatEntry entry = new ChatEntry(
-//                                        targetId,
-//                                        target.getUser_id(),
-//                                        target.getProfile_name(),
-//                                        target.getImage_url(),
-//                                        "private",
-//                                        last,
-//                                        false,
-//                                        false
-//                                );
-//
-//
-//
-//                            }
-
-
-//
-//                            List<PrivateChat> privateChats = PrivateChatDatabase.findChatsOfUser(currentUser.getInternal_uuid());
-//                            for (PrivateChat chat : privateChats) {
-//                                UUID otherId = chat.getUser1_id().equals(currentUser.getInternal_uuid()) ?
-//                                        chat.getUser2_id() : chat.getUser1_id();
-//
-//                                User otherUser = userDatabase.findByInternalUUID(otherId);
-//                                if (otherUser == null) continue;
-//
-//                                LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTime(chat.getChat_id(), "private");
-//
-//
-//                                ChatEntry entry = new ChatEntry(
-//                                        chat.getChat_id(),
-//                                        otherUser.getUser_id(),
-//                                        otherUser.getProfile_name(),
-//                                        otherUser.getImage_url(),
-//                                        "private",
-//                                        lastMessageTime,
-//                                        false,
-//                                        false
-//                                );
-//                                entry.setOtherUserId(otherId);
-//
-//                                if (currentUser.getInternal_uuid() == otherId) {
-//                                    entry.setSavedMessages(true);
-//                                }
-//
-//                                if (archivedChatIds.contains(chat.getChat_id())) {
-//                                    archivedChatList.add(entry);
-//                                    chatList.add(entry);
-//                                } else {
-//                                    activeChatList.add(entry);
-//                                    chatList.add(entry);
-//                                }
-//                            }
-
                             List<PrivateChat> privateChats = PrivateChatDatabase.findChatsOfUser(currentUser.getInternal_uuid());
 
                             ChatEntry savedEntry = null;
@@ -229,9 +157,11 @@ public class ClientHandler implements Runnable {
                                 );
                                 entry.setOtherUserId(otherId);
                                 if (isSelf) {
-                                    entry.setSavedMessages(true);   // فلگ مهم
-                                    savedEntry = entry;             // برای بردن به اول لیست
+                                    entry.setSavedMessages(true);
+                                    savedEntry = entry;
                                 }
+
+                                enrichChatEntry(entry, user.getInternal_uuid());
 
                                 if (!isSelf && archivedChatIds.contains(chat.getChat_id())) {
                                     archivedChatList.add(entry);
@@ -270,6 +200,7 @@ public class ClientHandler implements Runnable {
                                         isOwner,
                                         isAdmin
                                 );
+                                enrichChatEntry(entry, user.getInternal_uuid());
 
                                 if (archivedChatIds.contains(group.getInternal_uuid())) {
                                     archivedChatList.add(entry);
@@ -308,6 +239,8 @@ public class ClientHandler implements Runnable {
                                         isOwner,
                                         isAdmin
                                 );
+
+                                enrichChatEntry(entry, user.getInternal_uuid());
 
                                 if (archivedChatIds.contains(channel.getInternal_uuid())) {
                                     archivedChatList.add(entry);
@@ -774,9 +707,9 @@ public class ClientHandler implements Runnable {
 
                             ChatEntry entry = new ChatEntry(
                                     chat.getChat_id(),
-                                    otherUser.getUser_id(),
-                                    otherUser.getProfile_name(),
-                                    otherUser.getImage_url(),
+                                    isSavedMessages ? "Saved Messages" : otherUser.getUser_id(),
+                                    isSavedMessages ? "Saved Messages" : otherUser.getProfile_name(),
+                                    isSavedMessages ? null : otherUser.getImage_url(),
                                     "private",
                                     lastMessageTime,
                                     false,
@@ -784,18 +717,20 @@ public class ClientHandler implements Runnable {
                             );
                             entry.setOtherUserId(otherId);
 
+
                             // Mark it as saved messages if it's the special self-chat
                             if (isSavedMessages) {
                                 entry.setSavedMessages(true);
                             }
+                            enrichChatEntry(entry, currentUser.getInternal_uuid());
 
-                            if (archivedChatIds.contains(chat.getChat_id())) {
+                            if (archivedChatIds.contains(chat.getChat_id()) && !isSavedMessages) {
                                 archivedChatList.add(entry);
-                                chatList.add(entry);
                             } else {
                                 activeChatList.add(entry);
-                                chatList.add(entry);
                             }
+                            chatList.add(entry);
+
                         }
 
 
@@ -825,6 +760,8 @@ public class ClientHandler implements Runnable {
                                     isOwner,
                                     isAdmin
                             );
+
+                            enrichChatEntry(entry, currentUser.getInternal_uuid());
 
                             if (archivedChatIds.contains(group.getInternal_uuid())) {
                                 archivedChatList.add(entry);
@@ -863,6 +800,7 @@ public class ClientHandler implements Runnable {
                                     isOwner,
                                     isAdmin
                             );
+                            enrichChatEntry(entry, currentUser.getInternal_uuid());
 
                             if (archivedChatIds.contains(channel.getInternal_uuid())) {
                                 archivedChatList.add(entry);
@@ -2853,6 +2791,40 @@ public class ClientHandler implements Runnable {
         return new ResponseModel("success", "Saved Messages ready.", data);
     }
 
+
+
+
+    private void enrichChatEntry(ChatEntry e, UUID me) {
+        // آخرین پیام
+        Message last = MessageDatabase.getLastMessage(e.getId(), e.getType());
+        if (last != null) {
+            e.setLastMessageTime(String.valueOf(last.getSend_at()));
+            e.setLastMessagePreview(buildPreview(last));
+            e.setLastMessageType(last.getMessage_type());
+            e.setLastMessageSenderId(last.getSender_id());
+        }
+
+        // تعداد نخوانده‌ها
+        int unread = MessageDatabase.getUnreadCount(me, e.getId(), e.getType());
+        e.setUnreadCount(unread);
+    }
+
+    private String buildPreview(Message m) {
+        String t = m.getMessage_type();
+        if ("TEXT".equalsIgnoreCase(t)) {
+            String c = m.getContent();
+            if (c == null) return "";
+            // پیش‌نمایش کوتاه
+            return c.length() > 120 ? c.substring(0, 120) + "…" : c;
+        }
+        switch (t) {
+            case "IMAGE": return "[Image]";
+            case "AUDIO": return "[Audio]";
+            case "VIDEO": return "[Video]";
+            case "FILE":  return "[File]";
+            default:      return "[Message]";
+        }
+    }
 
 
 }

@@ -3,6 +3,7 @@ package org.to.telegramfinalproject.UI;
 import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
@@ -12,11 +13,15 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
+
 import java.net.URL;
 
 public class SidebarMenuController {
 
     private static final String ICON_PATH = "/org/to/telegramfinalproject/Icons/";
+
+
+
 
     @FXML private VBox sidebarRoot;
     @FXML private ImageView profileImage;
@@ -176,4 +181,8 @@ public class SidebarMenuController {
     private void openSettings() { System.out.println("Opening Settings..."); }
     private void openTelegramFeatures() { System.out.println("Opening Telegram Features..."); }
     private void openTelegramQnA() { System.out.println("Opening Telegram Q&A..."); }
+
+
+
+
 }

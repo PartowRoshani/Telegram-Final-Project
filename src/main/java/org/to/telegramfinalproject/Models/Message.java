@@ -125,6 +125,9 @@ public class Message {
         this.edited_at = editedAt;
     }
 
+    public Message() {
+
+    }
 
 
     // ✅ Getters & Setters
@@ -203,4 +206,6 @@ public class Message {
         return is_deleted_globally;
     }
 
+    public void receiver_id(UUID receiverId) {this.receiver_id = receiverId;
+    }
 }

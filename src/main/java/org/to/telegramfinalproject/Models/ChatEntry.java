@@ -22,6 +22,17 @@ public class ChatEntry {
     private JSONObject permissions;
 
 
+
+
+
+//    private UUID otherUserId;
+    private int unreadCount;
+    private String lastMessagePreview;
+    private String lastMessageType;      // TEXT / IMAGE / AUDIO / VIDEO / ...
+    private UUID lastMessageSenderId;
+
+
+
     public ChatEntry(UUID internalId, String displayId, String name, String imageUrl, String type, LocalDateTime lastMessageTime) {
         this.internalId = internalId;
         this.displayId = displayId;
@@ -149,4 +160,17 @@ public class ChatEntry {
     public void setSavedMessages(boolean savedMessages) {
         this.savedMessages = savedMessages;
     }
+
+
+    public int getUnreadCount() { return unreadCount; }
+    public void setUnreadCount(int unreadCount) { this.unreadCount = unreadCount; }
+
+    public String getLastMessagePreview() { return lastMessagePreview; }
+    public void setLastMessagePreview(String lastMessagePreview) { this.lastMessagePreview = lastMessagePreview; }
+
+    public String getLastMessageType() { return lastMessageType; }
+    public void setLastMessageType(String lastMessageType) { this.lastMessageType = lastMessageType; }
+
+    public UUID getLastMessageSenderId() { return lastMessageSenderId; }
+    public void setLastMessageSenderId(UUID lastMessageSenderId) { this.lastMessageSenderId = lastMessageSenderId; }
 }
