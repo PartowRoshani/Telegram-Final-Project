@@ -21,18 +21,19 @@
             <items>
 
                 <!-- LEFT: Sidebar -->
-                <VBox fx:id="leftPane" minWidth="72" style="-fx-background-color: #FFFFFF;">
+                <VBox fx:id="leftPane" minWidth="72" styleClass="sidebar-pane">
 
                     <!-- Top bar (always visible) -->
-                    <HBox spacing="10">
+                    <HBox spacing="10" styleClass="search-bar-container">
                         <padding>
                             <Insets bottom="10" left="10" right="10" top="10"/>
                         </padding>
                         <children>
-                            <Button fx:id="menuButton" minHeight="29.0" minWidth="40"
+                            <Button fx:id="menuButton"
+                                    minHeight="29.0" minWidth="40"
                                     onAction="#toggleSidebar"
                                     prefHeight="29.0" prefWidth="40.0"
-                                    style="-fx-background-color: transparent;">
+                                    styleClass="menu-btn">
                                 <graphic>
                                     <ImageView fx:id="menuIcon" fitHeight="24" fitWidth="17"
                                                preserveRatio="true" smooth="true">
@@ -46,7 +47,7 @@
                             <TextField fx:id="searchBar"
                                        prefHeight="36" prefWidth="430.0"
                                        promptText="Search"
-                                       style="-fx-background-color: #f5f5f5; -fx-background-radius: 15;"/>
+                                       styleClass="global-search"/>
                         </children>
                     </HBox>
 
@@ -55,12 +56,12 @@
 
                         <!-- Chat list (default) -->
                         <ScrollPane fx:id="scrollPane" fitToWidth="true" hbarPolicy="NEVER"
-                                    style="-fx-background-color: transparent;"
                                     vbarPolicy="AS_NEEDED"
-                                    visible="true" managed="true">
+                                    visible="true" managed="true"
+                                    styleClass="chat-scroll">
                             <content>
                                 <VBox fx:id="chatListContainer" spacing="5"
-                                      style="-fx-background-color: transparent;">
+                                      styleClass="chat-list">
                                     <padding>
                                         <Insets bottom="10" left="10" right="10" top="10"/>
                                     </padding>
@@ -69,18 +70,18 @@
                         </ScrollPane>
 
                         <!-- Search panel (hidden initially) -->
-                        <VBox fx:id="chatSearchPane" visible="false" managed="false"
+                        <VBox fx:id="chatSearchPane"
+                              visible="false" managed="false"
                               styleClass="chat-search-pane">
 
                             <!-- Section label -->
-                            <Label text="Search messages in"
-                                   style="-fx-text-fill: #7e8a97; -fx-font-size: 11px; -fx-padding: 10 0 5 10;"/>
+                            <Label text="Search messages in" styleClass="search-label"/>
 
                             <!-- Tiny separator line -->
-                            <Separator style="-fx-background-color: #e6e6e6;" prefHeight="0.5"/>
+                            <Separator styleClass="search-separator" prefHeight="0.5"/>
 
                             <!-- User profile + "This chat" + close -->
-                            <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-padding: 8 10; -fx-border-color: #e6e6e6; -fx-border-width: 0 0 1 0;">
+                            <HBox spacing="10" alignment="CENTER_LEFT" styleClass="search-scope-bar">
                                 <!-- Avatar -->
                                 <ImageView fx:id="searchChatAvatar" fitWidth="32" fitHeight="32" preserveRatio="true">
                                     <image>
@@ -90,12 +91,11 @@
 
                                 <!-- scope -->
                                 <VBox alignment="CENTER_LEFT">
-                                    <Label text="This chat" style="-fx-text-fill: #7e8a97; -fx-font-size: 11px;"/>
+                                    <Label text="This chat" styleClass="search-scope"/>
                                 </VBox>
                                 <Region HBox.hgrow="ALWAYS"/>
                                 <!-- Close button -->
-                                <Button text="✕" onAction="#closeSearchPanel"
-                                        style="-fx-background-color: transparent; -fx-cursor: hand;"/>
+                                <Button text="✕" onAction="#closeSearchPanel" styleClass="close-btn"/>
                             </HBox>
 
                             <!-- Placeholder -->
@@ -111,7 +111,7 @@
                 </VBox>
 
                 <!-- RIGHT: Chat panel -->
-                <StackPane fx:id="chatDisplayArea" minWidth="360" style="-fx-background-color: #FAFAFA;">
+                <StackPane fx:id="chatDisplayArea" minWidth="360" styleClass="chat-display">
                     <children>
                         <Label fx:id="placeholderLabel" alignment="CENTER"
                                prefHeight="21.0" prefWidth="248.0"
@@ -128,7 +128,7 @@
         <Pane fx:id="overlay"
               mouseTransparent="true"
               onMouseClicked="#closeSidebar"
-              style="-fx-background-color: rgba(0,0,0,0.3);"
+              styleClass="overlay"
               visible="false"/>
     </children>
 </StackPane>
