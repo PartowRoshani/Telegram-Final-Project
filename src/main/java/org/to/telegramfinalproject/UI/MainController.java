@@ -48,6 +48,8 @@ public class MainController {
     // === Sidebar ===
     @FXML private Pane overlay;
     @FXML private ImageView menuIcon;
+    private SidebarMenuController sidebarController; //save sidebar controller
+
 
     // === STATE ===
     private static MainController instance;
@@ -173,26 +175,29 @@ public class MainController {
 //    }
 
 
-    private final DateTimeFormatter timeFmt    = DateTimeFormatter.ofPattern("HH:mm");
-    private final DateTimeFormatter dayFmt     = DateTimeFormatter.ofPattern("dd/MM");       // همون سال
-    private final DateTimeFormatter fullDateFmt= DateTimeFormatter.ofPattern("yyyy/MM/dd"); // سال متفاوت
+    private static final java.time.format.DateTimeFormatter FMT_HHMM =
+            java.time.format.DateTimeFormatter.ofPattern("HH:mm");
+    private static final java.time.format.DateTimeFormatter FMT_DATE_TIME =
+            java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
+    private static final String YESTERDAY_LABEL = "Yesterday";
 
-    private String formatListTimestamp(LocalDateTime ts) {
+    // ...
+    private String formatChatTime(java.time.LocalDateTime ts) {
         if (ts == null) return "";
-        LocalDate today = LocalDate.now();
-        LocalDate d = ts.toLocalDate();
+        var today = java.time.LocalDate.now();
+        var d = ts.toLocalDate();
 
         if (d.isEqual(today)) {
-            // امروز → فقط ساعت
-            return timeFmt.format(ts);
+            //today
+            return FMT_HHMM.format(ts);
+            //yesterday
+        } else if (d.isEqual(today.minusDays(1))) {
+            return YESTERDAY_LABEL;
+        } else {
+            return FMT_DATE_TIME.format(ts);
         }
-        // اگر همان سال است → تاریخ کوتاه + ساعت
-        if (d.getYear() == today.getYear()) {
-            return dayFmt.format(ts) + " " + timeFmt.format(ts);   // مثال: 15/08 13:28
-        }
-        // سال متفاوت → تاریخ کامل + ساعت
-        return fullDateFmt.format(ts) + " " + timeFmt.format(ts);  // مثال: 2024/12/31 21:10
     }
+
 
 
 
@@ -239,9 +244,9 @@ public class MainController {
             ChatItemController cc = fx.getController();
 
             String preview = chat.getLastMessagePreview() == null ? "" : chat.getLastMessagePreview();
-            String time    = formatListTimestamp(chat.getLastMessageTime());
+            String timeText = formatChatTime(chat.getLastMessageTime());
 
-            cc.setChatData(chat.getName(), preview, time, chat.getUnreadCount());
+            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount());
             item.setOnMouseClicked(e -> openChat(chat));
             chatListContainer.getChildren().add(item);
 
@@ -284,11 +289,10 @@ public class MainController {
             Node chatPage = loader.load();
 
             ChatPageController controller = loader.getController();
-            controller.showChat(chat);     // ✅ متد جدید در ChatPageController
+            controller.showChat(chat);
 
             chatDisplayArea.getChildren().setAll(chatPage);
 
-            // اختیاری: صفر کردن badge و مارک‌کردن به‌عنوان خوانده در UI
             ChatItemController item = itemControllers.get(chat.getId());
             if (item != null) item.setUnread(0);
 
@@ -307,14 +311,47 @@ public class MainController {
         }
     }
 
+//    @FXML
+//    private void openSidebar() {
+//        try {
+//            if (sidebarRoot == null) {
+//                sidebarRoot = FXMLLoader.load(getClass().getResource("/org/to/telegramfinalproject/Fxml/Sidebar_menu.fxml"));
+//                StackPane.setAlignment(sidebarRoot, Pos.CENTER_LEFT);
+//                sidebarRoot.setTranslateX(-getSidebarWidth());
+//                mainRoot.getChildren().add(sidebarRoot);
+//            }
+//
+//            TranslateTransition slideIn = new TranslateTransition(Duration.millis(250), sidebarRoot);
+//            slideIn.setToX(0);
+//            slideIn.play();
+//
+//            overlay.setVisible(true);
+//            overlay.setMouseTransparent(false);
+//
+//            isSidebarOpen = true;
+//
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
+
     @FXML
     private void openSidebar() {
         try {
             if (sidebarRoot == null) {
-                sidebarRoot = FXMLLoader.load(getClass().getResource("/org/to/telegramfinalproject/Fxml/Sidebar_menu.fxml"));
+                FXMLLoader loader = new FXMLLoader(
+                        getClass().getResource("/org/to/telegramfinalproject/Fxml/Sidebar_menu.fxml"));
+                sidebarRoot = loader.load();
+                sidebarController = loader.getController();
+
                 StackPane.setAlignment(sidebarRoot, Pos.CENTER_LEFT);
                 sidebarRoot.setTranslateX(-getSidebarWidth());
                 mainRoot.getChildren().add(sidebarRoot);
+            }
+
+            if (sidebarController != null && org.to.telegramfinalproject.Client.Session.currentUser != null) {
+                sidebarController.setUserFromSession(
+                        org.to.telegramfinalproject.Client.Session.currentUser);
             }
 
             TranslateTransition slideIn = new TranslateTransition(Duration.millis(250), sidebarRoot);
@@ -323,13 +360,12 @@ public class MainController {
 
             overlay.setVisible(true);
             overlay.setMouseTransparent(false);
-
             isSidebarOpen = true;
-
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
 
     @FXML
     private void closeSidebar() {

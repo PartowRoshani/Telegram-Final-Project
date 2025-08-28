@@ -13,11 +13,16 @@ import javafx.stage.FileChooser;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Client.ActionHandler;
+import org.to.telegramfinalproject.Client.Session;
 import org.to.telegramfinalproject.Models.ChatEntry;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 public class ChatPageController {
@@ -78,15 +83,47 @@ public class ChatPageController {
 
     private void initCurrentUserId() {
         try {
-            // از سشنی که سمت کلاینت داری:
             String meStr = org.to.telegramfinalproject.Client.Session
                     .currentUser.getString("internal_uuid");
             me = UUID.fromString(meStr);
         } catch (Exception ignore) {
-            me = null; // اگر به هر دلیلی نبود، خروجی‌ها رو ورودی فرض نکن
+            me = null;
         }
     }
 
+    //Time formatter for messages
+
+    private static final DateTimeFormatter FMT_HHMM       = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter FMT_DATE_TIME  = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
+    private static final String YESTERDAY_LABEL           = "Yesterday";
+
+    private String formatWhen(LocalDateTime ts) {
+        if (ts == null) return "";
+        LocalDate today = LocalDate.now();
+        LocalDate d = ts.toLocalDate();
+
+        if (d.isEqual(today)) {
+            return FMT_HHMM.format(ts);
+        } else if (d.isEqual(today.minusDays(1))) {
+            return YESTERDAY_LABEL + " " + FMT_HHMM.format(ts);
+        } else {
+            return FMT_DATE_TIME.format(ts);
+        }
+    }
+
+    /** ISO → LocalDateTime (با پشتیبانی از Offset/Z) */
+    private LocalDateTime parseWhen(String iso) {
+        if (iso == null || iso.isEmpty()) return null;
+        try {
+            return OffsetDateTime.parse(iso).toLocalDateTime();
+        } catch (Exception ignore) {
+            try {
+                return LocalDateTime.parse(iso);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+    }
 
     @FXML
     public void initialize() {
@@ -327,10 +364,10 @@ public class ChatPageController {
 
         // Header
         chatTitle.setText(entry.getName());
-        chatStatus.setText(""); // اگر last seen داری اینجا بگذار
+        chatStatus.setText("");
         if (entry.getImageUrl() != null && !entry.getImageUrl().isEmpty()) {
             try {
-                userAvatar.setImage(new Image(entry.getImageUrl())); // یا لود از ریسورس خودت
+                userAvatar.setImage(new Image(entry.getImageUrl()));
                 userAvatar.setClip(new Circle(18, 18, 18));
             } catch (Exception ignored) {
             }
@@ -339,10 +376,8 @@ public class ChatPageController {
         messageContainer.getChildren().clear();
         loadMessages(entry);
 
-        // مارک به‌عنوان خوانده
         markAsRead(entry);
 
-        // فوکوس روی ورودی
         Platform.runLater(() -> messageInput.requestFocus());
     }
 
@@ -363,7 +398,6 @@ public class ChatPageController {
             }
             if (resp == null) return;
 
-            // بدون opt* :
             String status = "";
             try {
                 status = resp.getString("status");
@@ -391,47 +425,46 @@ public class ChatPageController {
     }
 
 
-    private void renderMessages(JSONArray arr) {
+    private void renderMessages(org.json.JSONArray arr) {
         messageContainer.getChildren().clear();
-        for (int i = 0; i < arr.length(); i++) {
-            JSONObject m = arr.getJSONObject(i);
-            String senderId = m.optString("sender_id", "");
-            String type = m.optString("message_type", "TEXT");
-            String content = m.optString("content", "");
 
-            boolean outgoing = false;
-            if (me != null && senderId != null && !senderId.isEmpty()) {
-                try {
-                    outgoing = me.equals(UUID.fromString(senderId));
-                } catch (Exception ignore) {
-                }
-            }
+        String myId = Session.currentUser != null
+                ? Session.currentUser.optString("internal_uuid", "")
+                : "";
+
+        for (int i = 0; i < arr.length(); i++) {
+            org.json.JSONObject m = arr.getJSONObject(i);
+
+            String senderId    = m.has("sender_id")    && !m.isNull("sender_id")    ? m.getString("sender_id")    : "";
+            String senderName  = m.has("sender_name")  && !m.isNull("sender_name")  ? m.getString("sender_name")  : "";
+            String type        = m.has("message_type") && !m.isNull("message_type") ? m.getString("message_type") : "TEXT";
+            String content     = m.has("content")      && !m.isNull("content")      ? m.getString("content")      : "";
+            String whenStr     = m.has("send_at")      && !m.isNull("send_at")      ? m.getString("send_at")      : null;
+
+            boolean outgoing = senderId.equalsIgnoreCase(myId);
+
+            String display = outgoing ? "You"
+                    : (!senderName.isEmpty() ? senderName
+                    : (senderId.isEmpty() ? "Unknown"
+                    : senderId.substring(0, Math.min(8, senderId.length()))));
 
             String text;
             switch (type.toUpperCase()) {
-                case "TEXT":
-                    text = content;
-                    break;
-                case "IMAGE":
-                    text = "[Image]";
-                    break;
-                case "AUDIO":
-                    text = "[Audio]";
-                    break;
-                case "VIDEO":
-                    text = "[Video]";
-                    break;
-                case "FILE":
-                    text = "[File]";
-                    break;
-                default:
-                    text = "[Message]";
+                case "IMAGE": text = "[Image]"; break;
+                case "AUDIO": text = "[Audio]"; break;
+                case "VIDEO": text = "[Video]"; break;
+                case "FILE":  text = "[File]";  break;
+                default:      text = content;   break;
             }
-            addBubble(outgoing, text);
+
+            LocalDateTime ts = parseWhen(whenStr);
+            addBubble(outgoing, display, text, ts);
         }
+
         messageScrollPane.layout();
         messageScrollPane.setVvalue(1.0);
     }
+
 
 
     private void markAsRead(ChatEntry entry) {
@@ -442,14 +475,19 @@ public class ChatPageController {
         ActionHandler.sendWithResponse(readReq);
     }
 
-    private void addBubble(boolean outgoing, String content) {
+    private void addBubble(boolean outgoing, String displayName, String content, LocalDateTime sentAt) {
+
+        Label meta = new Label(displayName + " • " + formatWhen(sentAt));
+        meta.setStyle("-fx-font-size: 11; -fx-text-fill: #7e8a97;");
+        meta.setWrapText(true);
+
         Label msg = new Label(content);
         msg.setWrapText(true);
 
         boolean dark = themeManager.isDarkMode();
-        String mine = dark ? "#2b7cff" : "#d8ecff";
+        String mine   = dark ? "#2b7cff" : "#d8ecff";
         String theirs = dark ? "#2c333a" : "#ffffff";
-        String bg = outgoing ? mine : theirs;
+        String bg     = outgoing ? mine : theirs;
 
         msg.setStyle(
                 "-fx-background-color:" + bg + ";" +
@@ -459,7 +497,9 @@ public class ChatPageController {
         );
         msg.setMinHeight(Region.USE_PREF_SIZE);
 
-        javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(msg);
+        VBox bubble = new VBox(4, meta, msg);
+
+        javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(bubble);
         row.setFillHeight(true);
         row.setSpacing(6);
         row.setAlignment(outgoing
@@ -468,6 +508,7 @@ public class ChatPageController {
 
         messageContainer.getChildren().add(row);
     }
+
 
 
 }

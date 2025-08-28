@@ -12,6 +12,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
+import org.json.JSONObject;
 
 
 import java.net.URL;
@@ -184,5 +185,35 @@ public class SidebarMenuController {
 
 
 
+    public void setUserFromSession(JSONObject user) {
+        if (user == null) return;
+
+        // نام نمایشی (اول profile_name بعد username)
+        String displayName = user.optString("profile_name",
+                user.optString("username", ""));
+        usernameLabel.setText(displayName);
+
+        // عکس پروفایل: هم URL اینترنتی هم مسیر ریسورس را پشتیبانی کن
+        String img = user.optString("image_url", "");
+        Image pic = tryLoadImage(img);
+        if (pic == null) {
+            pic = loadImage("/org/to/telegramfinalproject/Avatars/profile.png");
+        }
+        if (pic != null) profileImage.setImage(pic);
+    }
+
+    // کمک‌کننده: هم URL و هم ریسورس کلاس‌پث را امتحان می‌کند
+    private Image tryLoadImage(String src) {
+        if (src == null || src.isBlank()) return null;
+        try {
+            // اگر ریسورس داخل پروژه است (با / شروع شود یا در resources موجود باشد)
+            var res = getClass().getResource(src);
+            if (res != null) return new Image(res.toExternalForm(), true);
+            // در غیر این صورت فرض کن URL است (http/https/file)
+            return new Image(src, true);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
 
 }
