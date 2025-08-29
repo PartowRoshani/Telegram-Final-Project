@@ -45,7 +45,7 @@ import java.io.IOException;
 public class TelegramApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
-        // اول intro.fxml
+        // First: intro.fxml
         FXMLLoader fx = new FXMLLoader(
                 TelegramApplication.class.getResource("/org/to/telegramfinalproject/Fxml/intro.fxml"));
         Scene scene = new Scene(fx.load(), 1480, 820);

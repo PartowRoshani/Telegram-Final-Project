@@ -72,6 +72,11 @@ public class ChatPageController {
     @FXML
     private ImageView sendIcon;
 
+    // ===== Time formatter for messages =====
+    private static final DateTimeFormatter FMT_HHMM       = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter FMT_DATE_TIME  = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
+    private static final String YESTERDAY_LABEL           = "Yesterday";
+
     // ===== state =====
     private String chatName;
     private final ThemeManager themeManager = ThemeManager.getInstance();
@@ -81,53 +86,8 @@ public class ChatPageController {
     private ChatEntry currentChat;
     private UUID me;
 
-    private void initCurrentUserId() {
-        try {
-            String meStr = org.to.telegramfinalproject.Client.Session
-                    .currentUser.getString("internal_uuid");
-            me = UUID.fromString(meStr);
-        } catch (Exception ignore) {
-            me = null;
-        }
-    }
-
-    //Time formatter for messages
-
-    private static final DateTimeFormatter FMT_HHMM       = DateTimeFormatter.ofPattern("HH:mm");
-    private static final DateTimeFormatter FMT_DATE_TIME  = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
-    private static final String YESTERDAY_LABEL           = "Yesterday";
-
-    private String formatWhen(LocalDateTime ts) {
-        if (ts == null) return "";
-        LocalDate today = LocalDate.now();
-        LocalDate d = ts.toLocalDate();
-
-        if (d.isEqual(today)) {
-            return FMT_HHMM.format(ts);
-        } else if (d.isEqual(today.minusDays(1))) {
-            return YESTERDAY_LABEL + " " + FMT_HHMM.format(ts);
-        } else {
-            return FMT_DATE_TIME.format(ts);
-        }
-    }
-
-    /** ISO → LocalDateTime (با پشتیبانی از Offset/Z) */
-    private LocalDateTime parseWhen(String iso) {
-        if (iso == null || iso.isEmpty()) return null;
-        try {
-            return OffsetDateTime.parse(iso).toLocalDateTime();
-        } catch (Exception ignore) {
-            try {
-                return LocalDateTime.parse(iso);
-            } catch (Exception e) {
-                return null;
-            }
-        }
-    }
-
     @FXML
     public void initialize() {
-
         initCurrentUserId();
 
         // Send button
@@ -233,6 +193,44 @@ public class ChatPageController {
 
         // React to theme changes everywhere
         themeManager.darkModeProperty().addListener((o, oldVal, isDark) -> syncIconsWithTheme());
+    }
+
+    private void initCurrentUserId() {
+        try {
+            String meStr = org.to.telegramfinalproject.Client.Session
+                    .currentUser.getString("internal_uuid");
+            me = UUID.fromString(meStr);
+        } catch (Exception ignore) {
+            me = null;
+        }
+    }
+
+    private String formatWhen(LocalDateTime ts) {
+        if (ts == null) return "";
+        LocalDate today = LocalDate.now();
+        LocalDate d = ts.toLocalDate();
+
+        if (d.isEqual(today)) {
+            return FMT_HHMM.format(ts);
+        } else if (d.isEqual(today.minusDays(1))) {
+            return YESTERDAY_LABEL + " " + FMT_HHMM.format(ts);
+        } else {
+            return FMT_DATE_TIME.format(ts);
+        }
+    }
+
+    /** ISO → LocalDateTime (با پشتیبانی از Offset/Z) */
+    private LocalDateTime parseWhen(String iso) {
+        if (iso == null || iso.isEmpty()) return null;
+        try {
+            return OffsetDateTime.parse(iso).toLocalDateTime();
+        } catch (Exception ignore) {
+            try {
+                return LocalDateTime.parse(iso);
+            } catch (Exception e) {
+                return null;
+            }
+        }
     }
 
     @FXML
@@ -424,7 +422,6 @@ public class ChatPageController {
         }).start();
     }
 
-
     private void renderMessages(org.json.JSONArray arr) {
         messageContainer.getChildren().clear();
 
@@ -464,8 +461,6 @@ public class ChatPageController {
         messageScrollPane.layout();
         messageScrollPane.setVvalue(1.0);
     }
-
-
 
     private void markAsRead(ChatEntry entry) {
         JSONObject readReq = new JSONObject();
@@ -508,7 +503,4 @@ public class ChatPageController {
 
         messageContainer.getChildren().add(row);
     }
-
-
-
 }

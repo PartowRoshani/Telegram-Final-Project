@@ -50,6 +50,12 @@ public class MainController {
     @FXML private ImageView menuIcon;
     private SidebarMenuController sidebarController; //save sidebar controller
 
+    // === Time formatter for messages ===
+    private static final java.time.format.DateTimeFormatter FMT_HHMM =
+            java.time.format.DateTimeFormatter.ofPattern("HH:mm");
+    private static final java.time.format.DateTimeFormatter FMT_DATE_TIME =
+            java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
+    private static final String YESTERDAY_LABEL = "Yesterday";
 
     // === STATE ===
     private static MainController instance;
@@ -174,13 +180,6 @@ public class MainController {
 //
 //    }
 
-
-    private static final java.time.format.DateTimeFormatter FMT_HHMM =
-            java.time.format.DateTimeFormatter.ofPattern("HH:mm");
-    private static final java.time.format.DateTimeFormatter FMT_DATE_TIME =
-            java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
-    private static final String YESTERDAY_LABEL = "Yesterday";
-
     // ...
     private String formatChatTime(java.time.LocalDateTime ts) {
         if (ts == null) return "";
@@ -198,9 +197,6 @@ public class MainController {
         }
     }
 
-
-
-
     private void populateChatListFromSession() {
         chatListContainer.getChildren().clear();
 
@@ -215,7 +211,6 @@ public class MainController {
             addChatNode(c);
         }
     }
-
 
 //    private void addChatNode(ChatEntry chat ) {
 //        try {
@@ -260,7 +255,6 @@ public class MainController {
         }
     }
 
-
     private String mapTypeToLabel(String t) {
         switch (t.toUpperCase()) {
             case "IMAGE": return "[Image]";
@@ -270,7 +264,6 @@ public class MainController {
             default:      return "[Message]";
         }
     }
-
 
 //    private void addChat(String name, String lastMsg, String time, int unread) {
 //        try {
