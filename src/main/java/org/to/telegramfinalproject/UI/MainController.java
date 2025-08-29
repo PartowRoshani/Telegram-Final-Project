@@ -14,7 +14,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 import org.to.telegramfinalproject.Models.ChatEntry;
-
+import org.to.telegramfinalproject.Client.ActionHandler;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -118,23 +118,41 @@ public class MainController {
             mainSplitPane.getDividers().get(0).positionProperty().addListener((o, ov, nv) -> clampDivider());
         }
 
-        // Search in chat field listener
-        searchBar.textProperty().addListener((obs, oldV, newV) -> {
-            if (!chatSearchPane.isVisible()) return; // only react if in search mode
 
-            if (newV.trim().isEmpty()) {
-                chatSearchResults.setVisible(false);
-                chatSearchResults.setManaged(false);
-            } else {
-                chatSearchResults.setVisible(true);
-                chatSearchResults.setManaged(true);
-                chatSearchResults.getItems().setAll(
-                        "Result 1: " + newV,
-                        "Result 2: " + newV,
-                        "Result 3: " + newV
-                );
+        // Search in chat field listener
+//        searchBar.textProperty().addListener((obs, oldV, newV) -> {
+//            if (!chatSearchPane.isVisible()) return; // only react if in search mode
+//
+//            if (newV.trim().isEmpty()) {
+//                chatSearchResults.setVisible(false);
+//                chatSearchResults.setManaged(false);
+//            } else {
+//                chatSearchResults.setVisible(true);
+//                chatSearchResults.setManaged(true);
+//                chatSearchResults.getItems().setAll(
+//                        "Result 1: " + newV,
+//                        "Result 2: " + newV,
+//                        "Result 3: " + newV
+//                );
+//            }
+//        });
+
+        // وقتی کاربر Enter زد روی سرچ‌بار، درخواست سرچ بفرست
+        searchBar.setOnAction(e -> performGlobalSearch(searchBar.getText().trim()));
+
+        // باز/بسته کردن پنل نتایج با تایپ (دلخواه)
+        searchBar.textProperty().addListener((obs,o,n)->{
+            if (n!=null && !n.isBlank()) showSearchPanel();
+        });
+
+        // کلیک روی نتیجه
+        chatSearchResults.setOnMouseClicked(e -> {
+            int idx = chatSearchResults.getSelectionModel().getSelectedIndex();
+            if (idx >= 0 && idx < searchBacking.size()) {
+                openSearchResult(searchBacking.get(idx));
             }
         });
+
     }
 
     // Called from ChatPageController when user clicks search button
@@ -207,10 +225,30 @@ public class MainController {
 
         if (list == null || list.isEmpty()) return;
 
+        // جدا کردن Saved از بقیه
+        ChatEntry saved = null;
+        java.util.List<ChatEntry> others = new java.util.ArrayList<>();
         for (ChatEntry c : list) {
+            if (saved == null && isSavedMessages(c)) {
+                saved = c;
+            } else {
+                others.add(c);
+            }
+        }
+
+        // اگر “Archived Chats” یا هدر دیگری داری، قبلش اضافه کن (اختیاری)
+        // addArchivedHeaderIfYouHaveOne();
+
+        // 1) همیشه Saved اول بیاد (اگر وجود داشت)
+        if (saved != null) {
+            addChatNode(saved);
+        }
+
+        for (ChatEntry c : others) {
             addChatNode(c);
         }
     }
+
 
 //    private void addChatNode(ChatEntry chat ) {
 //        try {
@@ -417,4 +455,307 @@ public class MainController {
     private void updateLabelsForLightMode() {
         //myLabel.setStyle("-fx-text-fill: black;");
     }
+
+
+
+
+
+    // ===== Search UI state =====
+    private final java.util.List<SearchResult> searchBacking = new java.util.ArrayList<>();
+
+    private enum SRType { USER, GROUP, CHANNEL, MESSAGE }
+
+    private static class SearchResult {
+        final SRType type;
+        final String title;         // name / sender_name / ...
+        final String subtitle;      // @"id" / context string / time
+        final String receiverType;  // برای MESSAGE/GROUP/CHANNEL: private|group|channel, برای USER: null
+        final java.util.UUID uuid;  // uuid آن موجودیت (user/group/channel/chat holder) یا receiver_id پیام
+        final String displayId;     // id قابل نمایش (مثل username یا group_id/channel_id)
+        final String messageId;     // فقط برای MESSAGE
+        final String time;          // نمایش
+
+        SearchResult(SRType t, String title, String subtitle, String receiverType,
+                     java.util.UUID uuid, String displayId, String messageId, String time) {
+            this.type = t; this.title = title; this.subtitle = subtitle;
+            this.receiverType = receiverType; this.uuid = uuid;
+            this.displayId = displayId; this.messageId = messageId; this.time = time;
+        }
+
+        String toDisplay() {
+            // رشته‌ای که داخل ListView نشان می‌دهیم
+            switch (type) {
+                case MESSAGE:
+                    String left = (title == null || title.isBlank()) ? "Message" : title;
+                    String right = (time == null ? "" : (" • " + time));
+                    return "🗨 " + left + right + (subtitle==null?"":(" — " + subtitle));
+                case USER:    return "👤 " + title + (subtitle==null?"":(" — " + subtitle));
+                case GROUP:   return "👥 " + title + (subtitle==null?"":(" — " + subtitle));
+                case CHANNEL: return "📣 " + title + (subtitle==null?"":(" — " + subtitle));
+            }
+            return title;
+        }
+    }
+
+
+    public void performGlobalSearch(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            chatSearchResults.getItems().clear();
+            searchBacking.clear();
+            return;
+        }
+        if (org.to.telegramfinalproject.Client.Session.currentUser == null ||
+                !org.to.telegramfinalproject.Client.Session.currentUser.has("user_id")) {
+            System.out.println("You must be logged in to search.");
+            return;
+        }
+
+        showSearchPanel();
+
+        // درخواست به سرور (مثل کنسول)
+        org.json.JSONObject req = new org.json.JSONObject();
+        req.put("action", "search");
+        req.put("keyword", keyword);
+        req.put("user_id", org.to.telegramfinalproject.Client.Session.currentUser.getString("user_id"));
+
+        new Thread(() -> {
+            org.json.JSONObject resp;
+            try {
+                resp = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return;
+            }
+            if (resp == null || !"success".equals(resp.optString("status"))) return;
+
+            org.json.JSONArray arr = resp.optJSONObject("data").optJSONArray("results");
+            if (arr == null) arr = new org.json.JSONArray();
+
+            final java.util.List<SearchResult> tmp = new java.util.ArrayList<>();
+            for (int i = 0; i < arr.length(); i++) {
+                org.json.JSONObject it = arr.getJSONObject(i);
+                String type = it.optString("type","");
+
+                switch (type) {
+                    case "user": {
+                        java.util.UUID uuid = java.util.UUID.fromString(it.getString("uuid"));
+                        String name = it.optString("name","Unknown");
+                        String id   = it.optString("id", "");
+                        tmp.add(new SearchResult(
+                                SRType.USER, name,
+                                id.isBlank()? null : "@"+id,
+                                null, uuid, id, null, null
+                        ));
+                        break;
+                    }
+                    case "group": {
+                        java.util.UUID uuid = java.util.UUID.fromString(it.getString("uuid"));
+                        String name = it.optString("name","Unknown group");
+                        String id   = it.optString("id", "");
+                        tmp.add(new SearchResult(
+                                SRType.GROUP, name,
+                                id.isBlank()? null : id,
+                                "group", uuid, id, null, null
+                        ));
+                        break;
+                    }
+                    case "channel": {
+                        java.util.UUID uuid = java.util.UUID.fromString(it.getString("uuid"));
+                        String name = it.optString("name","Unknown channel");
+                        String id   = it.optString("id", "");
+                        tmp.add(new SearchResult(
+                                SRType.CHANNEL, name,
+                                id.isBlank()? null : id,
+                                "channel", uuid, id, null, null
+                        ));
+                        break;
+                    }
+                    case "message": {
+                        String senderName = it.optString("sender_name", it.optString("sender","Unknown"));
+                        String time = it.optString("time", "");
+                        String content = it.optString("content","[No content]");
+                        String rType = it.optString("receiver_type","");        // private|group|channel
+                        java.util.UUID rUuid = java.util.UUID.fromString(it.getString("receiver_id"));
+                        String ctx = "";
+                        if ("group".equals(rType))   ctx = it.optString("group_name","");
+                        if ("channel".equals(rType)) ctx = it.optString("channel_name","");
+                        String subtitle = (ctx.isBlank()? "" : ctx) + (content.isBlank()? "" : (subtitleSep(ctx)+content));
+                        tmp.add(new SearchResult(
+                                SRType.MESSAGE, senderName, subtitle, rType, rUuid,
+                                it.optString("receiver_display_id", ""),    // اگر داشتی
+                                it.optString("message_id", null),
+                                time
+                        ));
+                        break;
+                    }
+                }
+            }
+
+            Platform.runLater(() -> renderSearchResults(tmp));
+        }).start();
+    }
+
+    private String subtitleSep(String s){ return s==null || s.isBlank()? "" : " — "; }
+
+    private void renderSearchResults(java.util.List<SearchResult> results) {
+        searchBacking.clear();
+        searchBacking.addAll(results);
+
+        javafx.collections.ObservableList<String> view = javafx.collections.FXCollections.observableArrayList();
+        for (SearchResult r : results) view.add(r.toDisplay());
+        chatSearchResults.setItems(view);
+        chatSearchResults.setVisible(true);
+        chatSearchResults.setManaged(true);
+    }
+
+
+    private void openSearchResult(SearchResult r) {
+        switch (r.type) {
+            case USER: {
+                // مثل کنسول: اگر چت private با این یوزر داریم بازش کن؛
+                // وگرنه chat_id را از سرور بگیر/بساز، بعد باز کن.
+                java.util.UUID chatId = findExistingPrivateChatId(r.uuid);
+                if (chatId == null) {
+                    chatId = fetchOrCreatePrivateChat(r.uuid); // نیاز به API سمت سرور
+                    if (chatId == null) {
+                        System.out.println("❌ Failed to create/find private chat.");
+                        return;
+                    }
+                }
+
+                org.to.telegramfinalproject.Models.ChatEntry ce = new org.to.telegramfinalproject.Models.ChatEntry();
+                ce.setId(chatId.toString());                  // ⬅️ internal chat_id
+                ce.setDisplayId(r.displayId);                 // username
+                ce.setName(r.title);                          // profile_name
+                ce.setType("private");
+
+                openChat(ce); // همون متد فعلی MainController
+                break;
+            }
+
+            case GROUP:
+            case CHANNEL: {
+                // اگر تو لیست هست بازش کن، وگرنه با همون uuid باز کن
+                org.to.telegramfinalproject.Models.ChatEntry existing =
+                        findExistingChat(r.uuid, r.receiverType);
+                if (existing != null) {
+                    openChat(existing);
+                } else {
+                    org.to.telegramfinalproject.Models.ChatEntry ce = new org.to.telegramfinalproject.Models.ChatEntry();
+                    ce.setId(r.uuid.toString());          // internal_uuid group/channel
+                    ce.setDisplayId(r.displayId);         // group_id/channel_id
+                    ce.setName(r.title);
+                    ce.setType(r.receiverType);
+                    openChat(ce);
+                }
+                break;
+            }
+
+            case MESSAGE: {
+                // مثل کنسول: چتِ پیام را باز کن (اسکرول به پیام را بعداً اضافه کن)
+                org.to.telegramfinalproject.Models.ChatEntry existing =
+                        findExistingChat(r.uuid, r.receiverType);
+                if (existing != null) {
+                    openChat(existing);
+                } else {
+                    org.to.telegramfinalproject.Models.ChatEntry ce = new org.to.telegramfinalproject.Models.ChatEntry();
+                    ce.setId(r.uuid.toString());         // receiver internal_uuid
+                    ce.setType(r.receiverType);
+                    ce.setName(guessNameForReceiver(r)); // اگر خواستی از subtitle استفاده کن
+                    ce.setDisplayId(r.displayId);
+                    openChat(ce);
+                }
+                break;
+            }
+        }
+    }
+
+    private org.to.telegramfinalproject.Models.ChatEntry findExistingChat(java.util.UUID internalId, String type) {
+        var list = (org.to.telegramfinalproject.Client.Session.chatList==null)
+                ? java.util.Collections.<org.to.telegramfinalproject.Models.ChatEntry>emptyList()
+                : org.to.telegramfinalproject.Client.Session.chatList;
+        for (var c : list) {
+            if (internalId.toString().equals(c.getId().toString())
+                    && type.equalsIgnoreCase(c.getType())) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    private java.util.UUID findExistingPrivateChatId(java.util.UUID otherUserUuid) {
+        // اگر در لیست چت‌ها private با همین طرف داری و internal_id همان chat_id است، برش گردان
+        var list = (org.to.telegramfinalproject.Client.Session.chatList==null)
+                ? java.util.Collections.<org.to.telegramfinalproject.Models.ChatEntry>emptyList()
+                : org.to.telegramfinalproject.Client.Session.chatList;
+
+        for (var c : list) {
+            if ("private".equalsIgnoreCase(c.getType())) {
+                // اگر مدل‌ات otherUserId در ChatEntry دارد، از آن استفاده کن
+                if (otherUserUuid.equals(c.getOtherUserId())) {
+                    try { return java.util.UUID.fromString(c.getId().toString()); } catch (Exception ignored) {}
+                }
+            }
+        }
+        return null;
+    }
+
+    private java.util.UUID fetchOrCreatePrivateChat(java.util.UUID otherUserUuid) {
+        try {
+            org.json.JSONObject req = new org.json.JSONObject();
+            req.put("action", "get_or_create_private_chat");
+            req.put("user1", org.to.telegramfinalproject.Client.Session.currentUser.getString("internal_uuid"));
+            req.put("user2", otherUserUuid.toString());
+            org.json.JSONObject resp = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
+            if (resp != null && "success".equals(resp.optString("status"))) {
+                String chatId = resp.getJSONObject("data").getString("chat_id");
+                return java.util.UUID.fromString(chatId);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private String guessNameForReceiver(SearchResult r) {
+        // فقط برای زمانی که موجودیت در لیست نبود
+        if (r.title != null && !r.title.isBlank()) return r.title;
+        if (r.receiverType != null) {
+            switch (r.receiverType) {
+                case "group": return "Group";
+                case "channel": return "Channel";
+                case "private": return "Private Chat";
+            }
+        }
+        return "Chat";
+    }
+
+    private boolean isSavedMessages(ChatEntry c) {
+        if (c == null) return false;
+
+        // اگر تایپ اختصاصی داری
+        if ("saved".equalsIgnoreCase(c.getType())) return true;
+
+        // اگر با نام مشخص ذخیره می‌کنی
+        String n = c.getName();
+        if (n != null && n.equalsIgnoreCase("Saved Messages")) return true;
+
+        // حالت پرایوت با خودِ کاربر
+        String me = (org.to.telegramfinalproject.Client.Session.currentUser != null)
+                ? org.to.telegramfinalproject.Client.Session.currentUser.optString("internal_uuid", "")
+                : "";
+        try {
+            UUID other = c.getOtherUserId(); // اگر این فیلد را داری
+            if ("private".equalsIgnoreCase(c.getType()) &&
+                    other != null && other.toString().equalsIgnoreCase(me)) {
+                return true;
+            }
+        } catch (Exception ignore) {}
+
+        return false;
+    }
+
+
+
+
 }

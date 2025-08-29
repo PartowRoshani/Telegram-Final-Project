@@ -30,11 +30,15 @@ public class ActionHandler {
     //use for UI
     private volatile String lastStatus = "error";   // success | error
     private volatile String lastMessage = "";
+    // ===== UI hook for search results =====
+
+
+
+
 
     public String getLastStatus()  { return lastStatus; }
     public String getLastMessage() { return lastMessage; }
     public boolean wasSuccess()    { return "success".equalsIgnoreCase(lastStatus); }
-
 
 
 
@@ -130,6 +134,18 @@ public class ActionHandler {
     public void search() {
         System.out.print("Enter keyword to search: ");
         String keyword = scanner.nextLine();
+
+        if (Session.currentUser == null || !Session.currentUser.has("user_id")) {
+            System.out.println("You must be logged in to search.");
+            return;
+        }
+
+        String userId = Session.currentUser.getString("user_id");
+        SearchRequestModel model = new SearchRequestModel("search", keyword, userId);
+        send(model.toJson());
+    }
+
+    public void searchUI(String keyword) {
 
         if (Session.currentUser == null || !Session.currentUser.has("user_id")) {
             System.out.println("You must be logged in to search.");
@@ -664,6 +680,8 @@ public class ActionHandler {
                     }
                     break;
                 case "search" :
+
+
                     JSONArray results = response.getJSONObject("data").getJSONArray("results");
 
                     if (results.isEmpty()) {
