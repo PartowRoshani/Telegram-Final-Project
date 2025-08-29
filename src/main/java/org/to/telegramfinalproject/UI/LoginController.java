@@ -19,6 +19,8 @@ import org.to.telegramfinalproject.Security.PasswordHashing;
 
 import java.io.IOException;
 
+import static org.to.telegramfinalproject.UI.AppRouter.showRegister;
+
 public class LoginController {
 
     @FXML private TextField usernameField;
@@ -120,14 +122,6 @@ public class LoginController {
                 var cli     = org.to.telegramfinalproject.Client.TelegramClient.getOrInitForUI();
                 var handler = cli.getHandler();
 
-                // بساز و بفرست — همون send خودت که Session رو پر می‌کند
-//                org.json.JSONObject req = new org.json.JSONObject()
-//                        .put("action","login")
-//                        .put("username", u)
-//                        .put("password", p);
-//
-//                handler.send(req); // ⬅️ بلاکینگ؛ پس درستش کردیم که تو Thread هست
-
 
                 handler.login(u,p);
 
@@ -165,7 +159,7 @@ public class LoginController {
 
     @FXML
     private void switchToRegister() throws IOException {
-        switchScene("register_view.fxml");
+        showRegister();
     }
 
     private void switchScene(String fxmlFile) {

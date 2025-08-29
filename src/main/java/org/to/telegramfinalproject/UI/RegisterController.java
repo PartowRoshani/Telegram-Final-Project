@@ -14,6 +14,8 @@ import org.to.telegramfinalproject.Database.userDatabase;
 
 import java.io.IOException;
 
+import static org.to.telegramfinalproject.UI.AppRouter.showLogin;
+
 public class RegisterController {
 
     @FXML private TextField userIdField;
@@ -131,7 +133,7 @@ public class RegisterController {
 
     @FXML
     private void switchToLogin() throws IOException {
-        switchScene("login_view.fxml");
+        showLogin();
     }
 
     private void switchScene(String fxmlFile) {
