@@ -81,6 +81,17 @@ public class ChatPageController {
     private ChatEntry currentChat;
     private UUID me;
 
+    // ----- helpers for safe strings -----
+    private static String nz(String s) {
+        return s == null ? "" : s.trim();
+    }
+    private static boolean hasVal(String s) {
+        if (s == null) return false;
+        String t = s.trim();
+        return !t.isEmpty() && !"null".equalsIgnoreCase(t);
+    }
+
+
     private void initCurrentUserId() {
         try {
             String meStr = org.to.telegramfinalproject.Client.Session
@@ -394,7 +405,7 @@ public class ChatPageController {
 
     private void loadMessages(ChatEntry entry) {
         JSONObject req = new JSONObject();
-        req.put("action", "get_messages");
+        req.put("action", "get_messages_UI");
         req.put("receiver_id", String.valueOf(entry.getId()));
         req.put("receiver_type", entry.getType());
         req.put("limit", 50);
@@ -482,47 +493,51 @@ public class ChatPageController {
     private void renderMessages(org.json.JSONArray list) {
         messageContainer.getChildren().clear();
 
+        // برای reply-preview: ایندکس کردن پیام‌ها با message_id
         msgIndex.clear();
-        for (int i=0; i<list.length(); i++) {
+        for (int i = 0; i < list.length(); i++) {
             org.json.JSONObject m = list.getJSONObject(i);
             String mid = str(m, "message_id");
             if (!mid.isEmpty()) msgIndex.put(mid, m);
         }
 
-        String myId = (Session.currentUser!=null && Session.currentUser.has("internal_uuid"))
+        String myId = (Session.currentUser != null && Session.currentUser.has("internal_uuid"))
                 ? Session.currentUser.getString("internal_uuid") : "";
 
-        for (int i=0;i<list.length();i++){
+        for (int i = 0; i < list.length(); i++) {
             org.json.JSONObject m = list.getJSONObject(i);
-            String senderId   = str(m,"sender_id");
-            String senderName = str(m,"sender_name");
-            String type       = str(m,"message_type");
-            String content    = str(m,"content");
-            String whenStr    = str(m,"send_at");
-            String msgId      = str(m,"message_id");
 
-            // فوروارد/ریپلای/ادیت/ری‌اکشن
-            String fwdFrom    = str(m,"forwarded_from"); // نام یا آیدی منبع
-            String fwdBy      = str(m,"forwarded_by");   // چه کسی فوروارد کرده
-            String replyToId  = str(m,"reply_to_id");
-            boolean edited    = bool(m,"is_edited");
-            org.json.JSONArray reactions = arr(m,"reactions"); // [{emoji:"👍", count:3, by_me:true}, ...]
+            String senderId    = str(m, "sender_id");
+            String senderName  = str(m, "sender_name");
+            String type        = str(m, "message_type");
+            String content     = str(m, "content");
+            String whenStr     = str(m, "send_at");
+            String msgId       = str(m, "message_id");
+
+            // فوروارد / ریپلای / ادیت / ری‌اکشن
+            String fwdFrom     = nz(str(m, "forwarded_from"));
+            String fwdBy       = nz(str(m, "forwarded_by"));
+            String replyToId   = nz(str(m, "reply_to_id"));
+            boolean edited     = bool(m, "is_edited");
+            org.json.JSONArray reactions = arr(m, "reactions");
 
             boolean outgoing = senderId.equalsIgnoreCase(myId);
-            if (senderName.isEmpty()) senderName = outgoing ? "You" : shortId(senderId);
+            if (senderName == null || senderName.isBlank()) {
+                senderName = outgoing ? "You"
+                        : (senderId == null || senderId.isBlank()
+                        ? "Unknown"
+                        : senderId.substring(0, Math.min(8, senderId.length())));
+            }
 
             java.time.LocalDateTime ts = parseWhen(whenStr);
 
-            // مثلا داخل renderMessages قبل از addBubble:
-            if (!"TEXT".equalsIgnoreCase(type) && content != null && !content.isBlank()) {
-                System.out.println("DEBUG type='" + type + "' -> showing bracket for msgId=" + msgId);
-            }
-
-
+            // نمایش
             addBubble(outgoing, senderName, type, content, ts, msgId,
                     fwdFrom, fwdBy, replyToId, edited, reactions);
         }
 
+        // کمی فاصله بین پیام‌ها
+        messageContainer.setSpacing(8);
         messageScrollPane.layout();
         messageScrollPane.setVvalue(1.0);
     }
@@ -592,20 +607,17 @@ public class ChatPageController {
             boolean edited,
             org.json.JSONArray reactions
     ) {
-        // --- meta (نام فرستنده + زمان [+ edited]) ---
+        // meta (فرستنده + زمان [+ edited])
         String metaText = (displayName == null ? "" : displayName) + " • " + formatWhen(sentAt);
         if (edited) metaText += " (edited)";
         Label meta = new Label(metaText);
         meta.setStyle("-fx-font-size: 11; -fx-text-fill: #7e8a97;");
         meta.setWrapText(true);
 
-        // --- نرمال‌سازی نوع پیام + fallback ---
-        String t = (type == null) ? "" : type.trim().toUpperCase();
-        // اگر type نامعتبر/خالی بود ولی content متن داشت، فرض کن TEXT است.
+        // نرمال‌سازی نوع پیام و متن
+        String t = type == null ? "" : type.trim().toUpperCase();
         boolean isText = t.isEmpty() ? (content != null && !content.isBlank()) : "TEXT".equals(t);
-
-        String bodyText = isText ? (content == null ? "" : content)
-                : bracketLabel(t); // [Image] / [Audio] / ...
+        String bodyText = isText ? (content == null ? "" : content) : bracketLabel(t);
 
         Label msg = new Label(bodyText);
         msg.setWrapText(true);
@@ -623,27 +635,37 @@ public class ChatPageController {
         );
         msg.setMinHeight(Region.USE_PREF_SIZE);
 
-        VBox bubble = new VBox(6);
+        // بدنه حباب
+        VBox bubble = new VBox(4); // spacing عمودی داخل حباب
         bubble.getChildren().add(meta);
 
-        if (notBlank(forwardedFrom) || notBlank(forwardedBy)) {
+        // Forward header (اختیاری)
+        if (hasVal(forwardedFrom) || hasVal(forwardedBy)) {
             bubble.getChildren().add(buildForwardHeader(forwardedFrom, forwardedBy));
         }
-        if (notBlank(replyToId)) {
+
+        // Reply preview (اختیاری)
+        if (hasVal(replyToId)) {
             bubble.getChildren().add(buildReplyBoxFromIndex(replyToId));
         }
 
+        // متن اصلی
         bubble.getChildren().add(msg);
 
+        // Reactions (اختیاری)
         if (reactions != null && reactions.length() > 0) {
             bubble.getChildren().add(buildReactionsBarFromJson(reactions, dark));
         }
 
+        // چیدمان راست/چپ
         javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(bubble);
         row.setFillHeight(true);
-        row.setSpacing(6);
+        row.setSpacing(4);
         row.setAlignment(outgoing ? javafx.geometry.Pos.CENTER_RIGHT
                 : javafx.geometry.Pos.CENTER_LEFT);
+
+        // کمی padding اطراف هر پیام برای کاهش فاصله‌های ناخوشایند
+        row.setPadding(new javafx.geometry.Insets(2, 6, 2, 6));
 
         messageContainer.getChildren().add(row);
     }
@@ -662,16 +684,14 @@ public class ChatPageController {
 
 
     private javafx.scene.Node buildForwardHeader(String forwardedFrom, String forwardedBy) {
-        String txt;
-        if (notBlank(forwardedFrom) && notBlank(forwardedBy)) {
-            txt = "Forwarded from " + forwardedFrom + " by " + forwardedBy;
-        } else if (notBlank(forwardedFrom)) {
-            txt = "Forwarded from " + forwardedFrom;
-        } else if (notBlank(forwardedBy)) {
-            txt = "Forwarded by " + forwardedBy;
-        } else {
-            txt = "Forwarded";
-        }
+        String from = hasVal(forwardedFrom) ? forwardedFrom.trim() : null;
+        String by   = hasVal(forwardedBy)   ? forwardedBy.trim()   : null;
+
+        String txt = (from != null && by != null) ? ("Forwarded from " + from + " by " + by)
+                : (from != null) ? ("Forwarded from " + from)
+                : (by   != null) ? ("Forwarded by "   + by)
+                : "Forwarded";
+
         Label l = new Label(txt);
         l.setStyle("-fx-font-size: 11; -fx-text-fill: #5b8bb1;");
         l.setWrapText(true);
@@ -687,7 +707,7 @@ public class ChatPageController {
             String rType    = r.optString("message_type", "TEXT");
             String rContent = r.optString("content", "");
             String rSender  = r.optString("sender_name", "");
-            if (!rSender.isEmpty()) from = rSender;
+            if (hasVal(rSender)) from = rSender;
 
             preview = "TEXT".equalsIgnoreCase(rType) ? rContent : bracketLabel(rType);
         } else {
@@ -709,6 +729,7 @@ public class ChatPageController {
         );
         return box;
     }
+
 
     private javafx.scene.Node buildReactionsBarFromJson(org.json.JSONArray arr, boolean dark) {
         javafx.scene.layout.HBox bar = new javafx.scene.layout.HBox(6);
