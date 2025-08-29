@@ -381,71 +381,180 @@ public class MessageDatabase {
 
 
 
+//    public static List<Message> getUnreadMessages(UUID userId) {
+//        List<Message> messages = new ArrayList<>();
+//
+//        String sql = """
+//        SELECT m.*
+//        FROM messages m
+//        LEFT JOIN message_receipts r ON m.message_id = r.message_id AND r.user_id = ?
+//        LEFT JOIN deleted_messages d ON m.message_id = d.message_id AND d.user_id = ?
+//        WHERE r.user_id IS NULL
+//          AND d.message_id IS NULL
+//          AND m.is_deleted_globally = FALSE
+//          AND (
+//              (m.receiver_type = 'private' AND m.receiver_id = ?)
+//              OR
+//              (m.receiver_type = 'group' AND EXISTS (
+//                  SELECT 1 FROM group_members gm WHERE gm.group_id = m.receiver_id AND gm.user_id = ?
+//              ))
+//              OR
+//              (m.receiver_type = 'channel' AND EXISTS (
+//                  SELECT 1 FROM channel_subscribers cs WHERE cs.channel_id = m.receiver_id AND cs.user_id = ?
+//              ))
+//          )
+//        ORDER BY m.send_at DESC
+//    """;
+//
+//        try (Connection conn = ConnectionDb.connect();
+//             PreparedStatement stmt = conn.prepareStatement(sql)) {
+//
+//            stmt.setObject(1, userId); // for message_receipts
+//            stmt.setObject(2, userId); // for deleted_messages
+//            stmt.setObject(3, userId); // for private messages
+//            stmt.setObject(4, userId); // for group members
+//            stmt.setObject(5, userId); // for channel subscribers
+//
+//            ResultSet rs = stmt.executeQuery();
+//            while (rs.next()) {
+//                Message message = new Message(
+//                        UUID.fromString(rs.getString("message_id")),
+//                        rs.getObject("sender_id") != null ? UUID.fromString(rs.getString("sender_id")) : null,
+//                        rs.getString("receiver_type"),
+//                        UUID.fromString(rs.getString("receiver_id")),
+//                        rs.getString("content"),
+//                        rs.getString("message_type"),
+//                        rs.getTimestamp("send_at").toLocalDateTime(),
+//                        rs.getString("status"),
+//                        rs.getObject("reply_to_id") != null ? UUID.fromString(rs.getString("reply_to_id")) : null,
+//                        rs.getBoolean("is_edited"),
+//                        rs.getObject("original_message_id") != null ? UUID.fromString(rs.getString("original_message_id")) : null,
+//                        rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
+//                        rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null,
+//                        rs.getBoolean("is_deleted_globally"),
+//                        rs.getTimestamp("edited_at") != null ? rs.getTimestamp("edited_at").toLocalDateTime() : null
+//                        );
+//
+//                messages.add(message);
+//            }
+//
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//        }
+//
+//        return messages;
+//    }
+
+
+
     public static List<Message> getUnreadMessages(UUID userId) {
+        return getUnreadMessages(userId, 200); // یک سقف معقول
+    }
+
+    public static List<Message> getUnreadMessages(UUID userId, int limit) {
         List<Message> messages = new ArrayList<>();
 
+        // توجه: نام جدول private_chats/gm/cs را با اسامی واقعی دیتابیس‌ت هماهنگ کن
         String sql = """
         SELECT m.*
         FROM messages m
-        LEFT JOIN message_receipts r ON m.message_id = r.message_id AND r.user_id = ?
-        LEFT JOIN deleted_messages d ON m.message_id = d.message_id AND d.user_id = ?
-        WHERE r.user_id IS NULL
+        LEFT JOIN message_receipts r
+            ON r.message_id = m.message_id
+           AND r.user_id    = ?
+        LEFT JOIN deleted_messages d
+            ON d.message_id = m.message_id
+           AND d.user_id    = ?
+        WHERE r.message_id IS NULL
           AND d.message_id IS NULL
           AND m.is_deleted_globally = FALSE
+          AND m.sender_id <> ?
           AND (
-              (m.receiver_type = 'private' AND m.receiver_id = ?)
-              OR
-              (m.receiver_type = 'group' AND EXISTS (
-                  SELECT 1 FROM group_members gm WHERE gm.group_id = m.receiver_id AND gm.user_id = ?
-              ))
-              OR
-              (m.receiver_type = 'channel' AND EXISTS (
-                  SELECT 1 FROM channel_subscribers cs WHERE cs.channel_id = m.receiver_id AND cs.user_id = ?
-              ))
+                (m.receiver_type = 'private' AND EXISTS (
+                    SELECT 1
+                    FROM private_chat pc
+                    WHERE pc.chat_id = m.receiver_id
+                      AND (pc.user1_id = ? OR pc.user2_id = ?)
+                )))
+            OR (m.receiver_type = 'group' AND EXISTS (
+                    SELECT 1
+                    FROM group_members gm
+                    WHERE gm.group_id = m.receiver_id
+                      AND gm.user_id  = ?
+                ))
+            OR (m.receiver_type = 'channel' AND EXISTS (
+                    SELECT 1
+                    FROM channel_subscribers cs
+                    WHERE cs.channel_id = m.receiver_id
+                      AND cs.user_id    = ?
+                ))
           )
-        ORDER BY m.send_at DESC
-    """;
+        ORDER BY m.send_at ASC
+        LIMIT ?
+        """;
 
         try (Connection conn = ConnectionDb.connect();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            stmt.setObject(1, userId); // for message_receipts
-            stmt.setObject(2, userId); // for deleted_messages
-            stmt.setObject(3, userId); // for private messages
-            stmt.setObject(4, userId); // for group members
-            stmt.setObject(5, userId); // for channel subscribers
+            int i = 1;
+            ps.setObject(i++, userId); // r.user_id
+            ps.setObject(i++, userId); // d.user_id
+            ps.setObject(i++, userId); // m.sender_id <> ?
+            ps.setObject(i++, userId); // pc.user1_id=userId
+            ps.setObject(i++, userId); // pc.user2_id=userId
+            ps.setObject(i++, userId); // gm.user_id
+            ps.setObject(i++, userId); // cs.user_id
+            ps.setInt(i++, Math.max(1, limit));
 
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                Message message = new Message(
-                        UUID.fromString(rs.getString("message_id")),
-                        rs.getObject("sender_id") != null ? UUID.fromString(rs.getString("sender_id")) : null,
-                        rs.getString("receiver_type"),
-                        UUID.fromString(rs.getString("receiver_id")),
-                        rs.getString("content"),
-                        rs.getString("message_type"),
-                        rs.getTimestamp("send_at").toLocalDateTime(),
-                        rs.getString("status"),
-                        rs.getObject("reply_to_id") != null ? UUID.fromString(rs.getString("reply_to_id")) : null,
-                        rs.getBoolean("is_edited"),
-                        rs.getObject("original_message_id") != null ? UUID.fromString(rs.getString("original_message_id")) : null,
-                        rs.getObject("forwarded_by") != null ? UUID.fromString(rs.getString("forwarded_by")) : null,
-                        rs.getObject("forwarded_from") != null ? UUID.fromString(rs.getString("forwarded_from")) : null,
-                        rs.getBoolean("is_deleted_globally"),
-                        rs.getTimestamp("edited_at") != null ? rs.getTimestamp("edited_at").toLocalDateTime() : null
-                        );
-
-                messages.add(message);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    messages.add(mapMessage(rs)); // همان mapMessage که گفتیم
+                }
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
         return messages;
     }
 
 
+    private static java.util.UUID readUUID(ResultSet rs, String col) throws SQLException {
+        Object o = rs.getObject(col);
+        if (o == null) return null;
+        if (o instanceof java.util.UUID) return (java.util.UUID) o;
+        return java.util.UUID.fromString(o.toString());
+    }
+
+    private static java.time.LocalDateTime readLdt(ResultSet rs, String col) throws SQLException {
+        java.sql.Timestamp ts = rs.getTimestamp(col);
+        return (ts == null) ? null : ts.toLocalDateTime();
+    }
+
+    private static boolean readBool(ResultSet rs, String col) throws SQLException {
+        boolean v = rs.getBoolean(col);
+        return v;
+    }
+
+    private static Message mapMessage(ResultSet rs) throws SQLException {
+        Message m = new Message();
+
+        m.setMessage_id(          readUUID(rs, "message_id")            );
+        m.setSender_id(           readUUID(rs, "sender_id")             );
+        m.setReceiver_type(       rs.getString("receiver_type")         );
+        m.setReceiver_id(         readUUID(rs, "receiver_id")           );
+        m.setContent(             rs.getString("content")               );
+        m.setMessage_type(        rs.getString("message_type")          );
+        m.setSend_at(             readLdt(rs, "send_at")                );
+        m.setStatus(              rs.getString("status")                );
+        m.setReply_to_id(         readUUID(rs, "reply_to_id")           );
+        m.setIs_edited(           readBool(rs, "is_edited")             );
+        m.setEdited_at(           readLdt(rs, "edited_at")              );
+        m.setOriginal_message_id( readUUID(rs, "original_message_id")   );
+        m.setForwarded_by(        readUUID(rs, "forwarded_by")          );
+        m.setForwarded_from(      readUUID(rs, "forwarded_from")        );
+        m.setIs_deleted_globally( readBool(rs, "is_deleted_globally")   );
+
+        return m;
+    }
 
     public static List<FileAttachment> getAttachments(UUID messageId) {
         List<FileAttachment> attachments = new ArrayList<>();
@@ -1079,30 +1188,30 @@ public class MessageDatabase {
         }
     }
 
-    public static int getUnreadCount(UUID me, UUID targetId, String type) {
-        final String sql =
-                "SELECT COUNT(*) FROM messages " +
-                        "WHERE receiver_type = ? AND receiver_id = ? " +
-                        "AND sender_id <> ? " +
-                        "AND (status IS NULL OR status <> 'SEEN')";
-
-        try (Connection conn = ConnectionDb.connect();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, type.toLowerCase());
-            ps.setObject(2, targetId);
-            ps.setObject(3, me);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getInt(1) : 0;
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return 0;
-        }
-
-
-    }
+//    public static int getUnreadCount(UUID me, UUID targetId, String type) {
+//        final String sql =
+//                "SELECT COUNT(*) FROM messages " +
+//                        "WHERE receiver_type = ? AND receiver_id = ? " +
+//                        "AND sender_id <> ? " +
+//                        "AND (status IS NULL OR status <> 'SEEN')";
+//
+//        try (Connection conn = ConnectionDb.connect();
+//             PreparedStatement ps = conn.prepareStatement(sql)) {
+//
+//            ps.setString(1, type.toLowerCase());
+//            ps.setObject(2, targetId);
+//            ps.setObject(3, me);
+//
+//            try (ResultSet rs = ps.executeQuery()) {
+//                return rs.next() ? rs.getInt(1) : 0;
+//            }
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//            return 0;
+//        }
+//
+//
+//    }
 
     private static Message mapRow(ResultSet rs) throws SQLException {
         Message m = new Message();
@@ -1125,5 +1234,113 @@ public class MessageDatabase {
         m.setReply_to_id(rtid == null ? null : (UUID) rtid);
         return m;
     }
+
+
+
+    public static List<UUID> getUnreadMessageIds(UUID me, UUID chatId, String chatType, int limit) {
+        String sql = """
+        SELECT m.message_id
+        FROM messages m
+        WHERE m.receiver_id = ? AND m.receiver_type = ?
+          AND m.sender_id <> ?
+          AND NOT EXISTS (
+              SELECT 1 FROM message_receipts r
+              WHERE r.message_id = m.message_id
+                AND r.user_id = ?
+          )
+        ORDER BY m.send_at ASC
+        LIMIT ?
+    """;
+        List<UUID> ids = new ArrayList<>();
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, chatId);
+            ps.setString(2, chatType);
+            ps.setObject(3, me);
+            ps.setObject(4, me);
+            ps.setInt(5, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ids.add((UUID) rs.getObject(1));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return ids;
+    }
+
+    // تعداد ناخوانده‌ها (برای چت‌لیست)
+    public static int getUnreadCount(UUID me, UUID chatId, String chatType) {
+        String sql = """
+        SELECT COUNT(1)
+        FROM messages m
+        WHERE m.receiver_id = ?
+          AND m.receiver_type = ?
+          AND m.sender_id <> ?
+          AND NOT EXISTS (
+              SELECT 1 FROM message_receipts r
+              WHERE r.message_id = m.message_id
+                AND r.user_id = ?
+          )
+    """;
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, chatId);
+            ps.setString(2, chatType);
+            ps.setObject(3, me);
+            ps.setObject(4, me);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+
+    public static int insertReceiptIfAbsent(UUID messageId, UUID userId) {
+        String sql = """
+        INSERT INTO message_receipts(message_id, user_id, read_at)
+        VALUES (?, ?, now())
+        ON CONFLICT (message_id, user_id) DO NOTHING
+    """;
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, messageId);
+            ps.setObject(2, userId);
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    //Read status if it's first reader
+    public static int setMessageReadIfNeeded(UUID messageId, UUID viewerId) {
+        String sql = """
+        UPDATE messages m
+        SET status = 'READ'
+        WHERE m.message_id = ?
+          AND m.sender_id <> ?
+          AND m.status <> 'READ'
+    """;
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, messageId);
+            ps.setObject(2, viewerId);
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+
+
+
+
+
 
 }

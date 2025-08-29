@@ -11,6 +11,7 @@ import org.to.telegramfinalproject.Utils.GroupPermissionUtil;
 
 import java.io.*;
 import java.net.Socket;
+import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -2733,6 +2734,55 @@ public class ClientHandler implements Runnable {
                                 : new ResponseModel("error", "Invalid current password.");
                         break;
                     }
+
+                    case "mark_as_read": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+                        try {
+                            UUID chatId = UUID.fromString(requestJson.getString("receiver_id"));
+                            String chatType = requestJson.getString("receiver_type").toLowerCase();
+                            int limit = requestJson.optInt("limit", 500);
+
+                            List<UUID> targetMessageIds = new ArrayList<>();
+                            if (requestJson.has("message_ids")) {
+                                JSONArray arr = requestJson.getJSONArray("message_ids");
+                                for (int i = 0; i < arr.length(); i++) {
+                                    targetMessageIds.add(UUID.fromString(arr.getString(i)));
+                                }
+                            } else {
+                                targetMessageIds = MessageDatabase.getUnreadMessageIds(
+                                        currentUser.getInternal_uuid(), chatId, chatType, limit
+                                );
+                            }
+
+                            int updatedStatus = 0;
+                            int insertedReceipts = 0;
+
+                            try (Connection c = ConnectionDb.connect()) {
+                                c.setAutoCommit(false);
+                                for (UUID mid : targetMessageIds) {
+                                    updatedStatus   += MessageDatabase.setMessageReadIfNeeded(mid, currentUser.getInternal_uuid());
+                                    insertedReceipts+= MessageDatabase.insertReceiptIfAbsent(mid, currentUser.getInternal_uuid());
+                                }
+                                c.commit();
+                            } catch (Exception tx) {
+                                tx.printStackTrace();
+                            }
+
+                            JSONObject data = new JSONObject();
+                            data.put("marked_count", targetMessageIds.size());
+                            data.put("status_updates", updatedStatus);
+                            data.put("receipts_inserted", insertedReceipts);
+
+                            response = new ResponseModel("success", "Marked as read.", data);
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error in mark_as_read: " + e.getMessage());
+                        }
+                        break;
+                    }
+
 
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);

@@ -109,9 +109,9 @@ public class ChatPageController {
 
     //Time formatter for messages
 
-    private static final DateTimeFormatter FMT_HHMM       = DateTimeFormatter.ofPattern("HH:mm");
-    private static final DateTimeFormatter FMT_DATE_TIME  = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
-    private static final String YESTERDAY_LABEL           = "Yesterday";
+//    private static final DateTimeFormatter FMT_HHMM       = DateTimeFormatter.ofPattern("HH:mm");
+//    private static final DateTimeFormatter FMT_DATE_TIME  = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
+//    private static final String YESTERDAY_LABEL           = "Yesterday";
 
     private static String str(org.json.JSONObject j, String k) {
         try { return (j.has(k) && !j.isNull(k)) ? j.getString(k) : ""; } catch (Exception e) { return ""; }
@@ -261,43 +261,43 @@ public class ChatPageController {
         themeManager.darkModeProperty().addListener((o, oldVal, isDark) -> syncIconsWithTheme());
     }
 
-    private void initCurrentUserId() {
-        try {
-            String meStr = org.to.telegramfinalproject.Client.Session
-                    .currentUser.getString("internal_uuid");
-            me = UUID.fromString(meStr);
-        } catch (Exception ignore) {
-            me = null;
-        }
-    }
-
-    private String formatWhen(LocalDateTime ts) {
-        if (ts == null) return "";
-        LocalDate today = LocalDate.now();
-        LocalDate d = ts.toLocalDate();
-
-        if (d.isEqual(today)) {
-            return FMT_HHMM.format(ts);
-        } else if (d.isEqual(today.minusDays(1))) {
-            return YESTERDAY_LABEL + " " + FMT_HHMM.format(ts);
-        } else {
-            return FMT_DATE_TIME.format(ts);
-        }
-    }
-
-    /** ISO → LocalDateTime (با پشتیبانی از Offset/Z) */
-    private LocalDateTime parseWhen(String iso) {
-        if (iso == null || iso.isEmpty()) return null;
-        try {
-            return OffsetDateTime.parse(iso).toLocalDateTime();
-        } catch (Exception ignore) {
-            try {
-                return LocalDateTime.parse(iso);
-            } catch (Exception e) {
-                return null;
-            }
-        }
-    }
+//    private void initCurrentUserId() {
+//        try {
+//            String meStr = org.to.telegramfinalproject.Client.Session
+//                    .currentUser.getString("internal_uuid");
+//            me = UUID.fromString(meStr);
+//        } catch (Exception ignore) {
+//            me = null;
+//        }
+//    }
+//
+//    private String formatWhen(LocalDateTime ts) {
+//        if (ts == null) return "";
+//        LocalDate today = LocalDate.now();
+//        LocalDate d = ts.toLocalDate();
+//
+//        if (d.isEqual(today)) {
+//            return FMT_HHMM.format(ts);
+//        } else if (d.isEqual(today.minusDays(1))) {
+//            return YESTERDAY_LABEL + " " + FMT_HHMM.format(ts);
+//        } else {
+//            return FMT_DATE_TIME.format(ts);
+//        }
+//    }
+//
+//    /** ISO → LocalDateTime (با پشتیبانی از Offset/Z) */
+//    private LocalDateTime parseWhen(String iso) {
+//        if (iso == null || iso.isEmpty()) return null;
+//        try {
+//            return OffsetDateTime.parse(iso).toLocalDateTime();
+//        } catch (Exception ignore) {
+//            try {
+//                return LocalDateTime.parse(iso);
+//            } catch (Exception e) {
+//                return null;
+//            }
+//        }
+//    }
 
     @FXML
     private void openSearchPanel() {
