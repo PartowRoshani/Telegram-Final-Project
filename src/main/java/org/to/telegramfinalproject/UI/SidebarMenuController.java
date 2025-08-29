@@ -42,7 +42,7 @@ public class SidebarMenuController {
     @FXML
     public void initialize() {
         // Load default profile image
-        Image profile = loadImage("/org/to/telegramfinalproject/Avatars/profile.png");
+        Image profile = loadImage("/org/to/telegramfinalproject/Avatars/default_profile.png");
         if (profile != null) profileImage.setImage(profile);
 
         setupButtonActions();

@@ -5,16 +5,40 @@
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.*?>
 
+<?import javafx.scene.shape.Circle?>
 <HBox xmlns:fx="http://javafx.com/fxml"
       fx:controller="org.to.telegramfinalproject.UI.ChatItemController"
       spacing="10" alignment="CENTER_LEFT"
       styleClass="chat-item">
 
-    <!-- Profile Image -->
-    <ImageView fx:id="profileImage"
-               fitWidth="40" fitHeight="40"
-               preserveRatio="true"
-               styleClass="chat-avatar"/>
+    <!-- Avatar container with fixed size -->
+    <StackPane fx:id="avatarContainer"
+               prefWidth="40" prefHeight="40"
+               minWidth="40" minHeight="40"
+               maxWidth="40" maxHeight="40"
+               alignment="CENTER">
+
+        <!-- User profile image -->
+        <ImageView fx:id="profileImageUser"
+                   fitWidth="60" fitHeight="60"
+                   preserveRatio="true"
+                   visible="true" managed="true"/>
+
+        <!-- System avatar (circle + icon) -->
+        <StackPane fx:id="systemAvatar"
+                   prefWidth="40" prefHeight="40"
+                   visible="false" managed="false"
+                   alignment="CENTER">
+
+            <Circle fx:id="systemCircle"
+                    radius="20"
+                    fill="gray"/>
+
+            <ImageView fx:id="profileImageSystem"
+                       fitWidth="28" fitHeight="28"
+                       preserveRatio="true"/>
+        </StackPane>
+    </StackPane>
 
     <!-- Chat Details -->
     <VBox alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
