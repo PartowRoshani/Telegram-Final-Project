@@ -248,9 +248,8 @@ public class MainController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
             Node chatItem = loader.load();
             ChatItemController controller = loader.getController();
-            controller.setChatData(name, lastMsg, time, unread, "/org/to/telegramfinalproject/Avatars/default_profile.png");
 
-            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount());
+            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount(), "/org/to/telegramfinalproject/Avatars/default_profile.png");
             item.setOnMouseClicked(e -> openChat(chat));
             chatListContainer.getChildren().add(item);
 
