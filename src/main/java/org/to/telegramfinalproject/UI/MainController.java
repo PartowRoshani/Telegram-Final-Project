@@ -245,6 +245,10 @@ public class MainController {
 
             String preview = chat.getLastMessagePreview() == null ? "" : chat.getLastMessagePreview();
             String timeText = formatChatTime(chat.getLastMessageTime());
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
+            Node chatItem = loader.load();
+            ChatItemController controller = loader.getController();
+            controller.setChatData(name, lastMsg, time, unread, "/org/to/telegramfinalproject/Avatars/default_profile.png");
 
             cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount());
             item.setOnMouseClicked(e -> openChat(chat));
