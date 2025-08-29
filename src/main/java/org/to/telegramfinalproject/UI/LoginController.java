@@ -107,7 +107,6 @@ public class LoginController {
 
 
 
-    // LoginController.java (متد اصلی)
     @FXML
     private void handleLogin() {
         String u = usernameField.getText().trim();

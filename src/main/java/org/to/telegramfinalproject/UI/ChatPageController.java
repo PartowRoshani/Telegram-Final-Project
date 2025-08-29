@@ -97,6 +97,17 @@ public class ChatPageController {
     private static final DateTimeFormatter FMT_DATE_TIME  = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
     private static final String YESTERDAY_LABEL           = "Yesterday";
 
+    private static String str(org.json.JSONObject j, String k) {
+        try { return (j.has(k) && !j.isNull(k)) ? j.getString(k) : ""; } catch (Exception e) { return ""; }
+    }
+    private static boolean bool(org.json.JSONObject j, String k) {
+        try { return (j.has(k) && !j.isNull(k)) && j.getBoolean(k); } catch (Exception e) { return false; }
+    }
+    private static org.json.JSONArray arr(org.json.JSONObject j, String k) {
+        try { return (j.has(k) && !j.isNull(k)) ? j.getJSONArray(k) : null; } catch (Exception e) { return null; }
+    }
+
+
     private String formatWhen(LocalDateTime ts) {
         if (ts == null) return "";
         LocalDate today = LocalDate.now();
@@ -425,44 +436,99 @@ public class ChatPageController {
     }
 
 
-    private void renderMessages(org.json.JSONArray arr) {
+//    private void renderMessages(org.json.JSONArray arr) {
+//        messageContainer.getChildren().clear();
+//
+//        String myId = Session.currentUser != null
+//                ? Session.currentUser.optString("internal_uuid", "")
+//                : "";
+//
+//        for (int i = 0; i < arr.length(); i++) {
+//            org.json.JSONObject m = arr.getJSONObject(i);
+//
+//            String senderId    = m.has("sender_id")    && !m.isNull("sender_id")    ? m.getString("sender_id")    : "";
+//            String senderName  = m.has("sender_name")  && !m.isNull("sender_name")  ? m.getString("sender_name")  : "";
+//            String type        = m.has("message_type") && !m.isNull("message_type") ? m.getString("message_type") : "TEXT";
+//            String content     = m.has("content")      && !m.isNull("content")      ? m.getString("content")      : "";
+//            String whenStr     = m.has("send_at")      && !m.isNull("send_at")      ? m.getString("send_at")      : null;
+//
+//            boolean outgoing = senderId.equalsIgnoreCase(myId);
+//
+//            String display = outgoing ? "You"
+//                    : (!senderName.isEmpty() ? senderName
+//                    : (senderId.isEmpty() ? "Unknown"
+//                    : senderId.substring(0, Math.min(8, senderId.length()))));
+//
+//            String text;
+//            switch (type.toUpperCase()) {
+//                case "IMAGE": text = "[Image]"; break;
+//                case "AUDIO": text = "[Audio]"; break;
+//                case "VIDEO": text = "[Video]"; break;
+//                case "FILE":  text = "[File]";  break;
+//                default:      text = content;   break;
+//            }
+//
+//            LocalDateTime ts = parseWhen(whenStr);
+//            addBubble(outgoing, display, text, ts);
+//        }
+//
+//        messageScrollPane.layout();
+//        messageScrollPane.setVvalue(1.0);
+//    }
+
+
+    private final java.util.Map<String, org.json.JSONObject> msgIndex = new java.util.HashMap<>();
+
+    private void renderMessages(org.json.JSONArray list) {
         messageContainer.getChildren().clear();
 
-        String myId = Session.currentUser != null
-                ? Session.currentUser.optString("internal_uuid", "")
-                : "";
+        msgIndex.clear();
+        for (int i=0; i<list.length(); i++) {
+            org.json.JSONObject m = list.getJSONObject(i);
+            String mid = str(m, "message_id");
+            if (!mid.isEmpty()) msgIndex.put(mid, m);
+        }
 
-        for (int i = 0; i < arr.length(); i++) {
-            org.json.JSONObject m = arr.getJSONObject(i);
+        String myId = (Session.currentUser!=null && Session.currentUser.has("internal_uuid"))
+                ? Session.currentUser.getString("internal_uuid") : "";
 
-            String senderId    = m.has("sender_id")    && !m.isNull("sender_id")    ? m.getString("sender_id")    : "";
-            String senderName  = m.has("sender_name")  && !m.isNull("sender_name")  ? m.getString("sender_name")  : "";
-            String type        = m.has("message_type") && !m.isNull("message_type") ? m.getString("message_type") : "TEXT";
-            String content     = m.has("content")      && !m.isNull("content")      ? m.getString("content")      : "";
-            String whenStr     = m.has("send_at")      && !m.isNull("send_at")      ? m.getString("send_at")      : null;
+        for (int i=0;i<list.length();i++){
+            org.json.JSONObject m = list.getJSONObject(i);
+            String senderId   = str(m,"sender_id");
+            String senderName = str(m,"sender_name");
+            String type       = str(m,"message_type");
+            String content    = str(m,"content");
+            String whenStr    = str(m,"send_at");
+            String msgId      = str(m,"message_id");
+
+            // فوروارد/ریپلای/ادیت/ری‌اکشن
+            String fwdFrom    = str(m,"forwarded_from"); // نام یا آیدی منبع
+            String fwdBy      = str(m,"forwarded_by");   // چه کسی فوروارد کرده
+            String replyToId  = str(m,"reply_to_id");
+            boolean edited    = bool(m,"is_edited");
+            org.json.JSONArray reactions = arr(m,"reactions"); // [{emoji:"👍", count:3, by_me:true}, ...]
 
             boolean outgoing = senderId.equalsIgnoreCase(myId);
+            if (senderName.isEmpty()) senderName = outgoing ? "You" : shortId(senderId);
 
-            String display = outgoing ? "You"
-                    : (!senderName.isEmpty() ? senderName
-                    : (senderId.isEmpty() ? "Unknown"
-                    : senderId.substring(0, Math.min(8, senderId.length()))));
+            java.time.LocalDateTime ts = parseWhen(whenStr);
 
-            String text;
-            switch (type.toUpperCase()) {
-                case "IMAGE": text = "[Image]"; break;
-                case "AUDIO": text = "[Audio]"; break;
-                case "VIDEO": text = "[Video]"; break;
-                case "FILE":  text = "[File]";  break;
-                default:      text = content;   break;
+            // مثلا داخل renderMessages قبل از addBubble:
+            if (!"TEXT".equalsIgnoreCase(type) && content != null && !content.isBlank()) {
+                System.out.println("DEBUG type='" + type + "' -> showing bracket for msgId=" + msgId);
             }
 
-            LocalDateTime ts = parseWhen(whenStr);
-            addBubble(outgoing, display, text, ts);
+
+            addBubble(outgoing, senderName, type, content, ts, msgId,
+                    fwdFrom, fwdBy, replyToId, edited, reactions);
         }
 
         messageScrollPane.layout();
         messageScrollPane.setVvalue(1.0);
+    }
+
+    private String shortId(String id){
+        return (id==null||id.isEmpty()) ? "Unknown" : id.substring(0, Math.min(8,id.length()));
     }
 
 
@@ -475,13 +541,73 @@ public class ChatPageController {
         ActionHandler.sendWithResponse(readReq);
     }
 
-    private void addBubble(boolean outgoing, String displayName, String content, LocalDateTime sentAt) {
+//    private void addBubble(boolean outgoing, String displayName, String content, LocalDateTime sentAt) {
+//
+//        Label meta = new Label(displayName + " • " + formatWhen(sentAt));
+//        meta.setStyle("-fx-font-size: 11; -fx-text-fill: #7e8a97;");
+//        meta.setWrapText(true);
+//
+//        Label msg = new Label(content);
+//        msg.setWrapText(true);
+//
+//        boolean dark = themeManager.isDarkMode();
+//        String mine   = dark ? "#2b7cff" : "#d8ecff";
+//        String theirs = dark ? "#2c333a" : "#ffffff";
+//        String bg     = outgoing ? mine : theirs;
+//
+//        msg.setStyle(
+//                "-fx-background-color:" + bg + ";" +
+//                        "-fx-padding:8 12;" +
+//                        "-fx-background-radius:12;" +
+//                        "-fx-max-width: 520;"
+//        );
+//        msg.setMinHeight(Region.USE_PREF_SIZE);
+//
+//        VBox bubble = new VBox(4, meta, msg);
+//
+//        javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(bubble);
+//        row.setFillHeight(true);
+//        row.setSpacing(6);
+//        row.setAlignment(outgoing
+//                ? javafx.geometry.Pos.CENTER_RIGHT
+//                : javafx.geometry.Pos.CENTER_LEFT);
+//
+//        messageContainer.getChildren().add(row);
+//    }
 
-        Label meta = new Label(displayName + " • " + formatWhen(sentAt));
+
+
+
+
+    private void addBubble(
+            boolean outgoing,
+            String displayName,
+            String type,
+            String content,
+            java.time.LocalDateTime sentAt,
+            String messageId,
+            String forwardedFrom,
+            String forwardedBy,
+            String replyToId,
+            boolean edited,
+            org.json.JSONArray reactions
+    ) {
+        // --- meta (نام فرستنده + زمان [+ edited]) ---
+        String metaText = (displayName == null ? "" : displayName) + " • " + formatWhen(sentAt);
+        if (edited) metaText += " (edited)";
+        Label meta = new Label(metaText);
         meta.setStyle("-fx-font-size: 11; -fx-text-fill: #7e8a97;");
         meta.setWrapText(true);
 
-        Label msg = new Label(content);
+        // --- نرمال‌سازی نوع پیام + fallback ---
+        String t = (type == null) ? "" : type.trim().toUpperCase();
+        // اگر type نامعتبر/خالی بود ولی content متن داشت، فرض کن TEXT است.
+        boolean isText = t.isEmpty() ? (content != null && !content.isBlank()) : "TEXT".equals(t);
+
+        String bodyText = isText ? (content == null ? "" : content)
+                : bracketLabel(t); // [Image] / [Audio] / ...
+
+        Label msg = new Label(bodyText);
         msg.setWrapText(true);
 
         boolean dark = themeManager.isDarkMode();
@@ -497,17 +623,121 @@ public class ChatPageController {
         );
         msg.setMinHeight(Region.USE_PREF_SIZE);
 
-        VBox bubble = new VBox(4, meta, msg);
+        VBox bubble = new VBox(6);
+        bubble.getChildren().add(meta);
+
+        if (notBlank(forwardedFrom) || notBlank(forwardedBy)) {
+            bubble.getChildren().add(buildForwardHeader(forwardedFrom, forwardedBy));
+        }
+        if (notBlank(replyToId)) {
+            bubble.getChildren().add(buildReplyBoxFromIndex(replyToId));
+        }
+
+        bubble.getChildren().add(msg);
+
+        if (reactions != null && reactions.length() > 0) {
+            bubble.getChildren().add(buildReactionsBarFromJson(reactions, dark));
+        }
 
         javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(bubble);
         row.setFillHeight(true);
         row.setSpacing(6);
-        row.setAlignment(outgoing
-                ? javafx.geometry.Pos.CENTER_RIGHT
+        row.setAlignment(outgoing ? javafx.geometry.Pos.CENTER_RIGHT
                 : javafx.geometry.Pos.CENTER_LEFT);
 
         messageContainer.getChildren().add(row);
     }
+
+
+    private String bracketLabel(String t) {
+        String tt = (t == null) ? "" : t.trim().toUpperCase();
+        switch (tt) {
+            case "IMAGE": return "[Image]";
+            case "AUDIO": return "[Audio]";
+            case "VIDEO": return "[Video]";
+            case "FILE":  return "[File]";
+            default:      return "[Message]";
+        }
+    }
+
+
+    private javafx.scene.Node buildForwardHeader(String forwardedFrom, String forwardedBy) {
+        String txt;
+        if (notBlank(forwardedFrom) && notBlank(forwardedBy)) {
+            txt = "Forwarded from " + forwardedFrom + " by " + forwardedBy;
+        } else if (notBlank(forwardedFrom)) {
+            txt = "Forwarded from " + forwardedFrom;
+        } else if (notBlank(forwardedBy)) {
+            txt = "Forwarded by " + forwardedBy;
+        } else {
+            txt = "Forwarded";
+        }
+        Label l = new Label(txt);
+        l.setStyle("-fx-font-size: 11; -fx-text-fill: #5b8bb1;");
+        l.setWrapText(true);
+        return l;
+    }
+
+    private javafx.scene.Node buildReplyBoxFromIndex(String replyToId) {
+        org.json.JSONObject r = msgIndex.get(replyToId);
+        String from = "Unknown";
+        String preview;
+
+        if (r != null) {
+            String rType    = r.optString("message_type", "TEXT");
+            String rContent = r.optString("content", "");
+            String rSender  = r.optString("sender_name", "");
+            if (!rSender.isEmpty()) from = rSender;
+
+            preview = "TEXT".equalsIgnoreCase(rType) ? rContent : bracketLabel(rType);
+        } else {
+            preview = "[Quoted message]";
+        }
+
+        Label t = new Label("Reply to " + from);
+        t.setStyle("-fx-font-size: 11; -fx-text-fill: #5b8bb1; -fx-font-weight: bold;");
+
+        Label p = new Label(ellipsize(preview == null ? "" : preview, 140));
+        p.setWrapText(true);
+        p.setStyle("-fx-font-size: 12; -fx-text-fill: #6b7c8a;");
+
+        VBox box = new VBox(2, t, p);
+        box.setStyle(
+                "-fx-background-color: rgba(125,150,175,0.10);" +
+                        "-fx-padding:6 8; -fx-background-radius:8;" +
+                        "-fx-border-color:#7da0b8; -fx-border-width:0 0 0 2;"
+        );
+        return box;
+    }
+
+    private javafx.scene.Node buildReactionsBarFromJson(org.json.JSONArray arr, boolean dark) {
+        javafx.scene.layout.HBox bar = new javafx.scene.layout.HBox(6);
+        bar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        for (int i = 0; i < arr.length(); i++) {
+            org.json.JSONObject ro = arr.optJSONObject(i);
+            if (ro == null) continue;
+            String emoji = ro.optString("emoji", "👍");
+            int count    = ro.optInt("count", 1);
+            boolean byMe = ro.optBoolean("by_me", false);
+
+            String chipBg = byMe ? (dark ? "#215a9f" : "#d1e8ff")
+                    : (dark ? "#2f3942" : "#eef3f7");
+            String text   = emoji + (count > 0 ? (" " + count) : "");
+            Label chip = new Label(text);
+            chip.setStyle(
+                    "-fx-font-size: 12;" +
+                            "-fx-background-radius: 12;" +
+                            "-fx-padding: 2 8;" +
+                            "-fx-background-color: " + chipBg + ";"
+            );
+            bar.getChildren().add(chip);
+        }
+        return bar;
+    }
+
+
+    private static boolean notBlank(String s) { return s != null && !s.isBlank(); }
+    private static String ellipsize(String s, int max) { return s.length() > max ? s.substring(0, max) + "…" : s; }
 
 
 
