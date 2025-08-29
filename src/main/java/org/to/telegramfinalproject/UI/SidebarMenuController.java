@@ -197,7 +197,7 @@ public class SidebarMenuController {
         String img = user.optString("image_url", "");
         Image pic = tryLoadImage(img);
         if (pic == null) {
-            pic = loadImage("/org/to/telegramfinalproject/Avatars/profile.png");
+            pic = loadImage("/org/to/telegramfinalproject/Avatars/default_profile.png");
         }
         if (pic != null) profileImage.setImage(pic);
     }
