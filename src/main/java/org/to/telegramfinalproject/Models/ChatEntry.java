@@ -173,4 +173,7 @@ public class ChatEntry {
 
     public UUID getLastMessageSenderId() { return lastMessageSenderId; }
     public void setLastMessageSenderId(UUID lastMessageSenderId) { this.lastMessageSenderId = lastMessageSenderId; }
+
+    public void setUnread(int unreadCount){this.unreadCount = unreadCount;}
+    public int getUnread(){return unreadCount;}
 }

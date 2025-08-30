@@ -42,10 +42,21 @@ public class ActionHandler {
 
 
 
+//    private void handleRealTime(JSONObject json) throws IOException {
+//        IncomingMessageListener listener = new IncomingMessageListener(this.in);
+//        listener.handleRealTimeEvent (json);
+//    }
+
+    // ActionHandler.java
     private void handleRealTime(JSONObject json) throws IOException {
-        IncomingMessageListener listener = new IncomingMessageListener(this.in);
-        listener.handleRealTimeEvent (json);
+        IncomingMessageListener listener = TelegramClient.getInstance().getListener();
+        if (listener != null) {
+            listener.handleRealTimeEvent(json);
+        } else {
+            System.err.println("[RT] Listener not ready; dropping RT event: " + json);
+        }
     }
+
     public ActionHandler(PrintWriter out, BufferedReader in, Scanner scanner) {
         this.out = out;
         this.in = in;

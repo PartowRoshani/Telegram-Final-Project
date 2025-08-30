@@ -9,10 +9,12 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
+import org.to.telegramfinalproject.Client.Session;
 import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Client.ActionHandler;
 import java.io.IOException;
@@ -73,6 +75,62 @@ public class MainController {
         return instance;
     }
     private final Map<UUID, ChatItemController> itemControllers = new HashMap<>();
+
+
+    //For realtime handling
+
+    public void onChatUpdated(UUID chatId,
+                              String chatType,
+                              LocalDateTime lastTs,
+                              boolean isIncoming,
+                              String lastPreview) {
+        var opt = java.util.stream.Stream
+                .of(Session.chatList, Session.activeChats, Session.archivedChats)
+                .flatMap(java.util.Collection::stream)
+                .filter(c -> c.getId().equals(chatId))
+                .findFirst();
+        if (opt.isEmpty()) return;
+
+        ChatEntry chat = opt.get();
+
+        if (lastTs != null) chat.setLastMessageTime(String.valueOf(lastTs));      // ← نوع: LocalDateTime
+        if (lastPreview != null) chat.setLastMessagePreview(lastPreview);
+
+        boolean isOpen = Session.currentChatId != null &&
+                Session.currentChatId.equals(chatId.toString());
+        if (isIncoming && !isOpen) {
+            chat.setUnread(chat.getUnread() + 1);
+        }
+
+        java.util.Comparator<ChatEntry> byTimeDesc = (c1, c2) -> {
+            var t1 = c1.getLastMessageTime();
+            var t2 = c2.getLastMessageTime();
+            if (t1 == null && t2 == null) return 0;
+            if (t1 == null) return 1;
+            if (t2 == null) return -1;
+            return t2.compareTo(t1);
+        };
+        Session.chatList.sort(byTimeDesc);
+        Session.activeChats.sort(byTimeDesc);
+        Session.archivedChats.sort(byTimeDesc);
+
+        refreshChatListUI();
+        refreshBadgesIfAny();
+    }
+
+
+    private void refreshChatListUI() {
+        Platform.runLater(() -> {
+            chatListContainer.getChildren().clear();
+            itemControllers.clear();
+            populateChatListFromSession(); // همون متدی که نودها رو می‌سازه و می‌چسبونه
+        });
+    }
+
+
+    private void refreshBadgesIfAny() {
+        // آپدیت نشان‌ها اگر لازم است
+    }
 
 
     @FXML
@@ -270,6 +328,30 @@ public class MainController {
 //        }
 //    }
 
+//    private void addChatNode(ChatEntry chat) {
+//        try {
+//            FXMLLoader fx = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
+//            Node item = fx.load();
+//            ChatItemController cc = fx.getController();
+//
+//            String preview = chat.getLastMessagePreview() == null ? "" : chat.getLastMessagePreview();
+//            String timeText = formatChatTime(chat.getLastMessageTime());
+//            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
+//            Node chatItem = loader.load();
+//            ChatItemController controller = loader.getController();
+//
+//            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount(), "/org/to/telegramfinalproject/Avatars/default_profile.png");
+//            item.setOnMouseClicked(e -> openChat(chat));
+//            chatListContainer.getChildren().add(item);
+//
+//            itemControllers.put(chat.getId(), cc);
+//
+//        } catch (Exception ex) {
+//            ex.printStackTrace();
+//        }
+//    }
+
+
     private void addChatNode(ChatEntry chat) {
         try {
             FXMLLoader fx = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
@@ -277,21 +359,29 @@ public class MainController {
             ChatItemController cc = fx.getController();
 
             String preview = chat.getLastMessagePreview() == null ? "" : chat.getLastMessagePreview();
-            String timeText = formatChatTime(chat.getLastMessageTime());
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
-            Node chatItem = loader.load();
-            ChatItemController controller = loader.getController();
 
-            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount(), "/org/to/telegramfinalproject/Avatars/default_profile.png");
+            // اگر lastMessageTime از نوع LocalDateTime است:
+            String timeText = chat.getLastMessageTime() == null
+                    ? ""
+                    : formatChatTime(chat.getLastMessageTime());
+
+            cc.setChatData(
+                    chat.getName(),
+                    preview,
+                    timeText,
+                    chat.getUnreadCount(),
+                    "/org/to/telegramfinalproject/Avatars/default_profile.png"
+            );
+
             item.setOnMouseClicked(e -> openChat(chat));
             chatListContainer.getChildren().add(item);
 
             itemControllers.put(chat.getId(), cc);
-
         } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
+
 
     private String mapTypeToLabel(String t) {
         switch (t.toUpperCase()) {
@@ -324,6 +414,9 @@ public class MainController {
 
             ChatPageController controller = loader.getController();
             controller.showChat(chat);
+
+            this.chatPageController = controller;
+            Session.currentChatId = chat.getId().toString();
 
             chatDisplayArea.getChildren().setAll(chatPage);
 
@@ -463,6 +556,17 @@ public class MainController {
     // ===== Search UI state =====
     private final java.util.List<SearchResult> searchBacking = new java.util.ArrayList<>();
 
+    @FXML private AnchorPane chatHost; // کانتینر مناسب در مین برای قرار دادن ChatPage
+
+    private ChatPageController chatPageController;
+
+
+
+    public ChatPageController getChatPageController() {
+        return chatPageController;
+    }
+
+
     private enum SRType { USER, GROUP, CHANNEL, MESSAGE }
 
     private static class SearchResult {
@@ -483,7 +587,6 @@ public class MainController {
         }
 
         String toDisplay() {
-            // رشته‌ای که داخل ListView نشان می‌دهیم
             switch (type) {
                 case MESSAGE:
                     String left = (title == null || title.isBlank()) ? "Message" : title;
@@ -512,7 +615,6 @@ public class MainController {
 
         showSearchPanel();
 
-        // درخواست به سرور (مثل کنسول)
         org.json.JSONObject req = new org.json.JSONObject();
         req.put("action", "search");
         req.put("keyword", keyword);
@@ -582,7 +684,7 @@ public class MainController {
                         String subtitle = (ctx.isBlank()? "" : ctx) + (content.isBlank()? "" : (subtitleSep(ctx)+content));
                         tmp.add(new SearchResult(
                                 SRType.MESSAGE, senderName, subtitle, rType, rUuid,
-                                it.optString("receiver_display_id", ""),    // اگر داشتی
+                                it.optString("receiver_display_id", ""),
                                 it.optString("message_id", null),
                                 time
                         ));
@@ -612,11 +714,10 @@ public class MainController {
     private void openSearchResult(SearchResult r) {
         switch (r.type) {
             case USER: {
-                // مثل کنسول: اگر چت private با این یوزر داریم بازش کن؛
-                // وگرنه chat_id را از سرور بگیر/بساز، بعد باز کن.
+
                 java.util.UUID chatId = findExistingPrivateChatId(r.uuid);
                 if (chatId == null) {
-                    chatId = fetchOrCreatePrivateChat(r.uuid); // نیاز به API سمت سرور
+                    chatId = fetchOrCreatePrivateChat(r.uuid);
                     if (chatId == null) {
                         System.out.println("❌ Failed to create/find private chat.");
                         return;
@@ -629,13 +730,12 @@ public class MainController {
                 ce.setName(r.title);                          // profile_name
                 ce.setType("private");
 
-                openChat(ce); // همون متد فعلی MainController
+                openChat(ce);
                 break;
             }
 
             case GROUP:
             case CHANNEL: {
-                // اگر تو لیست هست بازش کن، وگرنه با همون uuid باز کن
                 org.to.telegramfinalproject.Models.ChatEntry existing =
                         findExistingChat(r.uuid, r.receiverType);
                 if (existing != null) {
@@ -652,7 +752,6 @@ public class MainController {
             }
 
             case MESSAGE: {
-                // مثل کنسول: چتِ پیام را باز کن (اسکرول به پیام را بعداً اضافه کن)
                 org.to.telegramfinalproject.Models.ChatEntry existing =
                         findExistingChat(r.uuid, r.receiverType);
                 if (existing != null) {
@@ -661,7 +760,7 @@ public class MainController {
                     org.to.telegramfinalproject.Models.ChatEntry ce = new org.to.telegramfinalproject.Models.ChatEntry();
                     ce.setId(r.uuid.toString());         // receiver internal_uuid
                     ce.setType(r.receiverType);
-                    ce.setName(guessNameForReceiver(r)); // اگر خواستی از subtitle استفاده کن
+                    ce.setName(guessNameForReceiver(r));
                     ce.setDisplayId(r.displayId);
                     openChat(ce);
                 }
@@ -684,14 +783,12 @@ public class MainController {
     }
 
     private java.util.UUID findExistingPrivateChatId(java.util.UUID otherUserUuid) {
-        // اگر در لیست چت‌ها private با همین طرف داری و internal_id همان chat_id است، برش گردان
         var list = (org.to.telegramfinalproject.Client.Session.chatList==null)
                 ? java.util.Collections.<org.to.telegramfinalproject.Models.ChatEntry>emptyList()
                 : org.to.telegramfinalproject.Client.Session.chatList;
 
         for (var c : list) {
             if ("private".equalsIgnoreCase(c.getType())) {
-                // اگر مدل‌ات otherUserId در ChatEntry دارد، از آن استفاده کن
                 if (otherUserUuid.equals(c.getOtherUserId())) {
                     try { return java.util.UUID.fromString(c.getId().toString()); } catch (Exception ignored) {}
                 }

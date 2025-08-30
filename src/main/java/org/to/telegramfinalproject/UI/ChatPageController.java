@@ -80,6 +80,8 @@ public class ChatPageController {
     // ===== state =====
     private String chatName;
     private final ThemeManager themeManager = ThemeManager.getInstance();
+    private final java.util.Set<String> pendingClientMsgIds =
+            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
 
     // Where your icons live
     private static final String ICON_BASE = "/org/to/telegramfinalproject/Icons/";
@@ -95,6 +97,7 @@ public class ChatPageController {
         String t = s.trim();
         return !t.isEmpty() && !"null".equalsIgnoreCase(t);
     }
+
 
 
     private void initCurrentUserId() {
@@ -332,14 +335,127 @@ public class ChatPageController {
 
     // ----- actions -----
 
+//    private void sendMessage() {
+//        String text = messageInput.getText() == null ? "" : messageInput.getText().trim();
+//        if (!text.isEmpty()) {
+//            addMessage("You", text);
+//            messageInput.clear();
+//            // TODO: send to server
+//        }
+//    }
+
+
     private void sendMessage() {
-        String text = messageInput.getText() == null ? "" : messageInput.getText().trim();
-        if (!text.isEmpty()) {
-            addMessage("You", text);
-            messageInput.clear();
-            // TODO: send to server
+        // 0) Read and validate input
+        String raw = messageInput.getText();
+        String text = (raw == null) ? "" : raw.trim();
+        if (text.isEmpty()) return;
+
+        if (currentChat == null) {
+            addSystemMessage("No chat is selected.");
+            return;
         }
+
+        // 1) Clear input immediately for good UX
+        messageInput.clear();
+
+        // 2) Snapshot chat info (must be final for lambdas)
+        final UUID targetChatId   = currentChat.getId();
+        final String targetType   = currentChat.getType();    // "private" | "group" | "channel"
+        final String contentToSend = text;                    // effectively final
+
+        // 3) Build the SAME JSON as your console method (for TEXT only)
+        org.json.JSONObject req = new org.json.JSONObject();
+        req.put("action", "send_message");
+        req.put("receiver_type", targetType);
+        req.put("receiver_id", targetChatId.toString());
+        req.put("content", contentToSend);
+        req.put("message_type", "TEXT");
+
+        // 4) Send on a background thread
+        new Thread(() -> {
+            org.json.JSONObject resp;
+            try {
+                resp = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                Platform.runLater(() -> addSystemMessage("Send failed: " + ex.getMessage()));
+                return;
+            }
+
+            // 5) Check status like your console method
+            if (resp == null || !"success".equalsIgnoreCase(resp.optString("status"))) {
+                String err = (resp != null) ? resp.optString("message", "No response") : "No response";
+                Platform.runLater(() -> addSystemMessage("Send failed: " + err));
+                return;
+            }
+
+            // 6) Extract fields (your console reads data.message_id; handle both shapes)
+            org.json.JSONObject data = resp.optJSONObject("data");
+            String messageId = null;
+            String sendAtIso = null;
+            if (data != null) {
+                // If server returns { data: { message_id, send_at, ... } }
+                messageId = data.optString("message_id", null);
+
+                // Some servers nest: { data: { message: {...} } }
+                if (messageId == null) {
+                    org.json.JSONObject msgObj = data.optJSONObject("message");
+                    if (msgObj != null) {
+                        messageId = msgObj.optString("message_id", null);
+                        sendAtIso = msgObj.optString("send_at", null);
+                    }
+                } else {
+                    sendAtIso = data.optString("send_at", null);
+                }
+            }
+            if (messageId == null) messageId = java.util.UUID.randomUUID().toString();
+
+            final java.time.LocalDateTime ts =
+                    (sendAtIso != null && !sendAtIso.isBlank()) ? parseWhen(sendAtIso)
+                            : java.time.LocalDateTime.now();
+
+            final String fMessageId = messageId;
+            final java.time.LocalDateTime fTs = ts;
+
+            // 7) Update UI on FX thread (render outgoing bubble + index for reply previews)
+            Platform.runLater(() -> {
+                // If user switched chats while sending, don’t render here
+                if (currentChat == null || !currentChat.getId().equals(targetChatId)) return;
+
+                addBubble(
+                        true,                 // outgoing
+                        "You",                // display name
+                        "TEXT",               // message type
+                        contentToSend,        // content
+                        fTs,                  // timestamp
+                        fMessageId,           // message_id
+                        "", "", "",           // forwarded_from, forwarded_by, reply_to_id
+                        false,                // edited
+                        null                  // reactions
+                );
+
+                //Real time
+                var mc = MainController.getInstance();
+                if (mc != null) {
+                    String preview = "You: " + (contentToSend.isBlank() ? "[Message]" : contentToSend);
+                    mc.onChatUpdated(targetChatId, targetType, fTs, /*isIncoming*/ false, preview);
+                }
+
+                // Keep it in msgIndex for reply previews
+                org.json.JSONObject idx = new org.json.JSONObject();
+                idx.put("message_id",   fMessageId);
+                idx.put("message_type", "TEXT");
+                idx.put("content",      contentToSend);
+                idx.put("sender_name",  "You");
+                idx.put("sender_id",    (me != null) ? me.toString() : "");
+                idx.put("send_at",      fTs.toString());
+                msgIndex.put(fMessageId, idx);
+            });
+        }).start();
     }
+
+
 
     private void openFileChooser() {
         FileChooser fc = new FileChooser();
@@ -706,7 +822,6 @@ public class ChatPageController {
         row.setAlignment(outgoing ? javafx.geometry.Pos.CENTER_RIGHT
                 : javafx.geometry.Pos.CENTER_LEFT);
 
-        // کمی padding اطراف هر پیام برای کاهش فاصله‌های ناخوشایند
         row.setPadding(new javafx.geometry.Insets(2, 6, 2, 6));
 
         messageContainer.getChildren().add(row);
@@ -799,8 +914,63 @@ public class ChatPageController {
     }
 
 
-    private static boolean notBlank(String s) { return s != null && !s.isBlank(); }
     private static String ellipsize(String s, int max) { return s.length() > max ? s.substring(0, max) + "…" : s; }
+
+
+
+
+    public boolean isSameChat(UUID chatId, String type) {
+        return currentChat != null
+                && currentChat.getId().equals(chatId)
+                && currentChat.getType().equalsIgnoreCase(type);
+    }
+
+    public void onRealTimeNewMessage(JSONObject m) {
+        try {
+            String chatIdStr = str(m,"receiver_id");
+            String chatType  = str(m,"receiver_type");
+            if (chatIdStr.isEmpty() || chatType.isEmpty()) return;
+
+            UUID chatId = UUID.fromString(chatIdStr);
+            if (!isSameChat(chatId, chatType)) {
+                System.out.println("[UI] RT msg for another chat: " + chatId);
+                return;
+            }
+
+            // id → message_id fallback
+            if (!m.has("message_id") && m.has("id")) {
+                m.put("message_id", m.getString("id"));
+            }
+
+            String senderName = hasVal(str(m,"sender_name")) ? str(m,"sender_name")
+                    : (hasVal(str(m,"sender_id")) ? shortId(str(m,"sender_id")) : "Unknown");
+
+            String type    = hasVal(str(m,"message_type")) ? str(m,"message_type") : "TEXT";
+            String content = str(m,"content");
+            String whenIso = str(m,"send_at");
+            String msgId   = str(m,"message_id");
+
+            LocalDateTime ts = parseWhen(whenIso);
+            if (ts == null) ts = LocalDateTime.now();
+
+            addBubble(false, senderName, type, content, ts, msgId,
+                    str(m,"forwarded_from"), str(m,"forwarded_by"), str(m,"reply_to_id"),
+                    bool(m,"is_edited"), arr(m,"reactions"));
+
+            if (hasVal(msgId)) msgIndex.put(msgId, m);
+
+            if (currentChat != null) markAsRead(currentChat);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+
+
+
+
+
 
 
 
