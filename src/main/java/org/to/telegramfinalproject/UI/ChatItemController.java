@@ -34,7 +34,7 @@ public class ChatItemController {
      * @param unread  Unread message count
      * @param imageUrl Path/URL of profile image (can be null/empty)
      */
-    public void setChatData(String name, String lastMsg, String time, int unread, String imageUrl) {
+    public void setChatData(String name, String lastMsg, String time, int unread, String imageUrl, String chatType) {
         chatName.setText(name);
         lastMessage.setText(lastMsg);
         chatTime.setText(time);
@@ -77,9 +77,17 @@ public class ChatItemController {
             profileImageUser.setManaged(true);
 
         } else {
+            String path;
+            if ("group".equalsIgnoreCase(chatType)) {
+                path = "/org/to/telegramfinalproject/Avatars/default_group_profile.png";
+            } else if ("channel".equalsIgnoreCase(chatType)) {
+                path = "/org/to/telegramfinalproject/Avatars/default_channel_profile.png";
+            } else {
+                path = "/org/to/telegramfinalproject/Avatars/default_user_profile.png";
+            }
+
             profileImageUser.setImage(new Image(
-                    Objects.requireNonNull(getClass().getResourceAsStream(
-                            "/org/to/telegramfinalproject/Icons/default_profile.png"))
+                    Objects.requireNonNull(getClass().getResourceAsStream(path))
             ));
             profileImageUser.setVisible(true);
             profileImageUser.setManaged(true);

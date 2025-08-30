@@ -9,6 +9,7 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -16,25 +17,30 @@ import javafx.util.Duration;
 import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Client.ActionHandler;
 import java.io.IOException;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class MainController {
 
     // === LEFT PANE ===
     @FXML private VBox chatListContainer;     // inside the scrollPane
     @FXML private ScrollPane scrollPane;      // chat list scroll
+
+    // === Global Search ===
+    @FXML private TextField searchBar;
+    @FXML private VBox globalSearchPane;
+    @FXML private ListView<SearchResult> globalSearchResults;
+    @FXML private VBox noResultsBox;
+    @FXML private ImageView noResultIcon;
+    private enum SearchMode {
+        GLOBAL,
+        CHAT
+    }
+    private SearchMode currentSearchMode = SearchMode.GLOBAL;
+    private UUID currentChatId; // if in CHAT mode, which chat to search in
+
+    // === Search In Chat ===
     @FXML private VBox chatSearchPane;        // search results panel
     @FXML private ListView<String> chatSearchResults;
-    @FXML private MenuButton scopeDropdown;
-
-    // === TOP BAR ===
-    @FXML private TextField searchBar;        // global search bar
-    @FXML private Button menuButton;
 
     // === RIGHT PANE ===
     @FXML private VBox leftPane;
@@ -137,15 +143,104 @@ public class MainController {
 //            }
 //        });
 
-        // وقتی کاربر Enter زد روی سرچ‌بار، درخواست سرچ بفرست
-        searchBar.setOnAction(e -> performGlobalSearch(searchBar.getText().trim()));
+        searchBar.setOnAction(e -> {
+            String keyword = searchBar.getText().trim();
+            if (keyword.isEmpty()) return;
 
-        // باز/بسته کردن پنل نتایج با تایپ (دلخواه)
-        searchBar.textProperty().addListener((obs,o,n)->{
-            if (n!=null && !n.isBlank()) showSearchPanel();
+            if (currentSearchMode == SearchMode.GLOBAL) {
+                performGlobalSearch(keyword);
+            } else if (currentSearchMode == SearchMode.CHAT && currentChatId != null) {
+                performChatSearch(keyword, currentChatId);
+            }
         });
 
-        // کلیک روی نتیجه
+        searchBar.setOnAction(e -> performGlobalSearch(searchBar.getText().trim()));
+
+        searchBar.textProperty().addListener((obs,o,n)->{
+            if (n!=null && !n.isBlank()) showGlobalSearchPanel();
+        });
+
+        globalSearchResults.setOnMouseClicked(e -> {
+            int idx = globalSearchResults.getSelectionModel().getSelectedIndex();
+            if (idx >= 0 && idx < searchBacking.size()) {
+                openSearchResult(searchBacking.get(idx));
+            }
+        });
+
+        globalSearchResults.setCellFactory(list -> new ListCell<>() {
+            private final HBox container = new HBox(10);
+            private final ImageView avatar = new ImageView();
+            private final VBox texts = new VBox(2);
+            private final Label title = new Label();
+            private final Label subtitle = new Label();
+
+            {
+                avatar.setFitWidth(36);
+                avatar.setFitHeight(36);
+                avatar.getStyleClass().add("global-search-avatar");
+                title.getStyleClass().add("global-search-title");
+                subtitle.getStyleClass().add("global-search-subtitle");
+                texts.getChildren().addAll(title, subtitle);
+                container.getChildren().addAll(avatar, texts);
+            }
+
+            @Override
+            protected void updateItem(SearchResult r, boolean empty) {
+                super.updateItem(r, empty);
+                if (empty || r == null) {
+                    setGraphic(null);
+                } else {
+                    title.setText(r.title);
+                    if (r.type == SRType.MESSAGE) {
+                        subtitle.setText(r.subtitle != null ? r.subtitle : "");
+                    } else {
+                        subtitle.setText("Press to see messages");
+                    }
+
+                    // Default profile images depending on type
+                    switch (r.type) {
+                        case USER:
+                            avatar.setImage(new Image(
+                                    Objects.requireNonNull(getClass().getResourceAsStream(
+                                            "/org/to/telegramfinalproject/Avatars/default_user_profile.png"
+                                    ))
+                            ));
+                            break;
+                        case GROUP:
+                            avatar.setImage(new Image(
+                                    Objects.requireNonNull(getClass().getResourceAsStream(
+                                            "/org/to/telegramfinalproject/Avatars/default_group_profile.png"
+                                    ))
+                            ));
+                            break;
+                        case CHANNEL:
+                            avatar.setImage(new Image(
+                                    Objects.requireNonNull(getClass().getResourceAsStream(
+                                            "/org/to/telegramfinalproject/Avatars/default_channel_profile.png"
+                                    ))
+                            ));
+                            break;
+                        case MESSAGE:
+                            // For messages, use sender default (user style)
+                            avatar.setImage(new Image(
+                                    Objects.requireNonNull(getClass().getResourceAsStream(
+                                            "/org/to/telegramfinalproject/Avatars/default_user_profile.png"
+                                    ))
+                            ));
+                            break;
+                    }
+
+                    avatar.setFitWidth(50);
+                    avatar.setFitHeight(50);
+                    avatar.setPreserveRatio(true);
+                    avatar.setSmooth(true);
+
+                    setGraphic(container);
+                }
+            }
+        });
+
+        // CLick on the search result
         chatSearchResults.setOnMouseClicked(e -> {
             int idx = chatSearchResults.getSelectionModel().getSelectedIndex();
             if (idx >= 0 && idx < searchBacking.size()) {
@@ -166,10 +261,24 @@ public class MainController {
         searchBar.requestFocus();
     }
 
+    public void showGlobalSearchPanel() {
+        scrollPane.setVisible(false);
+        scrollPane.setManaged(false);
+
+        chatSearchPane.setVisible(false);
+        chatSearchPane.setManaged(false);
+
+        globalSearchPane.setVisible(true);
+        globalSearchPane.setManaged(true);
+    }
+
     @FXML
     public void closeSearchPanel() {
         chatSearchPane.setVisible(false);
         chatSearchPane.setManaged(false);
+
+        currentSearchMode = SearchMode.GLOBAL;
+        currentChatId = null;
 
         scrollPane.setVisible(true);
         scrollPane.setManaged(true);
@@ -282,7 +391,7 @@ public class MainController {
             Node chatItem = loader.load();
             ChatItemController controller = loader.getController();
 
-            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount(), "/org/to/telegramfinalproject/Avatars/default_profile.png");
+            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount(), "/org/to/telegramfinalproject/Avatars/default_user_profile.png", chat.getType());
             item.setOnMouseClicked(e -> openChat(chat));
             chatListContainer.getChildren().add(item);
 
@@ -324,6 +433,9 @@ public class MainController {
 
             ChatPageController controller = loader.getController();
             controller.showChat(chat);
+
+            currentSearchMode = SearchMode.CHAT;
+            currentChatId = UUID.fromString(chat.getId().toString());
 
             chatDisplayArea.getChildren().setAll(chatPage);
 
@@ -441,11 +553,13 @@ public class MainController {
     private void updateIconsForDarkMode() {
         // Example: switch images to white versions
         menuIcon.setImage(new Image(getClass().getResourceAsStream("/org/to/telegramfinalproject/Icons/menu_light.png")));
+        noResultIcon.setImage(new Image(getClass().getResourceAsStream("/org/to/telegramfinalproject/Icons/no_result_light.png")));
     }
 
     private void updateIconsForLightMode() {
         // Example: switch images to black versions
         menuIcon.setImage(new Image(getClass().getResourceAsStream("/org/to/telegramfinalproject/Icons/menu_dark.png")));
+        noResultIcon.setImage(new Image(getClass().getResourceAsStream("/org/to/telegramfinalproject/Icons/no_result_dark.png")));
     }
 
     private void updateLabelsForDarkMode() {
@@ -497,6 +611,49 @@ public class MainController {
         }
     }
 
+    private void performChatSearch(String keyword, UUID chatId) {
+        if (keyword == null || keyword.isBlank()) {
+            chatSearchResults.getItems().clear();
+            return;
+        }
+
+        showSearchPanel();
+
+        org.json.JSONObject req = new org.json.JSONObject();
+        req.put("action", "search_in_chat");
+        req.put("keyword", keyword);
+        req.put("chat_id", chatId.toString());
+        req.put("user_id", org.to.telegramfinalproject.Client.Session.currentUser.getString("user_id"));
+
+        new Thread(() -> {
+            org.json.JSONObject resp;
+            try {
+                resp = ActionHandler.sendWithResponse(req);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return;
+            }
+
+            if (resp == null || !"success".equals(resp.optString("status"))) return;
+            org.json.JSONArray arr = resp.optJSONObject("data").optJSONArray("results");
+            if (arr == null) arr = new org.json.JSONArray();
+
+            java.util.List<String> tmp = new java.util.ArrayList<>();
+            for (int i = 0; i < arr.length(); i++) {
+                org.json.JSONObject it = arr.getJSONObject(i);
+                String time = it.optString("time", "");
+                String content = it.optString("content", "[No content]");
+                tmp.add("🗨 " + content + (time.isEmpty() ? "" : " • " + time));
+            }
+
+            Platform.runLater(() -> {
+                chatSearchResults.getItems().setAll(tmp);
+                chatSearchResults.setVisible(true);
+                chatSearchResults.setManaged(true);
+            });
+        }).start();
+    }
+
 
     public void performGlobalSearch(String keyword) {
         if (keyword == null || keyword.isBlank()) {
@@ -510,7 +667,7 @@ public class MainController {
             return;
         }
 
-        showSearchPanel();
+        showGlobalSearchPanel();
 
         // درخواست به سرور (مثل کنسول)
         org.json.JSONObject req = new org.json.JSONObject();
@@ -597,17 +754,46 @@ public class MainController {
 
     private String subtitleSep(String s){ return s==null || s.isBlank()? "" : " — "; }
 
-    private void renderSearchResults(java.util.List<SearchResult> results) {
-        searchBacking.clear();
-        searchBacking.addAll(results);
+//    private void renderSearchResults(java.util.List<SearchResult> results) {
+//        searchBacking.clear();
+//        searchBacking.addAll(results);
+//
+//        javafx.collections.ObservableList<SearchResult> view =
+//                javafx.collections.FXCollections.observableArrayList(results);
+//        globalSearchResults.setItems(view);
+//        globalSearchResults.setVisible(true);
+//        globalSearchResults.setManaged(true);
+//    }
 
-        javafx.collections.ObservableList<String> view = javafx.collections.FXCollections.observableArrayList();
-        for (SearchResult r : results) view.add(r.toDisplay());
-        chatSearchResults.setItems(view);
-        chatSearchResults.setVisible(true);
-        chatSearchResults.setManaged(true);
+    private void renderSearchResults(List<SearchResult> results) {
+        globalSearchResults.getItems().clear();
+
+        if (results.isEmpty()) {
+            noResultsBox.setVisible(true);
+            noResultsBox.setManaged(true);
+            globalSearchResults.setVisible(false);
+            globalSearchResults.setManaged(false);
+            return;
+        }
+
+        noResultsBox.setVisible(false);
+        noResultsBox.setManaged(false);
+        globalSearchResults.setVisible(true);
+        globalSearchResults.setManaged(true);
+
+        globalSearchResults.getItems().addAll(results);
     }
 
+    @FXML
+    public void closeGlobalSearch() {
+        globalSearchPane.setVisible(false);
+        globalSearchPane.setManaged(false);
+
+        scrollPane.setVisible(true);
+        scrollPane.setManaged(true);
+
+        searchBar.clear();
+    }
 
     private void openSearchResult(SearchResult r) {
         switch (r.type) {
@@ -754,8 +940,4 @@ public class MainController {
 
         return false;
     }
-
-
-
-
 }

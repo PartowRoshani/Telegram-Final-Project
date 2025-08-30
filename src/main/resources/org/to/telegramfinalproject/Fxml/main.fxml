@@ -69,43 +69,53 @@
                             </content>
                         </ScrollPane>
 
-                        <!-- Search panel (hidden initially) -->
+                        <!-- Search in chat -->
                         <VBox fx:id="chatSearchPane"
                               visible="false" managed="false"
                               styleClass="chat-search-pane">
 
-                            <!-- Section label -->
                             <Label text="Search messages in" styleClass="search-label"/>
-
-                            <!-- Tiny separator line -->
                             <Separator styleClass="search-separator" prefHeight="0.5"/>
 
-                            <!-- User profile + "This chat" + close -->
                             <HBox spacing="10" alignment="CENTER_LEFT" styleClass="search-scope-bar">
-                                <!-- Avatar -->
-                                <ImageView fx:id="searchChatAvatar" fitWidth="32" fitHeight="32" preserveRatio="true">
-                                    <image>
-                                        <Image url="@/org/to/telegramfinalproject/Avatars/profile_test.png"/>
-                                    </image>
-                                </ImageView>
-
-                                <!-- scope -->
+                                <ImageView fx:id="searchChatAvatar" fitWidth="32" fitHeight="32" preserveRatio="true"/>
                                 <VBox alignment="CENTER_LEFT">
                                     <Label text="This chat" styleClass="search-scope"/>
                                 </VBox>
                                 <Region HBox.hgrow="ALWAYS"/>
-                                <!-- Close button -->
                                 <Button text="✕" onAction="#closeSearchPanel" styleClass="close-btn"/>
                             </HBox>
 
-                            <!-- Placeholder -->
                             <VBox alignment="CENTER" spacing="10" prefHeight="300">
                                 <ImageView fx:id="searchIconLarge" fitWidth="64" fitHeight="64" preserveRatio="true"/>
                                 <Label text="Search for messages" styleClass="search-placeholder"/>
                             </VBox>
 
-                            <!-- Results -->
                             <ListView fx:id="chatSearchResults" visible="false" managed="false"/>
+                        </VBox>
+
+                        <!-- Global Search Panel -->
+                        <VBox fx:id="globalSearchPane" visible="false" managed="false" styleClass="global-search-pane">
+
+                            <!-- Header -->
+                            <HBox alignment="CENTER_LEFT">
+                                <Label text="  Search results" styleClass="search-results-title"/>
+                                <Region HBox.hgrow="ALWAYS"/>
+                                <Button text="✕" onAction="#closeGlobalSearch" styleClass="search-close-btn"/>
+                            </HBox>
+
+                            <!-- Results -->
+                            <ListView fx:id="globalSearchResults" styleClass="global-search-list"/>
+
+                            <!-- No Results Placeholder -->
+                            <VBox fx:id="noResultsBox" alignment="CENTER" spacing="10" visible="false" managed="false">
+                                <ImageView fx:id="noResultIcon" fitWidth="64" fitHeight="64" preserveRatio="true">
+                                    <image>
+                                        <Image url="@/org/to/telegramfinalproject/Icons/no_result_dark.png"/>
+                                    </image>
+                                </ImageView>
+                                <Label text="No results found" styleClass="no-results-label"/>
+                            </VBox>
                         </VBox>
                     </StackPane>
                 </VBox>

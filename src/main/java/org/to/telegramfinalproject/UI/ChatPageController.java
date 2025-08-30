@@ -588,12 +588,10 @@ public class ChatPageController {
         return (id==null||id.isEmpty()) ? "Unknown" : id.substring(0, Math.min(8,id.length()));
     }
 
-
-
     private void markAsRead(ChatEntry entry) {
         JSONObject readReq = new JSONObject();
         readReq.put("action", "mark_as_read");
-        readReq.put("receiver_id", entry.getId().toString()); // ⛳️ internal_id
+        readReq.put("receiver_id", entry.getId().toString()); // internal_id
         readReq.put("receiver_type", entry.getType());
         ActionHandler.sendWithResponse(readReq);
     }
@@ -631,10 +629,6 @@ public class ChatPageController {
 //
 //        messageContainer.getChildren().add(row);
 //    }
-
-
-
-
 
     private void addBubble(
             boolean outgoing,
@@ -801,7 +795,4 @@ public class ChatPageController {
 
     private static boolean notBlank(String s) { return s != null && !s.isBlank(); }
     private static String ellipsize(String s, int max) { return s.length() > max ? s.substring(0, max) + "…" : s; }
-
-
-
 }
