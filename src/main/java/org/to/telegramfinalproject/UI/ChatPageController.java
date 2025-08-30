@@ -765,14 +765,12 @@ public class ChatPageController {
             boolean edited,
             org.json.JSONArray reactions
     ) {
-        // meta (فرستنده + زمان [+ edited])
         String metaText = (displayName == null ? "" : displayName) + " • " + formatWhen(sentAt);
         if (edited) metaText += " (edited)";
         Label meta = new Label(metaText);
         meta.setStyle("-fx-font-size: 11; -fx-text-fill: #7e8a97;");
         meta.setWrapText(true);
 
-        // نرمال‌سازی نوع پیام و متن
         String t = type == null ? "" : type.trim().toUpperCase();
         boolean isText = t.isEmpty() ? (content != null && !content.isBlank()) : "TEXT".equals(t);
         String bodyText = isText ? (content == null ? "" : content) : bracketLabel(t);
@@ -823,6 +821,7 @@ public class ChatPageController {
                 : javafx.geometry.Pos.CENTER_LEFT);
 
         row.setPadding(new javafx.geometry.Insets(2, 6, 2, 6));
+
 
         messageContainer.getChildren().add(row);
     }

@@ -79,28 +79,24 @@ public class MainController {
 
     //For realtime handling
 
-    public void onChatUpdated(UUID chatId,
-                              String chatType,
-                              LocalDateTime lastTs,
-                              boolean isIncoming,
-                              String lastPreview) {
-        var opt = java.util.stream.Stream
-                .of(Session.chatList, Session.activeChats, Session.archivedChats)
-                .flatMap(java.util.Collection::stream)
-                .filter(c -> c.getId().equals(chatId))
-                .findFirst();
-        if (opt.isEmpty()) return;
+    public void onChatUpdated(UUID chatId, String chatType, LocalDateTime lastTs,
+                              boolean isIncoming, String lastPreview) {
 
-        ChatEntry chat = opt.get();
-
-        if (lastTs != null) chat.setLastMessageTime(String.valueOf(lastTs));      // ← نوع: LocalDateTime
-        if (lastPreview != null) chat.setLastMessagePreview(lastPreview);
+        // اگر هیچ‌کجا نیست، بی‌خیال
+        boolean exists =
+                (Session.chatList != null && Session.chatList.stream().anyMatch(c -> chatId.equals(c.getId()))) ||
+                        (Session.activeChats != null && Session.activeChats.stream().anyMatch(c -> chatId.equals(c.getId()))) ||
+                        (Session.archivedChats != null && Session.archivedChats.stream().anyMatch(c -> chatId.equals(c.getId())));
+        if (!exists) return;
 
         boolean isOpen = Session.currentChatId != null &&
                 Session.currentChatId.equals(chatId.toString());
-        if (isIncoming && !isOpen) {
-            chat.setUnread(chat.getUnread() + 1);
-        }
+
+        forEachChat(chatId, chat -> {
+            chat.setLastMessageTime(lastTs);
+            if (lastPreview != null) chat.setLastMessagePreview(lastPreview);
+            if (isIncoming && !isOpen) chat.setUnreadCount(chat.getUnreadCount() + 1); // ✅ یکدست با unreadCount
+        });
 
         java.util.Comparator<ChatEntry> byTimeDesc = (c1, c2) -> {
             var t1 = c1.getLastMessageTime();
@@ -110,12 +106,31 @@ public class MainController {
             if (t2 == null) return -1;
             return t2.compareTo(t1);
         };
-        Session.chatList.sort(byTimeDesc);
-        Session.activeChats.sort(byTimeDesc);
-        Session.archivedChats.sort(byTimeDesc);
+        if (Session.chatList != null) Session.chatList.sort(byTimeDesc);
+        if (Session.activeChats != null) Session.activeChats.sort(byTimeDesc);
+        if (Session.archivedChats != null) Session.archivedChats.sort(byTimeDesc);
 
         refreshChatListUI();
         refreshBadgesIfAny();
+    }
+
+
+
+
+    // MainController
+    private void forEachChat(UUID chatId, java.util.function.Consumer<ChatEntry> fn) {
+        java.util.List<java.util.List<ChatEntry>> lists = java.util.List.of(
+                Session.chatList != null ? Session.chatList : java.util.List.of(),
+                Session.activeChats != null ? Session.activeChats : java.util.List.of(),
+                Session.archivedChats != null ? Session.archivedChats : java.util.List.of()
+        );
+        for (var lst : lists) {
+            for (var c : lst) {
+                if (chatId.equals(c.getId())) {
+                    fn.accept(c);
+                }
+            }
+        }
     }
 
 
@@ -195,15 +210,12 @@ public class MainController {
 //            }
 //        });
 
-        // وقتی کاربر Enter زد روی سرچ‌بار، درخواست سرچ بفرست
         searchBar.setOnAction(e -> performGlobalSearch(searchBar.getText().trim()));
 
-        // باز/بسته کردن پنل نتایج با تایپ (دلخواه)
         searchBar.textProperty().addListener((obs,o,n)->{
             if (n!=null && !n.isBlank()) showSearchPanel();
         });
 
-        // کلیک روی نتیجه
         chatSearchResults.setOnMouseClicked(e -> {
             int idx = chatSearchResults.getSelectionModel().getSelectedIndex();
             if (idx >= 0 && idx < searchBacking.size()) {
@@ -283,7 +295,6 @@ public class MainController {
 
         if (list == null || list.isEmpty()) return;
 
-        // جدا کردن Saved از بقیه
         ChatEntry saved = null;
         java.util.List<ChatEntry> others = new java.util.ArrayList<>();
         for (ChatEntry c : list) {
@@ -360,7 +371,6 @@ public class MainController {
 
             String preview = chat.getLastMessagePreview() == null ? "" : chat.getLastMessagePreview();
 
-            // اگر lastMessageTime از نوع LocalDateTime است:
             String timeText = chat.getLastMessageTime() == null
                     ? ""
                     : formatChatTime(chat.getLastMessageTime());
@@ -419,7 +429,7 @@ public class MainController {
             Session.currentChatId = chat.getId().toString();
 
             chatDisplayArea.getChildren().setAll(chatPage);
-
+            chat.setUnreadCount(0);
             ChatItemController item = itemControllers.get(chat.getId());
             if (item != null) item.setUnread(0);
 
@@ -815,7 +825,6 @@ public class MainController {
     }
 
     private String guessNameForReceiver(SearchResult r) {
-        // فقط برای زمانی که موجودیت در لیست نبود
         if (r.title != null && !r.title.isBlank()) return r.title;
         if (r.receiverType != null) {
             switch (r.receiverType) {
