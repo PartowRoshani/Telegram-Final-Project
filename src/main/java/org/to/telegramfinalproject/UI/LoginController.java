@@ -113,7 +113,25 @@ public class LoginController {
     private void handleLogin() {
         String u = usernameField.getText().trim();
         String p = passwordField.getText();
-        if (u.isEmpty() || p.isEmpty()) { showError("Please fill in all required fields."); return; }
+        // 1. Check for empty fields
+        if (u.isEmpty() || p.isEmpty()) {
+            showError("Please fill in all required fields.");
+            return;
+        }
+
+        // 2. Check if username exists
+        userDatabase userDb = new userDatabase();
+        if (!userDb.existsByUsername(u)) {
+            showError("This username doesn’t exist.");
+            return;
+        }
+
+        // 3. Check if password is correct
+        User user = userDb.findByUsername(u);
+        if (!PasswordHashing.verify(p, user.getPassword())) {
+            showError("Incorrect password.");
+            return;
+        }
 
         setUiBusy(true);
 
@@ -182,6 +200,7 @@ public class LoginController {
         PauseTransition pause = new PauseTransition(Duration.millis(50));
         pause.setOnFinished(event -> {
             errorLabel.setText(message);
+            errorLabel.setStyle("-fx-text-fill: red;"); // 🔴 force red
             errorLabel.setVisible(true);
         });
         pause.play();

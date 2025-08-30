@@ -156,6 +156,7 @@ public class RegisterController {
         PauseTransition pause = new PauseTransition(Duration.millis(50));
         pause.setOnFinished(event -> {
             errorLabel.setText(message);
+            errorLabel.setStyle("-fx-text-fill: red;"); // 🔴 force red
             errorLabel.setVisible(true);
         });
         pause.play();
