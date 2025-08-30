@@ -20,6 +20,7 @@ import org.to.telegramfinalproject.Client.Session;
 import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Client.ActionHandler;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.*;
 
 public class MainController {
@@ -89,7 +90,6 @@ public class MainController {
     public void onChatUpdated(UUID chatId, String chatType, LocalDateTime lastTs,
                               boolean isIncoming, String lastPreview) {
 
-        // اگر هیچ‌کجا نیست، بی‌خیال
         boolean exists =
                 (Session.chatList != null && Session.chatList.stream().anyMatch(c -> chatId.equals(c.getId()))) ||
                         (Session.activeChats != null && Session.activeChats.stream().anyMatch(c -> chatId.equals(c.getId()))) ||
