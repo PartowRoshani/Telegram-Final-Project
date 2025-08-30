@@ -171,11 +171,22 @@ public class TelegramClient {
         return instance;
     }
 
+//    public void startConsole() {
+//        try {
+//            connectIfNeeded();
+//            initHandlerIfNeeded();
+//            startListenerOnce();
+//            showMainMenu();
+//        } catch (IOException e) {
+//            System.err.println("❌ Error connecting to server: " + e.getMessage());
+//        }
+//    }
+
     public void startConsole() {
         try {
             connectIfNeeded();
             initHandlerIfNeeded();
-            startListenerOnce();
+            startListenerOnce(IncomingMessageListener.UIMode.CONSOLE);  // ← کنسول
             showMainMenu();
         } catch (IOException e) {
             System.err.println("❌ Error connecting to server: " + e.getMessage());
@@ -185,13 +196,22 @@ public class TelegramClient {
     public void start() { startConsole(); }
 
     //UI only
+//    public static synchronized TelegramClient getOrInitForUI() throws IOException {
+//        TelegramClient cli = getInstance();
+//        cli.connectIfNeeded();
+//        cli.initHandlerIfNeeded();
+//        cli.startListenerOnce();
+//        return cli;
+//    }
+
     public static synchronized TelegramClient getOrInitForUI() throws IOException {
         TelegramClient cli = getInstance();
         cli.connectIfNeeded();
         cli.initHandlerIfNeeded();
-        cli.startListenerOnce();
+        cli.startListenerOnce(IncomingMessageListener.UIMode.UI);       // ← UI
         return cli;
     }
+
 
     private synchronized void connectIfNeeded() throws IOException {
         if (socket != null && socket.isConnected() && !socket.isClosed()) return;
@@ -208,10 +228,23 @@ public class TelegramClient {
         }
     }
 
-    private void startListenerOnce() {
+//    private void startListenerOnce() {
+//        if (listenerStarted) return;
+//        listenerStarted = true;
+//        Thread listenerThread = new Thread(new IncomingMessageListener(in), "socket-listener");
+//        listenerThread.setDaemon(true);
+//        listenerThread.start();
+//    }
+
+
+    private void startListenerOnce(IncomingMessageListener.UIMode mode) {
         if (listenerStarted) return;
         listenerStarted = true;
-        Thread listenerThread = new Thread(new IncomingMessageListener(in), "socket-listener");
+
+        Thread listenerThread = new Thread(
+                new IncomingMessageListener(in, mode),
+                "socket-listener"
+        );
         listenerThread.setDaemon(true);
         listenerThread.start();
     }
@@ -269,5 +302,13 @@ public class TelegramClient {
     public static void main(String[] args) {
         new TelegramClient().startConsole();
     }
+
+    // TelegramClient.java
+    private IncomingMessageListener listener;
+
+    public IncomingMessageListener getListener() {
+        return listener;
+    }
+
 }
 

@@ -128,8 +128,6 @@ public class ChatEntry {
         this.archived = archived;
     }
 
-//    public void setLastMessageTime(String newTime) {this.lastMessageTime = LocalDateTime.parse(newTime);
-//    }
 
 
     public void setLastMessageTime(String newTime) {
@@ -173,4 +171,13 @@ public class ChatEntry {
 
     public UUID getLastMessageSenderId() { return lastMessageSenderId; }
     public void setLastMessageSenderId(UUID lastMessageSenderId) { this.lastMessageSenderId = lastMessageSenderId; }
+
+    public void setUnread(int unreadCount){this.unreadCount = unreadCount;}
+    public int getUnread(){return unreadCount;}
+
+
+    public void setLastMessageTime(LocalDateTime t) {
+        this.lastMessageTime = t;
+    }
+
 }

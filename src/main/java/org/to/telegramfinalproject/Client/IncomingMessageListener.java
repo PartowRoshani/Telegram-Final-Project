@@ -1,20 +1,35 @@
 package org.to.telegramfinalproject.Client;
 
+import javafx.application.Platform;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Models.ChatEntry;
+import org.to.telegramfinalproject.UI.MainController;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 
 public class IncomingMessageListener implements Runnable {
     private final BufferedReader in;
+    public enum UIMode { CONSOLE, UI }
+    private final UIMode uiMode; // runtime mode
 
-    public IncomingMessageListener(BufferedReader in) {
+    private final java.util.Set<String> seenMessageIds =
+            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
+
+    public IncomingMessageListener(BufferedReader in, UIMode uiMode) {
         this.in = in;
+        this.uiMode = uiMode;
     }
+
+//    public IncomingMessageListener(BufferedReader in) {
+//        this.in = in;
+//    }
 
     @Override
     public void run() {
@@ -79,7 +94,7 @@ public class IncomingMessageListener implements Runnable {
                  "update_group_or_channel", "chat_deleted",
                  "blocked_by_user", "unblocked_by_user", "message_seen",
                  "removed_from_group", "removed_from_channel",
-                 "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated","created_private_chat" , "message_reacted" , "message_unreacted" -> true;
+                 "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated","created_private_chat" , "message_reacted" , "message_unreacted","chat_updated" -> true;
             default -> false;
         };
     }
@@ -88,13 +103,15 @@ public class IncomingMessageListener implements Runnable {
         String action = response.getString("action");
         JSONObject msg = response.has("data") ? response.getJSONObject("data") : new JSONObject();
 
-
+        JSONObject finalMsg = msg;
+        JSONObject finalMsg1 = msg;
         switch (action) {
             case "added_to_group", "added_to_channel",
-                 "removed_from_group", "removed_from_channel", "chat_deleted","created_private_chat" -> {
+                 "removed_from_group", "removed_from_channel",
+                 "chat_deleted", "created_private_chat" -> {
+                // این قسمت مستقل از UI/کنسول است
                 System.out.println("🔄 Chat list changed. Updating...");
                 Session.forceRefreshChatList = true;
-                System.out.println("🧪 Calling requestChatList() after being added");
 
                 String chatId = msg.getString("chat_id");
                 String chatType = msg.getString("chat_type");
@@ -106,36 +123,67 @@ public class IncomingMessageListener implements Runnable {
                 }
             }
 
-            case "chat_updated" -> {
-                System.out.println("\n🔄 Chat info updated.");
+//            case "chat_updated" -> {
+//                if (uiMode == UIMode.UI) {
+//                    bumpChatListFromUpdate(msg);   // برای UI (سایدبار و سورت)
+//                } else {
+//                    updateLastMessageTime(msg);    // برای کنسول (لیست‌های Session)
+//                }
+//            }
 
-                if (msg.has("last_message_time")) {
-                    updateLastMessageTime(msg); 
-                } else {
-                    new Thread(() -> {
-                        try {
-                            handleAdminRoleChanged(msg);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }).start();
-                }
-            }
-
-
-            case "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated" -> {
+            case "became_admin", "removed_admin", "ownership_transferred", "admin_permissions_updated" -> {
                 System.out.println("🧩 Detected admin/owner role change. Calling handler...");
                 new Thread(() -> {
                     try {
-                        handleAdminRoleChanged(msg); //new thread
+                        handleAdminRoleChanged(finalMsg1);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }).start();
             }
 
+            case "new_message" -> {
+                JSONObject data = response.optJSONObject("data");
+                if (data == null) break;
 
-            default -> displayRealTimeMessage(action, msg);
+                String mid = data.optString("id", data.optString("message_id",""));
+                if (mid.isEmpty()) break;
+                if (!seenMessageIds.add(mid)) break;
+
+                bumpChatListFromMessage(data);
+
+                JSONObject uiMsg = new JSONObject(data.toString());
+                if (!uiMsg.has("message_id") && uiMsg.has("id")) {
+                    uiMsg.put("message_id", uiMsg.getString("id"));
+                }
+
+                Platform.runLater(() -> {
+                    var mc = MainController.getInstance();
+                    var chatCtl = (mc != null) ? mc.getChatPageController() : null;
+                    if (chatCtl != null) {
+                        chatCtl.onRealTimeNewMessage(uiMsg);
+                    }
+                });
+            }
+
+
+            case "chat_updated" -> {
+                var data = response.getJSONObject("data");
+                bumpChatListFromUpdate(data);
+            }
+
+
+
+
+            case "message_edited", "message_deleted_global", "message_reacted", "message_unreacted",
+                 "user_status_changed", "blocked_by_user", "unblocked_by_user", "message_seen" -> {
+                displayRealTimeMessage(action, msg);
+            }
+
+            default -> {
+                System.out.println("\n❓ Unknown real-time action: " + action);
+                System.out.println(msg.toString(2));
+            }
         }
 
         System.out.print(">> ");
@@ -362,4 +410,58 @@ public class IncomingMessageListener implements Runnable {
             }
         }
     }
+
+
+
+    private static LocalDateTime parseIsoFlexible(String iso) {
+        if (iso == null || iso.isBlank()) return null;
+        try { return LocalDateTime.parse(iso); } catch (Exception ignore) {}
+        try { return OffsetDateTime.parse(iso).toLocalDateTime(); } catch (Exception ignore) {}
+        return null;
+    }
+
+
+
+    private void bumpChatListFromUpdate(JSONObject data) {
+        try {
+            UUID chatId = UUID.fromString(data.optString("chat_id",""));
+            String chatType = data.optString("chat_type","");
+            LocalDateTime ts = parseIsoFlexible(data.optString("last_message_time", null));
+
+            Platform.runLater(() -> {
+                var mc = MainController.getInstance();
+                if (mc != null) mc.onChatUpdated(chatId, chatType, ts, /*isIncoming*/ false, null);
+            });
+        } catch (Exception e) { System.err.println("[RT] bumpChatListFromUpdate: " + e.getMessage()); }
+    }
+
+
+
+    private String previewOf(String type, String content) {
+        String t = type == null ? "" : type.trim().toUpperCase();
+        return switch (t) {
+            case "IMAGE" -> "[Image]";
+            case "AUDIO" -> "[Audio]";
+            case "VIDEO" -> "[Video]";
+            case "FILE"  -> "[File]";
+            default      -> (content == null ? "" : content);
+        };
+    }
+
+    private void bumpChatListFromMessage(JSONObject m) {
+        try {
+            UUID chatId = UUID.fromString(m.optString("receiver_id",""));
+            String chatType = m.optString("receiver_type","");
+            LocalDateTime ts = parseIsoFlexible(m.optString("send_at", null));
+
+            String preview = previewOf(m.optString("message_type","TEXT"),
+                    m.optString("content",""));
+
+            Platform.runLater(() -> {
+                var mc = MainController.getInstance();
+                if (mc != null) mc.onChatUpdated(chatId, chatType, ts, /*isIncoming*/ true, preview);
+            });
+        } catch (Exception e) { System.err.println("[RT] bumpChatListFromMessage: " + e.getMessage()); }
+    }
+
 }

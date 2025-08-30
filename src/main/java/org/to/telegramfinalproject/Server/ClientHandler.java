@@ -1616,21 +1616,16 @@ public class ClientHandler implements Runnable {
                             break;
                         }
 
-                        // دریافت شناسه چت و نوع حذف (یک‌طرفه یا دوطرفه)
                         UUID targetId = UUID.fromString(requestJson.getString("chat_id"));
                         boolean both = requestJson.getBoolean("both");
 
-                        // Real-Time Event Dispatch (اطلاع‌رسانی ریل تایم)
                         if (both) {
-                            // حذف دوطرفه
                             RealTimeEventDispatcher.notifyChatDeleted("private", targetId, List.of(currentUser.getInternal_uuid()));
                             RealTimeEventDispatcher.notifyChatDeleted("private", currentUser.getInternal_uuid(), List.of(targetId));
                         } else {
-                            // حذف یک‌طرفه
                             RealTimeEventDispatcher.notifyChatDeleted("private", targetId, List.of(currentUser.getInternal_uuid()));
                         }
 
-                        // فراخوانی متد حذف چت
                         response = handleDeleteChat(requestJson);
                         break;
                     }
@@ -2909,6 +2904,8 @@ public class ClientHandler implements Runnable {
             for (UUID receiver : receivers) {
                 RealTimeEventDispatcher.sendToUser(receiver, chatPayload);
             }
+
+            RealTimeEventDispatcher.sendToUser(senderId, chatPayload);
 
             JSONObject data = new JSONObject();
             data.put("message_id", messageId.toString());
