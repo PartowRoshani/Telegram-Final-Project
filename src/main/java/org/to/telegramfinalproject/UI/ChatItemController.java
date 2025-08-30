@@ -21,10 +21,6 @@ public class ChatItemController {
     @FXML private ImageView profileImageSystem;
     @FXML private Circle systemCircle;
 
-    // Default avatar resource path
-    private static final String DEFAULT_AVATAR =
-            "/org/to/telegramfinalproject/Avatars/default_avatar.png";
-
     /**
      * Set chat item data, including a profile image (or default).
      *

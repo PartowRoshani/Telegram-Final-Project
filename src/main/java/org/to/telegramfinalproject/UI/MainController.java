@@ -13,6 +13,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Client.ActionHandler;
@@ -28,9 +29,10 @@ public class MainController {
     // === Global Search ===
     @FXML private TextField searchBar;
     @FXML private VBox globalSearchPane;
-    @FXML private ListView<SearchResult> globalSearchResults;
     @FXML private VBox noResultsBox;
     @FXML private ImageView noResultIcon;
+    @FXML private ScrollPane globalSearchScroll;
+    @FXML private VBox globalSearchResultsContainer;
     private enum SearchMode {
         GLOBAL,
         CHAT
@@ -83,9 +85,8 @@ public class MainController {
 
     @FXML
     public void initialize() {
-//        addSampleChats();
+        // Populate chat list
         populateChatListFromSession();
-
 
         // Register the scene for automatic CSS updates
         Platform.runLater(() -> {
@@ -95,17 +96,15 @@ public class MainController {
         // Listen for theme changes to update icons & labels manually
         ThemeManager.getInstance().darkModeProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal) {
-                // Dark mode ON
                 updateIconsForDarkMode();
                 updateLabelsForDarkMode();
             } else {
-                // Light mode ON
                 updateIconsForLightMode();
                 updateLabelsForLightMode();
             }
         });
 
-        // Smooth scroll feel
+        // Smooth scroll feel for chat list
         scrollPane.getStylesheets().add(getClass().getResource("/org/to/telegramfinalproject/CSS/scrollpane.css").toExternalForm());
         scrollPane.setPannable(true);
         scrollPane.setFitToWidth(true);
@@ -124,25 +123,7 @@ public class MainController {
             mainSplitPane.getDividers().get(0).positionProperty().addListener((o, ov, nv) -> clampDivider());
         }
 
-
-        // Search in chat field listener
-//        searchBar.textProperty().addListener((obs, oldV, newV) -> {
-//            if (!chatSearchPane.isVisible()) return; // only react if in search mode
-//
-//            if (newV.trim().isEmpty()) {
-//                chatSearchResults.setVisible(false);
-//                chatSearchResults.setManaged(false);
-//            } else {
-//                chatSearchResults.setVisible(true);
-//                chatSearchResults.setManaged(true);
-//                chatSearchResults.getItems().setAll(
-//                        "Result 1: " + newV,
-//                        "Result 2: " + newV,
-//                        "Result 3: " + newV
-//                );
-//            }
-//        });
-
+        // Search bar enter action
         searchBar.setOnAction(e -> {
             String keyword = searchBar.getText().trim();
             if (keyword.isEmpty()) return;
@@ -154,100 +135,28 @@ public class MainController {
             }
         });
 
-        searchBar.setOnAction(e -> performGlobalSearch(searchBar.getText().trim()));
-
-        searchBar.textProperty().addListener((obs,o,n)->{
-            if (n!=null && !n.isBlank()) showGlobalSearchPanel();
-        });
-
-        globalSearchResults.setOnMouseClicked(e -> {
-            int idx = globalSearchResults.getSelectionModel().getSelectedIndex();
-            if (idx >= 0 && idx < searchBacking.size()) {
-                openSearchResult(searchBacking.get(idx));
-            }
-        });
-
-        globalSearchResults.setCellFactory(list -> new ListCell<>() {
-            private final HBox container = new HBox(10);
-            private final ImageView avatar = new ImageView();
-            private final VBox texts = new VBox(2);
-            private final Label title = new Label();
-            private final Label subtitle = new Label();
-
-            {
-                avatar.setFitWidth(36);
-                avatar.setFitHeight(36);
-                avatar.getStyleClass().add("global-search-avatar");
-                title.getStyleClass().add("global-search-title");
-                subtitle.getStyleClass().add("global-search-subtitle");
-                texts.getChildren().addAll(title, subtitle);
-                container.getChildren().addAll(avatar, texts);
-            }
-
-            @Override
-            protected void updateItem(SearchResult r, boolean empty) {
-                super.updateItem(r, empty);
-                if (empty || r == null) {
-                    setGraphic(null);
-                } else {
-                    title.setText(r.title);
-                    if (r.type == SRType.MESSAGE) {
-                        subtitle.setText(r.subtitle != null ? r.subtitle : "");
-                    } else {
-                        subtitle.setText("Press to see messages");
-                    }
-
-                    // Default profile images depending on type
-                    switch (r.type) {
-                        case USER:
-                            avatar.setImage(new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/to/telegramfinalproject/Avatars/default_user_profile.png"
-                                    ))
-                            ));
-                            break;
-                        case GROUP:
-                            avatar.setImage(new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/to/telegramfinalproject/Avatars/default_group_profile.png"
-                                    ))
-                            ));
-                            break;
-                        case CHANNEL:
-                            avatar.setImage(new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/to/telegramfinalproject/Avatars/default_channel_profile.png"
-                                    ))
-                            ));
-                            break;
-                        case MESSAGE:
-                            // For messages, use sender default (user style)
-                            avatar.setImage(new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/to/telegramfinalproject/Avatars/default_user_profile.png"
-                                    ))
-                            ));
-                            break;
-                    }
-
-                    avatar.setFitWidth(50);
-                    avatar.setFitHeight(50);
-                    avatar.setPreserveRatio(true);
-                    avatar.setSmooth(true);
-
-                    setGraphic(container);
+        // Typing in search bar shows global search panel
+        searchBar.textProperty().addListener((obs, o, n) -> {
+            if (n != null && !n.isBlank()) {
+                if (currentSearchMode == SearchMode.GLOBAL) {
+                    showGlobalSearchPanel();
+                } else if (currentSearchMode == SearchMode.CHAT) {
+                    showSearchPanel();
                 }
             }
         });
 
-        // CLick on the search result
-        chatSearchResults.setOnMouseClicked(e -> {
-            int idx = chatSearchResults.getSelectionModel().getSelectedIndex();
-            if (idx >= 0 && idx < searchBacking.size()) {
-                openSearchResult(searchBacking.get(idx));
-            }
+        // Smooth scroll feel for global search results
+        globalSearchScroll.getStylesheets().add(
+                getClass().getResource("/org/to/telegramfinalproject/CSS/scrollpane.css").toExternalForm()
+        );
+        globalSearchScroll.setPannable(true);
+        globalSearchScroll.setFitToWidth(true);
+        globalSearchScroll.setFitToHeight(false);
+        globalSearchScroll.getContent().setOnScroll(event -> {
+            double deltaY = event.getDeltaY() * 0.003; // match chat list smoothness
+            globalSearchScroll.setVvalue(globalSearchScroll.getVvalue() - deltaY);
         });
-
     }
 
     // Called from ChatPageController when user clicks search button
@@ -255,10 +164,26 @@ public class MainController {
         scrollPane.setVisible(false);
         scrollPane.setManaged(false);
 
+        currentSearchMode = SearchMode.CHAT;
+
         chatSearchPane.setVisible(true);
         chatSearchPane.setManaged(true);
 
         searchBar.requestFocus();
+    }
+
+    @FXML
+    public void closeSearchPanel() {
+        chatSearchPane.setVisible(false);
+        chatSearchPane.setManaged(false);
+
+        currentSearchMode = SearchMode.GLOBAL;
+        currentChatId = null;
+
+        scrollPane.setVisible(true);
+        scrollPane.setManaged(true);
+
+        searchBar.clear();
     }
 
     public void showGlobalSearchPanel() {
@@ -273,15 +198,14 @@ public class MainController {
     }
 
     @FXML
-    public void closeSearchPanel() {
-        chatSearchPane.setVisible(false);
-        chatSearchPane.setManaged(false);
-
-        currentSearchMode = SearchMode.GLOBAL;
-        currentChatId = null;
+    public void closeGlobalSearch() {
+        globalSearchPane.setVisible(false);
+        globalSearchPane.setManaged(false);
 
         scrollPane.setVisible(true);
         scrollPane.setManaged(true);
+
+        searchBar.clear();
     }
 
 //    private void addSampleChats() {
@@ -387,11 +311,14 @@ public class MainController {
 
             String preview = chat.getLastMessagePreview() == null ? "" : chat.getLastMessagePreview();
             String timeText = formatChatTime(chat.getLastMessageTime());
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
-            Node chatItem = loader.load();
-            ChatItemController controller = loader.getController();
 
-            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount(), "/org/to/telegramfinalproject/Avatars/default_user_profile.png", chat.getType());
+            // If chat has a profile picture, pass it; otherwise null
+            String imageUrl = (chat.getImageUrl() != null && !chat.getImageUrl().isEmpty())
+                    ? chat.getImageUrl()
+                    : null;
+
+            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount(), imageUrl, chat.getType());
+
             item.setOnMouseClicked(e -> openChat(chat));
             chatListContainer.getChildren().add(item);
 
@@ -434,7 +361,6 @@ public class MainController {
             ChatPageController controller = loader.getController();
             controller.showChat(chat);
 
-            currentSearchMode = SearchMode.CHAT;
             currentChatId = UUID.fromString(chat.getId().toString());
 
             chatDisplayArea.getChildren().setAll(chatPage);
@@ -669,7 +595,7 @@ public class MainController {
 
         showGlobalSearchPanel();
 
-        // درخواست به سرور (مثل کنسول)
+        // Request to server
         org.json.JSONObject req = new org.json.JSONObject();
         req.put("action", "search");
         req.put("keyword", keyword);
@@ -766,33 +692,61 @@ public class MainController {
 //    }
 
     private void renderSearchResults(List<SearchResult> results) {
-        globalSearchResults.getItems().clear();
+        globalSearchResultsContainer.getChildren().clear();
 
         if (results.isEmpty()) {
             noResultsBox.setVisible(true);
             noResultsBox.setManaged(true);
-            globalSearchResults.setVisible(false);
-            globalSearchResults.setManaged(false);
+            globalSearchScroll.setVisible(false);
+            globalSearchScroll.setManaged(false);
             return;
         }
 
         noResultsBox.setVisible(false);
         noResultsBox.setManaged(false);
-        globalSearchResults.setVisible(true);
-        globalSearchResults.setManaged(true);
+        globalSearchScroll.setVisible(true);
+        globalSearchScroll.setManaged(true);
 
-        globalSearchResults.getItems().addAll(results);
-    }
+        for (SearchResult r : results) {
+            HBox container = new HBox(10);
+            ImageView avatar = new ImageView();
+            avatar.setFitWidth(40);
+            avatar.setFitHeight(40);
+            avatar.setSmooth(true);
+            avatar.setPreserveRatio(true);
 
-    @FXML
-    public void closeGlobalSearch() {
-        globalSearchPane.setVisible(false);
-        globalSearchPane.setManaged(false);
+            // 🔑 Clip it into a circle
+            Circle clip = new Circle(20, 20, 20); // x,y = center, radius = 20
+            avatar.setClip(clip);
 
-        scrollPane.setVisible(true);
-        scrollPane.setManaged(true);
+            Label title = new Label(r.title);
+            title.getStyleClass().add("global-search-title");
 
-        searchBar.clear();
+            Label subtitle = new Label(
+                    r.type == SRType.MESSAGE
+                            ? (r.subtitle != null ? r.subtitle : "")
+                            : "Press to see messages"
+            );
+            subtitle.getStyleClass().add("global-search-subtitle");
+
+            VBox texts = new VBox(2, title, subtitle);
+            container.getChildren().addAll(avatar, texts);
+
+            // Default profile per type
+            switch (r.type) {
+                case USER -> avatar.setImage(new Image(Objects.requireNonNull(getClass().getResourceAsStream(
+                        "/org/to/telegramfinalproject/Avatars/default_user_profile.png"))));
+                case GROUP -> avatar.setImage(new Image(Objects.requireNonNull(getClass().getResourceAsStream(
+                        "/org/to/telegramfinalproject/Avatars/default_group_profile.png"))));
+                case CHANNEL -> avatar.setImage(new Image(Objects.requireNonNull(getClass().getResourceAsStream(
+                        "/org/to/telegramfinalproject/Avatars/default_channel_profile.png"))));
+                case MESSAGE -> avatar.setImage(new Image(Objects.requireNonNull(getClass().getResourceAsStream(
+                        "/org/to/telegramfinalproject/Avatars/default_user_profile.png"))));
+            }
+
+            container.setOnMouseClicked(e -> openSearchResult(r));
+            globalSearchResultsContainer.getChildren().add(container);
+        }
     }
 
     private void openSearchResult(SearchResult r) {

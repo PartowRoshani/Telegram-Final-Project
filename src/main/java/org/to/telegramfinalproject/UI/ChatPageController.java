@@ -431,7 +431,7 @@ public class ChatPageController {
         chatStatus.setText("");
         if (entry.getImageUrl() != null && !entry.getImageUrl().isEmpty()) {
             try {
-                userAvatar.setImage(new Image(entry.getImageUrl()));
+                userAvatar.setImage(new Image(entry.getImageUrl() != null ? entry.getImageUrl() : "/org/to/telegramfinalproject/Avatars/default_user_profile.png"));
                 userAvatar.setClip(new Circle(18, 18, 18));
             } catch (Exception ignored) {
             }
