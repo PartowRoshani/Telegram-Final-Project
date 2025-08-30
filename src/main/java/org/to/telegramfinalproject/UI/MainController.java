@@ -287,30 +287,6 @@ public class MainController {
         searchBar.clear();
     }
 
-//    private void addSampleChats() {
-//        addChat("Archived Chats", "Your archived chats", "10:45", 0);
-//        addChat("Saved Messages", "Keep messages for later", "Yesterday", 0);
-//        addChat("Alice", "Hey, how are you?", "14:12", 3);
-//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-//        addChat("Alice", "Hey, how are you?", "14:12", 3);
-//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-//        addChat("Alice", "Hey, how are you?", "14:12", 3);
-//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-//        addChat("Alice", "Hey, how are you?", "14:12", 3);
-//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-//        addChat("Alice", "Hey, how are you?", "14:12", 3);
-//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-//        addChat("Alice", "Hey, how are you?", "14:12", 3);
-//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-//        addChat("Alice", "Hey, how are you?", "14:12", 3);
-//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-//        addChat("Alice", "Hey, how are you?", "14:12", 3);
-//        addChat("Bob", "Let's meet tomorrow", "12:08", 1);
-//
-//
-//    }
-
-    // ...
     private String formatChatTime(java.time.LocalDateTime ts) {
         if (ts == null) return "";
         var today = java.time.LocalDate.now();
@@ -440,20 +416,6 @@ public class MainController {
             default:      return "[Message]";
         }
     }
-
-//    private void addChat(String name, String lastMsg, String time, int unread) {
-//        try {
-//            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
-//            Node chatItem = loader.load();
-//            ChatItemController controller = loader.getController();
-//            controller.setChatData(name, lastMsg, time, unread);
-//
-//            chatItem.setOnMouseClicked(e -> openChat(name));
-//            chatListContainer.getChildren().add(chatItem);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//    }
 
     private void openChat(ChatEntry chat) {
         try {

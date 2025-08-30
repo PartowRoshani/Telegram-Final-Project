@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 import java.util.UUID;
 
 public class ChatPageController {
@@ -108,12 +109,6 @@ public class ChatPageController {
             me = null;
         }
     }
-
-    //Time formatter for messages
-
-//    private static final DateTimeFormatter FMT_HHMM       = DateTimeFormatter.ofPattern("HH:mm");
-//    private static final DateTimeFormatter FMT_DATE_TIME  = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
-//    private static final String YESTERDAY_LABEL           = "Yesterday";
 
     private static String str(org.json.JSONObject j, String k) {
         try { return (j.has(k) && !j.isNull(k)) ? j.getString(k) : ""; } catch (Exception e) { return ""; }
@@ -306,31 +301,31 @@ public class ChatPageController {
         MainController.getInstance().showSearchPanel();
     }
 
-    /**
-     * Called by main controller when opening a chat.
-     */
-    public void setChat(String chatName, String avatarPath) {
-        this.chatName = chatName;
-
-        // Header text (if present)
-        if (chatTitle != null) chatTitle.setText(chatName);
-        if (chatStatus != null) chatStatus.setText("last seen recently"); // or live status
-
-        // Load avatar if provided
-        if (userAvatar != null && avatarPath != null) {
-            try {
-                Image avatarImg = new Image(getClass().getResourceAsStream(avatarPath));
-                userAvatar.setImage(avatarImg);
-                Circle clip = new Circle(18, 18, 18); // x, y, radius
-                userAvatar.setClip(clip);
-            } catch (Exception e) {
-                System.err.println("Could not load avatar: " + avatarPath);
-            }
-        }
-
-        addSystemMessage("Chat with " + chatName + " opened.");
-        Platform.runLater(() -> messageInput.requestFocus());
-    }
+//    /**
+//     * Called by main controller when opening a chat.
+//     */
+//    public void setChat(String chatName, String avatarPath) {
+//        this.chatName = chatName;
+//
+//        // Header text (if present)
+//        if (chatTitle != null) chatTitle.setText(chatName);
+//        if (chatStatus != null) chatStatus.setText("last seen recently"); // or live status
+//
+//        // Load avatar if provided
+//        if (userAvatar != null && avatarPath != null) {
+//            try {
+//                Image avatarImg = new Image(getClass().getResourceAsStream(avatarPath));
+//                userAvatar.setImage(avatarImg);
+//                Circle clip = new Circle(18, 18, 18); // x, y, radius
+//                userAvatar.setClip(clip);
+//            } catch (Exception e) {
+//                System.err.println("Could not load avatar: " + avatarPath);
+//            }
+//        }
+//
+//        addSystemMessage("Chat with " + chatName + " opened.");
+//        Platform.runLater(() -> messageInput.requestFocus());
+//    }
 
     // ----- actions -----
 
@@ -467,24 +462,24 @@ public class ChatPageController {
 
     // ----- UI helpers -----
 
-    /**
-     * Add a normal message bubble (very simple for now).
-     */
-    public void addMessage(String sender, String content) {
-        Label msg = new Label(sender + ": " + content);
-        msg.setWrapText(true);
-
-        boolean dark = themeManager.isDarkMode();
-        String bubbleColor = dark ? "#20405a" : "#4fa8f0";
-        String textColor = dark ? "#e8f1f8" : "#0f141a";
-        msg.setStyle(
-                "-fx-background-color: " + bubbleColor + ";" +
-                        "-fx-text-fill: " + textColor + ";" +
-                        "-fx-padding: 6 10; -fx-background-radius: 10;"
-        );
-
-        messageContainer.getChildren().add(msg);
-    }
+//    /**
+//     * Add a normal message bubble (very simple for now).
+//     */
+//    public void addMessage(String sender, String content) {
+//        Label msg = new Label(sender + ": " + content);
+//        msg.setWrapText(true);
+//
+//        boolean dark = themeManager.isDarkMode();
+//        String bubbleColor = dark ? "#20405a" : "#4fa8f0";
+//        String textColor = dark ? "#e8f1f8" : "#0f141a";
+//        msg.setStyle(
+//                "-fx-background-color: " + bubbleColor + ";" +
+//                        "-fx-text-fill: " + textColor + ";" +
+//                        "-fx-padding: 6 10; -fx-background-radius: 10;"
+//        );
+//
+//        messageContainer.getChildren().add(msg);
+//    }
 
     private void addSystemMessage(String content) {
         Label sys = new Label(content);
@@ -539,20 +534,68 @@ public class ChatPageController {
     public void showChat(ChatEntry entry) {
         this.currentChat = entry;
 
-        // Header
         chatTitle.setText(entry.getName());
-        chatStatus.setText("");
+
+        // Default avatar
         if (entry.getImageUrl() != null && !entry.getImageUrl().isEmpty()) {
-            try {
-                userAvatar.setImage(new Image(entry.getImageUrl() != null ? entry.getImageUrl() : "/org/to/telegramfinalproject/Avatars/default_user_profile.png"));
-                userAvatar.setClip(new Circle(18, 18, 18));
-            } catch (Exception ignored) {
-            }
+            userAvatar.setImage(new Image(entry.getImageUrl()));
+        } else if ("channel".equals(entry.getType())) {
+            userAvatar.setImage(new Image(
+                    Objects.requireNonNull(getClass().getResourceAsStream(
+                            "/org/to/telegramfinalproject/Avatars/default_channel_profile.png"))
+            ));
+        } else if ("group".equals(entry.getType())) {
+            userAvatar.setImage(new Image(
+                    Objects.requireNonNull(getClass().getResourceAsStream(
+                            "/org/to/telegramfinalproject/Avatars/default_group_profile.png"))
+            ));
+        } else {
+            userAvatar.setImage(new Image(
+                    Objects.requireNonNull(getClass().getResourceAsStream(
+                            "/org/to/telegramfinalproject/Avatars/default_user_profile.png"))
+            ));
+        }
+        userAvatar.setClip(new Circle(20, 20, 20));
+
+        // === Private chat? Fetch other user status ===
+        if ("private".equalsIgnoreCase(entry.getType()) && entry.getOtherUserId() != null) {
+            UUID otherId = entry.getOtherUserId();
+
+            new Thread(() -> {
+                JSONObject req = new JSONObject();
+                req.put("action", "get_other_user_status");
+                req.put("user_id", otherId.toString());
+
+                JSONObject resp = ActionHandler.sendWithResponse(req);
+                if (resp != null && "success".equals(resp.optString("status"))) {
+                    JSONObject data = resp.optJSONObject("data");
+                    boolean online = data.optBoolean("online", false);
+                    String lastSeenIso = data.optString("last_seen", null);
+
+                    String statusText;
+                    if (online) {
+                        statusText = "online";
+                    } else {
+                        // fallback if no timestamp
+                        statusText = (lastSeenIso == null || lastSeenIso.isEmpty())
+                                ? "last seen recently"
+                                : "last seen " + formatWhen(parseWhen(lastSeenIso));
+                    }
+
+                    Platform.runLater(() -> chatStatus.setText(statusText));
+                }
+            }).start();
+        } else if ("group".equalsIgnoreCase(entry.getType())) {
+            chatStatus.setText("Group");
+        } else if ("channel".equalsIgnoreCase(entry.getType())) {
+            chatStatus.setText("Channel");
+        } else {
+            chatStatus.setText("");
         }
 
+        // Load chat messages
         messageContainer.getChildren().clear();
         loadMessages(entry);
-
         markAsRead(entry);
 
         Platform.runLater(() -> messageInput.requestFocus());

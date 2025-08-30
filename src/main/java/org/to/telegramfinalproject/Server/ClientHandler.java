@@ -2778,6 +2778,35 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "get_other_user_status": {
+                        try {
+                            String userIdStr = requestJson.getString("user_id");
+                            UUID user_id = UUID.fromString(userIdStr);
+
+                            String lastSeenStr = userDatabase.getLastSeen(user_id); // returns ISO string?
+                            JSONObject data = new JSONObject();
+
+                            if (lastSeenStr != null && !"Unknown".equals(lastSeenStr)) {
+                                // parse string to time
+                                LocalDateTime lastSeen = LocalDateTime.parse(lastSeenStr);
+                                long diffMillis = java.time.Duration.between(lastSeen, LocalDateTime.now()).toMillis();
+
+                                boolean online = diffMillis <= 120_000;
+
+                                data.put("online", online);
+                                data.put("last_seen", lastSeen.toString());
+
+                                response = new ResponseModel("success", "Status fetched.", data);
+                            } else {
+                                response = new ResponseModel("error", "User not found.");
+                            }
+
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            response = new ResponseModel("error", "Failed to fetch status.");
+                        }
+                        break;
+                    }
 
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);
