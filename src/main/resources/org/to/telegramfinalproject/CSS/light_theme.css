@@ -364,3 +364,82 @@
     -fx-font-size: 11px;
     -fx-text-fill: #888;
 }
+
+/* ===== Edit Profile Card ===== */
+.edit-profile-card {
+    -fx-background-color: white;
+    -fx-background-radius: 10;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.25), 10, 0, 0, 4);
+}
+
+/* ===== Header ===== */
+.edit-profile-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #000;
+}
+
+.edit-icon-button {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-text-fill: #000;
+    -fx-font-size: 14px;
+    -fx-padding: 4;
+}
+
+/* ===== Profile Picture ===== */
+.edit-profile-picture {
+    -fx-background-radius: 50%;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 4, 0, 0, 1);
+}
+
+/* ===== Inputs ===== */
+.edit-profile-input {
+    -fx-background-color: #f5f5f5;   /* light gray background */
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-border-color: #ddd;
+    -fx-border-width: 1;
+    -fx-padding: 6 10 6 10;
+    -fx-font-size: 13px;
+    -fx-text-fill: #222;
+}
+
+
+.edit-profile-input:focused {
+    -fx-border-color: #2196f3;       /* blue highlight on focus */
+    -fx-background-color: #fff;
+}
+
+.edit-input-description {
+    -fx-font-size: 11px;
+    -fx-text-fill: #666;
+}
+
+/* ===== Section Separators ===== */
+.edit-section-separator {
+    -fx-background-color: #ddd;
+    -fx-pref-height: 1;
+}
+
+.profile-info-label {
+    -fx-font-size: 14px;
+    -fx-text-fill: #444;   /* darker gray for labels */
+    -fx-font-weight: normal;
+}
+
+.camera-button {
+    -fx-background-color: #0088cc;
+    -fx-background-radius: 50%;
+    -fx-cursor: hand;
+    -fx-padding: 4;
+    -fx-border-color: white;   /* white border to stand out */
+    -fx-border-width: 2;
+    -fx-border-radius: 50%;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.25), 4, 0, 0, 1);
+}
+
+.camera-button:hover {
+    -fx-background-color: #0077b6;
+}

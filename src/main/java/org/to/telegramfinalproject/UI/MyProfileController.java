@@ -2,6 +2,8 @@ package org.to.telegramfinalproject.UI;
 
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
@@ -10,6 +12,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
 
+import java.io.IOException;
 import java.util.Objects;
 
 public class MyProfileController {
@@ -55,6 +58,9 @@ public class MyProfileController {
 
         // Set initial state
         updateEditIcon(ThemeManager.getInstance().isDarkMode());
+
+        // === Open edit profile ===
+        editButton.setOnAction(e -> openEditProfile());
     }
 
     private void closeProfile() {
@@ -92,5 +98,31 @@ public class MyProfileController {
         icon.setFitWidth(16);
         icon.setFitHeight(16);
         editButton.setGraphic(icon);
+    }
+
+    private void openEditProfile() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                    "/org/to/telegramfinalproject/Fxml/edit_profile.fxml"));
+            Node editOverlay = loader.load();
+
+            EditProfileController controller = loader.getController();
+            // Pass current data (so fields are pre-filled)
+            controller.setProfileData(
+                    profileName.getText(),
+                    profileStatus.getText(),
+                    userBio.isVisible() ? userBio.getText() : null,
+                    userId.getText(),
+                    profileImage.getImage()
+            );
+
+            // Show new overlay
+            MainController.getInstance().showOverlay(editOverlay);
+
+            // Close the current My Profile overlay
+            closeProfile();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 }
