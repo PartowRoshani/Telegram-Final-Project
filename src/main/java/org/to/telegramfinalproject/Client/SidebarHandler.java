@@ -7,6 +7,8 @@ import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Models.FileAttachment;
 import org.to.telegramfinalproject.Models.Message;
 
+import java.io.*;
+import java.net.Socket;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -215,33 +217,40 @@ public class SidebarHandler {
 
     private void editProfilePictureUrl() {
         while (true) {
-            System.out.println("Enter new profile picture URL (or leave empty to remove):");
-            String newImageUrl = scanner.nextLine().trim();
+            System.out.println("Paste HTTP/HTTPS URL(Empty to delete):");
+            String input = scanner.nextLine().trim();
+            try {
+                if (input.isEmpty()) {
+                    sendEditProfilePicture("");
+                    break;
+                }
+                if (input.startsWith("http://") || input.startsWith("https://")) {
+                    if (input.contains(" ")) { System.out.println("URL cannot contain spaces."); continue; }
+                    sendEditProfilePicture(input); // ذخیره URL
+                    break;
+                }
+                File f = new File(input);
+                if (!f.exists() || !f.isFile()) { System.out.println("File not found."); continue; }
 
-            // URL validation
-            if (newImageUrl.contains(" ")) {
-                System.out.println("URL cannot contain spaces.");
-                continue;
+                actionHandler.uploadAvatar(f);
+                break;
+
+            } catch (Exception ex) {
+                System.out.println("Failed: " + ex.getMessage());
             }
-
-            if (!newImageUrl.isEmpty() && !newImageUrl.matches("^(http|https)://.*$")) {
-                System.out.println("Invalid URL format. Please enter a valid HTTP/HTTPS link.");
-                continue;
-            }
-
-            JSONObject request = new JSONObject();
-            request.put("action", "edit_profile_picture");
-            request.put("new_image_url", newImageUrl);
-            JSONObject response = sendWithResponse(request);
-
-            if (response.getString("status").equals("success")) {
-                System.out.println("Bio updated successfully.");
-            } else {
-                System.out.println(response.getString("message"));
-            }
-            break;
         }
     }
+
+    private void sendEditProfilePicture(String newImageUrl) {
+        JSONObject req = new JSONObject().put("action","edit_profile_picture").put("new_image_url", newImageUrl);
+        JSONObject resp = sendWithResponse(req);
+        if ("success".equalsIgnoreCase(resp.optString("status")))
+            System.out.println(newImageUrl.isEmpty() ? "Profile picture removed." : "Profile picture updated.");
+        else
+            System.out.println(resp.optString("message","error"));
+    }
+
+
 
     private void createNewGroup() {
         actionHandler.createGroup();

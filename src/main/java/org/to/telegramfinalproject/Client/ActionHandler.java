@@ -4500,6 +4500,77 @@ public class ActionHandler {
     }
 
 
+    public void uploadAvatar(File file) {
+        if (file == null || !file.exists() || !file.isFile()) {
+            System.out.println("❌ Invalid file");
+            return;
+        }
+
+        final UUID requestId = UUID.randomUUID();
+
+        try {
+            String mime = detectMime(file, "IMAGE");
+            if (mime == null) mime = "image/*";
+
+            // header مثل مدیا، ولی برای آواتار
+            JSONObject header = new JSONObject()
+                    .put("message_id", requestId.toString()) // برای مچ ACK
+                    .put("target_type", "user")              // یا channel/group
+                    // .put("target_id", "…")                // اگر channel/group بود
+                    .put("file_name", file.getName())
+                    .put("mime_type", mime);
+
+            byte[] headerBytes = header.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            long contentLen = file.length();
+
+            // صف پاسخ (مثل sendMediaMessage)
+            BlockingQueue<JSONObject> q = new LinkedBlockingQueue<>(1);
+            TelegramClient.pendingResponses.put(requestId.toString(), q);
+
+            try {
+                // 🔹 سوئیچ به حالت آواتار (مثل "MEDIA\n")
+                outBin.write("AVATAR\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                outBin.flush();
+
+                // 🔹 فریم باینری: مجیک + headerLen + header + contentLen + content
+                outBin.writeInt(0x41565431);              // "AVT1"
+                outBin.writeInt(headerBytes.length);
+                outBin.write(headerBytes);
+                outBin.writeLong(contentLen);
+
+                try (InputStream fis = new BufferedInputStream(new FileInputStream(file))) {
+                    byte[] buf = new byte[8192]; int n;
+                    while ((n = fis.read(buf)) != -1) outBin.write(buf, 0, n);
+                }
+                outBin.flush();
+
+                // 🔹 انتظار ACK (مثل مدیا)
+                JSONObject ack = q.poll(20, java.util.concurrent.TimeUnit.SECONDS);
+                if (ack == null) {
+                    System.out.println("❌ Avatar ACK timeout for " + requestId);
+                    return;
+                }
+
+                if ("success".equalsIgnoreCase(ack.optString("status"))) {
+                    String url = ack.optString("display_url", null);
+                    System.out.println("✅ Avatar uploaded. url=" + url);
+                    // (اختیاری) رفرش UI + شکستن کش:
+                    // MainController.getInstance().refreshMyAvatar(url + "?v=" + System.currentTimeMillis());
+                } else {
+                    System.out.println("❌ Avatar failed: " + ack.optString("message"));
+                }
+            } finally {
+                TelegramClient.pendingResponses.remove(requestId.toString());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("❌ uploadAvatar error: " + e.getMessage());
+        }
+    }
+
+
+
 }
 
 
