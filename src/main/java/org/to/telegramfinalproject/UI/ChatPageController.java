@@ -13,6 +13,7 @@ import javafx.stage.FileChooser;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Client.ActionHandler;
+import org.to.telegramfinalproject.Client.AvatarLocalResolver;
 import org.to.telegramfinalproject.Client.Session;
 import org.to.telegramfinalproject.Models.ChatEntry;
 import org.json.JSONArray;
@@ -538,25 +539,22 @@ public class ChatPageController {
         chatTitle.setText(entry.getName());
 
         // آواتار پیش‌فرض بر اساس نوع
+        // ChatPageController.showChat(...)
         if (entry.getImageUrl() != null && !entry.getImageUrl().isEmpty()) {
-            userAvatar.setImage(new Image(entry.getImageUrl()));
-        } else if ("channel".equals(entry.getType())) {
-            userAvatar.setImage(new Image(
-                    Objects.requireNonNull(getClass().getResourceAsStream(
-                            "/org/to/telegramfinalproject/Avatars/default_channel_profile.png"))
-            ));
-        } else if ("group".equals(entry.getType())) {
-            userAvatar.setImage(new Image(
-                    Objects.requireNonNull(getClass().getResourceAsStream(
-                            "/org/to/telegramfinalproject/Avatars/default_group_profile.png"))
-            ));
+            Image img = AvatarLocalResolver.load(entry.getImageUrl());
+            if (img != null) {
+                userAvatar.setImage(img);
+            } else {
+                // ⬇️ فال‌بک بر اساس نوع
+                setDefaultHeaderAvatarByType(entry.getType());
+            }
         } else {
-            userAvatar.setImage(new Image(
-                    Objects.requireNonNull(getClass().getResourceAsStream(
-                            "/org/to/telegramfinalproject/Avatars/default_user_profile.png"))
-            ));
+            setDefaultHeaderAvatarByType(entry.getType());
         }
-        userAvatar.setClip(new Circle(20, 20, 20));
+//        userAvatar.setClip(new Circle(20, 20, 20));
+        AvatarFX.circleClip(userAvatar, 36);
+
+
 
         fetchAndRenderHeader(entry);
 
@@ -1016,10 +1014,12 @@ public class ChatPageController {
         String img = data.optString("image_url", "");
         if (hasVal(img)) {
             try {
-                userAvatar.setImage(new Image(img, true));
+                Image im = AvatarLocalResolver.load(img);  // ⬅️
+                if (im != null) userAvatar.setImage(im);
                 userAvatar.setClip(new Circle(20, 20, 20));
             } catch (Exception ignore) {}
         }
+
         chatStatus.setText(userStatusText(
                 data.optBoolean("online", false),
                 data.optString("last_seen", null)
@@ -1033,10 +1033,12 @@ public class ChatPageController {
         String img = data.optString("image_url", "");
         if (hasVal(img)) {
             try {
-                userAvatar.setImage(new Image(img, true));
+                Image im = AvatarLocalResolver.load(img);  // ⬅️
+                if (im != null) userAvatar.setImage(im);
                 userAvatar.setClip(new Circle(20, 20, 20));
             } catch (Exception ignore) {}
         }
+
 
         int members = data.optInt("member_count", 0);
         int online  = data.optInt("online_count", -1);
@@ -1050,10 +1052,12 @@ public class ChatPageController {
         String img = data.optString("image_url", "");
         if (hasVal(img)) {
             try {
-                userAvatar.setImage(new Image(img, true));
+                Image im = AvatarLocalResolver.load(img);  // ⬅️
+                if (im != null) userAvatar.setImage(im);
                 userAvatar.setClip(new Circle(20, 20, 20));
             } catch (Exception ignore) {}
         }
+
 
         int subs = data.optInt("member_count", 0);
         chatStatus.setText(subs + " subscribers");
@@ -1096,5 +1100,16 @@ public class ChatPageController {
             return "Last seen long time ago";
         }
         return "recently";
+    }
+
+    private void setDefaultHeaderAvatarByType(String type){
+        String path = switch (type == null ? "" : type.toLowerCase()) {
+            case "channel" -> "/org/to/telegramfinalproject/Avatars/default_channel_profile.png";
+            case "group"   -> "/org/to/telegramfinalproject/Avatars/default_group_profile.png";
+            default        -> "/org/to/telegramfinalproject/Avatars/default_user_profile.png";
+        };
+        userAvatar.setImage(new Image(
+                java.util.Objects.requireNonNull(getClass().getResourceAsStream(path))
+        ));
     }
 }

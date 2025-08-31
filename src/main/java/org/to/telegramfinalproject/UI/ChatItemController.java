@@ -6,6 +6,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Circle;
+import org.to.telegramfinalproject.Client.AvatarLocalResolver;
 
 import java.util.Objects;
 
@@ -68,7 +69,27 @@ public class ChatItemController {
             systemAvatar.setManaged(true);
 
         } else if (imageUrl != null && !imageUrl.isEmpty()) {
-            profileImageUser.setImage(new Image(imageUrl, true));
+//            profileImageUser.setImage(new Image(imageUrl, true));
+//            profileImageUser.setVisible(true);
+//            profileImageUser.setManaged(true);
+
+            Image img = AvatarLocalResolver.load(imageUrl);
+            if (img != null) {
+                profileImageUser.setImage(img);
+                AvatarFX.circleClip(profileImageUser, 40);
+            } else {
+                String path;
+                if ("group".equalsIgnoreCase(chatType)) {
+                    path = "/org/to/telegramfinalproject/Avatars/default_group_profile.png";
+                } else if ("channel".equalsIgnoreCase(chatType)) {
+                    path = "/org/to/telegramfinalproject/Avatars/default_channel_profile.png";
+                } else {
+                    path = "/org/to/telegramfinalproject/Avatars/default_user_profile.png";
+                }
+                profileImageUser.setImage(new Image(
+                        java.util.Objects.requireNonNull(getClass().getResourceAsStream(path))
+                ));
+            }
             profileImageUser.setVisible(true);
             profileImageUser.setManaged(true);
 

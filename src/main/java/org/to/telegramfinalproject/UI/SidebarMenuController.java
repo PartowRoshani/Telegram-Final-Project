@@ -12,6 +12,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 import org.json.JSONObject;
+import org.to.telegramfinalproject.Client.AvatarLocalResolver;
 
 
 import java.net.URL;
@@ -49,6 +50,8 @@ public class SidebarMenuController {
         // Load default profile image
         Image profile = loadImage("/org/to/telegramfinalproject/Avatars/default_user_profile.png");
         if (profile != null) profileImage.setImage(profile);
+        AvatarFX.circleClip(profileImage, 56);
+
 
         setupButtonActions();
         setupToggleAction();
@@ -202,17 +205,37 @@ public class SidebarMenuController {
     }
 
     // کمک‌کننده: هم URL و هم ریسورس کلاس‌پث را امتحان می‌کند
+//    private Image tryLoadImage(String src) {
+//        if (src == null || src.isBlank()) return null;
+//        try {
+//            // اگر ریسورس داخل پروژه است (با / شروع شود یا در resources موجود باشد)
+//            var res = getClass().getResource(src);
+//            if (res != null) return new Image(res.toExternalForm(), true);
+//            // در غیر این صورت فرض کن URL است (http/https/file)
+//            return new Image(src, true);
+//        } catch (Exception ignored) {
+//            return null;
+//        }
+//    }
+
+
     private Image tryLoadImage(String src) {
         if (src == null || src.isBlank()) return null;
         try {
-            // اگر ریسورس داخل پروژه است (با / شروع شود یا در resources موجود باشد)
+            // اگر مسیر داخل resources است
             var res = getClass().getResource(src);
             if (res != null) return new Image(res.toExternalForm(), true);
-            // در غیر این صورت فرض کن URL است (http/https/file)
+
+            // اگر مسیر نسبی سرور (مثل /avatars/...) است
+            String fileUri = AvatarLocalResolver.resolve(src);
+            if (fileUri != null) return new Image(fileUri, true);
+
+            // در غیر این صورت، فرض URL کامل
             return new Image(src, true);
         } catch (Exception ignored) {
             return null;
         }
     }
+
 
 }
