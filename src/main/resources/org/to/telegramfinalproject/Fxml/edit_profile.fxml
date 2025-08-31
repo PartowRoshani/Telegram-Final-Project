@@ -69,12 +69,17 @@
           <Separator styleClass="edit-section-separator" />
       
               <!-- ===== Bio (full width field + description) ===== -->
-              <VBox spacing="4">
-         <children>
-                     <TextField fx:id="bioField" promptText="Bio" styleClass="edit-profile-input" />
-                     <Label styleClass="edit-input-description" text="Any details such as age, occupation, or city." />
-         </children>
-              </VBox>
+          <VBox spacing="4">
+              <children>
+                  <HBox alignment="CENTER_LEFT" spacing="10">
+                      <children>
+                          <Label styleClass="profile-info-label" text="Bio" />
+                          <TextField fx:id="bioField" prefHeight="25.0" prefWidth="152.0" styleClass="edit-profile-input" HBox.hgrow="ALWAYS" />
+                      </children>
+                  </HBox>
+                  <Label styleClass="edit-input-description" text="Any details such as age, occupation, or city." />
+              </children>
+          </VBox>
       
               <Separator styleClass="section-separator" />
       
