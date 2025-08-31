@@ -1,40 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.*?>
-<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.*?>
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.text.Text?>
 
-<AnchorPane xmlns:fx="http://javafx.com/fxml" fx:controller="org.to.telegramfinalproject.UI.MyProfileController"
-            prefWidth="400" prefHeight="600"
-            styleClass="my-profile-root">
+<?import javafx.scene.image.Image?>
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.MyProfileController"
+           styleClass="overlay-root">
 
-    <VBox spacing="15" padding="20">
+    <!-- Background (click to close) -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
 
-        <!-- Top Bar -->
+    <!-- Profile card -->
+    <VBox fx:id="profileCard" styleClass="profile-card" spacing="16"
+          prefWidth="360" maxWidth="360"
+          prefHeight="480" maxHeight="480">
+
+        <!-- ===== Header: My Profile (left) + actions (right) ===== -->
         <HBox alignment="CENTER_LEFT" spacing="10">
-            <ImageView fx:id="profileImage" fitHeight="80" fitWidth="80"
-                       styleClass="profile-image"/>
-            <VBox>
-                <Label fx:id="displayName" text="Display Name" styleClass="profile-name"/>
-                <Label fx:id="status" text="online" styleClass="profile-status"/>
+            <Label text="My Profile" styleClass="profile-title" HBox.hgrow="ALWAYS"/>
+            <Pane HBox.hgrow="ALWAYS"/> <!-- pushes buttons to right -->
+
+            <Button fx:id="editButton" styleClass="icon-button"/>
+            <Button fx:id="closeButton" styleClass="icon-button" text="✕"/>
+        </HBox>
+
+        <!-- ===== Profile section: picture + name/status ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <ImageView fx:id="profileImage" fitWidth="80" fitHeight="80" preserveRatio="true"
+                       styleClass="profile-picture"/>
+            <VBox alignment="CENTER_LEFT" spacing="4">
+                <Label fx:id="profileName" text="User Name" styleClass="profile-name"/>
+                <Label fx:id="profileStatus" text="online" styleClass="profile-status"/>
             </VBox>
         </HBox>
 
-        <Separator/>
+        <Separator styleClass="section-separator"/>
 
-        <!-- Bio -->
-        <HBox spacing="10" alignment="CENTER_LEFT">
-            <Label text="Bio:" styleClass="field-label"/>
-            <Label fx:id="bio" text="This is the bio..." wrapText="true" styleClass="field-value"/>
+        <!-- User info blocks (shifted to align under profile image) -->
+        <HBox alignment="TOP_LEFT">
+            <Pane prefWidth="30"/>
+
+            <VBox spacing="16">
+
+                <!-- Bio -->
+                <VBox fx:id="bioBlock" spacing="2">
+                    <Label fx:id="userBio" wrapText="true" styleClass="profile-info-main"/>
+                    <Label text="Bio" styleClass="profile-info-sub"/>
+                </VBox>
+
+                <!-- Username -->
+                <VBox spacing="2">
+                    <Label fx:id="userId" styleClass="profile-info-main"/>
+                    <Label text="Username" styleClass="profile-info-sub"/>
+                </VBox>
+
+            </VBox>
         </HBox>
-
-        <!-- User ID -->
-        <HBox spacing="10" alignment="CENTER_LEFT">
-            <Label text="User ID:" styleClass="field-label"/>
-            <Label fx:id="userId" text="@user_id" styleClass="field-value"/>
-        </HBox>
-
     </VBox>
-</AnchorPane>
+</StackPane>

@@ -3,6 +3,9 @@ package org.to.telegramfinalproject.UI;
 import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
@@ -12,6 +15,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
+import java.io.IOException;
 import java.net.URL;
 
 public class SidebarMenuController {
@@ -167,8 +171,24 @@ public class SidebarMenuController {
         return iv;
     }
 
+    // Sidebar actions
+    private void openMyProfile() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/my_profile.fxml"));
+            Node profileOverlay = loader.load();
+
+            MyProfileController controller = loader.getController();
+            controller.setProfileData("Asal", "online", "Pass me that lovely little gun♡.", "@Whales_suicide", null);
+
+            // Show the overlay on top of mainRoot
+            MainController.getInstance().showOverlay(profileOverlay);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     // Example button actions
-    private void openMyProfile() { System.out.println("Opening My Profile..."); }
     private void createNewGroup() { System.out.println("Creating New Group..."); }
     private void createNewChannel() { System.out.println("Creating New Channel..."); }
     private void openContacts() { System.out.println("Opening Contacts..."); }

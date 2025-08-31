@@ -277,4 +277,13 @@ public class MainController {
     private void updateLabelsForLightMode() {
         //myLabel.setStyle("-fx-text-fill: black;");
     }
+
+    // === Overlay Handling ===
+    public void showOverlay(Node overlayNode) {
+        mainRoot.getChildren().add(overlayNode);
+    }
+
+    public void closeOverlay(Node overlayNode) {
+        mainRoot.getChildren().remove(overlayNode);
+    }
 }
