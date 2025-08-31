@@ -172,11 +172,25 @@ public class IncomingMessageListener implements Runnable {
                 bumpChatListFromUpdate(data);
             }
 
+            case "user_status_changed" -> {
+
+                displayRealTimeMessage(action, msg);
+                Platform.runLater(() -> {
+                    var mc = org.to.telegramfinalproject.UI.MainController.getInstance();
+                    var cp = (mc != null) ? mc.getChatPageController() : null;
+                    if (cp != null) cp.onUserStatusChanged(
+                            msg.optString("user_id",""),
+                            msg.optString("status",""),
+                            msg.optString("last_seen","")
+                    );
+                });
+            }
 
 
 
-            case "message_edited", "message_deleted_global", "message_reacted", "message_unreacted",
-                 "user_status_changed", "blocked_by_user", "unblocked_by_user", "message_seen" -> {
+
+            case "message_edited", "message_deleted_global", "message_reacted", "message_unreacted"
+               , "blocked_by_user", "unblocked_by_user", "message_seen" -> {
                 displayRealTimeMessage(action, msg);
             }
 

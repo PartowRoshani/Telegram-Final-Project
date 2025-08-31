@@ -448,22 +448,19 @@ public class MessageDatabase {
 
 
     public static List<Message> getUnreadMessages(UUID userId) {
-        return getUnreadMessages(userId, 200); // یک سقف معقول
+        return getUnreadMessages(userId, 200);
     }
 
     public static List<Message> getUnreadMessages(UUID userId, int limit) {
         List<Message> messages = new ArrayList<>();
 
-        // توجه: نام جدول private_chats/gm/cs را با اسامی واقعی دیتابیس‌ت هماهنگ کن
         String sql = """
         SELECT m.*
         FROM messages m
         LEFT JOIN message_receipts r
-            ON r.message_id = m.message_id
-           AND r.user_id    = ?
+               ON r.message_id = m.message_id AND r.user_id = ?
         LEFT JOIN deleted_messages d
-            ON d.message_id = m.message_id
-           AND d.user_id    = ?
+               ON d.message_id = m.message_id AND d.user_id = ?
         WHERE r.message_id IS NULL
           AND d.message_id IS NULL
           AND m.is_deleted_globally = FALSE
@@ -474,14 +471,14 @@ public class MessageDatabase {
                     FROM private_chat pc
                     WHERE pc.chat_id = m.receiver_id
                       AND (pc.user1_id = ? OR pc.user2_id = ?)
-                )))
-            OR (m.receiver_type = 'group' AND EXISTS (
+                ))
+             OR (m.receiver_type = 'group' AND EXISTS (
                     SELECT 1
                     FROM group_members gm
                     WHERE gm.group_id = m.receiver_id
                       AND gm.user_id  = ?
                 ))
-            OR (m.receiver_type = 'channel' AND EXISTS (
+             OR (m.receiver_type = 'channel' AND EXISTS (
                     SELECT 1
                     FROM channel_subscribers cs
                     WHERE cs.channel_id = m.receiver_id
@@ -499,22 +496,21 @@ public class MessageDatabase {
             ps.setObject(i++, userId); // r.user_id
             ps.setObject(i++, userId); // d.user_id
             ps.setObject(i++, userId); // m.sender_id <> ?
-            ps.setObject(i++, userId); // pc.user1_id=userId
-            ps.setObject(i++, userId); // pc.user2_id=userId
+            ps.setObject(i++, userId); // pc.user1_id
+            ps.setObject(i++, userId); // pc.user2_id
             ps.setObject(i++, userId); // gm.user_id
             ps.setObject(i++, userId); // cs.user_id
-            ps.setInt(i++, Math.max(1, limit));
+            ps.setInt(i, Math.max(1, limit));
 
             try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    messages.add(mapMessage(rs)); // همان mapMessage که گفتیم
-                }
+                while (rs.next()) messages.add(mapMessage(rs));
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return messages;
     }
+
 
 
     private static java.util.UUID readUUID(ResultSet rs, String col) throws SQLException {

@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -536,7 +537,7 @@ public class ChatPageController {
 
         chatTitle.setText(entry.getName());
 
-        // Default avatar
+        // آواتار پیش‌فرض بر اساس نوع
         if (entry.getImageUrl() != null && !entry.getImageUrl().isEmpty()) {
             userAvatar.setImage(new Image(entry.getImageUrl()));
         } else if ("channel".equals(entry.getType())) {
@@ -557,49 +558,16 @@ public class ChatPageController {
         }
         userAvatar.setClip(new Circle(20, 20, 20));
 
-        // === Private chat? Fetch other user status ===
-        if ("private".equalsIgnoreCase(entry.getType()) && entry.getOtherUserId() != null) {
-            UUID otherId = entry.getOtherUserId();
+        fetchAndRenderHeader(entry);
 
-            new Thread(() -> {
-                JSONObject req = new JSONObject();
-                req.put("action", "get_other_user_status");
-                req.put("user_id", otherId.toString());
-
-                JSONObject resp = ActionHandler.sendWithResponse(req);
-                if (resp != null && "success".equals(resp.optString("status"))) {
-                    JSONObject data = resp.optJSONObject("data");
-                    boolean online = data.optBoolean("online", false);
-                    String lastSeenIso = data.optString("last_seen", null);
-
-                    String statusText;
-                    if (online) {
-                        statusText = "online";
-                    } else {
-                        // fallback if no timestamp
-                        statusText = (lastSeenIso == null || lastSeenIso.isEmpty())
-                                ? "last seen recently"
-                                : "last seen " + formatWhen(parseWhen(lastSeenIso));
-                    }
-
-                    Platform.runLater(() -> chatStatus.setText(statusText));
-                }
-            }).start();
-        } else if ("group".equalsIgnoreCase(entry.getType())) {
-            chatStatus.setText("Group");
-        } else if ("channel".equalsIgnoreCase(entry.getType())) {
-            chatStatus.setText("Channel");
-        } else {
-            chatStatus.setText("");
-        }
-
-        // Load chat messages
+        // پیام‌ها
         messageContainer.getChildren().clear();
         loadMessages(entry);
         markAsRead(entry);
 
         Platform.runLater(() -> messageInput.requestFocus());
     }
+
 
     private void loadMessages(ChatEntry entry) {
         JSONObject req = new JSONObject();
@@ -992,5 +960,141 @@ public class ChatPageController {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+
+    private void fetchAndRenderHeader(ChatEntry entry) {
+        JSONObject req = new JSONObject();
+        req.put("action", "get_header_info");
+        req.put("receiver_id", entry.getId().toString());
+        req.put("receiver_type", entry.getType()); // باید "private" باشه
+
+        // 👇 اضافه کن: آی‌دی کاربر فعلی (current user)
+        UUID viewerId = UUID.fromString(Session.getUserUUID()); // هر جایی که نگه می‌داری
+        if ("private".equalsIgnoreCase(entry.getType()) && viewerId != null) {
+            req.put("viewer_id", viewerId.toString());
+        }
+
+        new Thread(() -> {
+            JSONObject resp;
+            try {
+                resp = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
+            } catch (Exception ex) { ex.printStackTrace(); return; }
+
+            if (resp == null || !"success".equalsIgnoreCase(resp.optString("status"))) {
+                System.err.println("get_header_info failed: " + (resp != null ? resp.optString("message") : "null resp"));
+                return;
+            }
+            JSONObject data = resp.optJSONObject("data");
+            if (data == null) return;
+
+            Platform.runLater(() -> renderHeaderFromData(entry, data));
+        }).start();
+    }
+
+    private void renderHeaderFromData(ChatEntry entry, JSONObject data) {
+        String t = entry.getType() == null ? "" : entry.getType().toLowerCase();
+        switch (t) {
+            case "private" -> updatePrivateHeader(entry, data);
+            case "group"   -> updateGroupHeader(entry, data);
+            case "channel" -> updateChannelHeader(entry, data);
+            default        -> chatStatus.setText("");
+        }
+    }
+
+    private void updatePrivateHeader(ChatEntry entry, JSONObject data) {
+        String name = nz(data.optString("profile_name", entry.getName()));
+        chatTitle.setText(name);
+
+        // other_user_id برای ریل‌تایم status
+        String other = data.optString("other_user_id", "");
+        if (!other.isBlank()) {
+            try { entry.setOtherUserId(java.util.UUID.fromString(other)); } catch (Exception ignore) {}
+        }
+
+        // تصویر
+        String img = data.optString("image_url", "");
+        if (hasVal(img)) {
+            try {
+                userAvatar.setImage(new Image(img, true));
+                userAvatar.setClip(new Circle(20, 20, 20));
+            } catch (Exception ignore) {}
+        }
+        chatStatus.setText(userStatusText(
+                data.optBoolean("online", false),
+                data.optString("last_seen", null)
+        ));
+
+    }
+
+    private void updateGroupHeader(ChatEntry entry, JSONObject data) {
+        chatTitle.setText(nz(data.optString("group_name", entry.getName())));
+
+        String img = data.optString("image_url", "");
+        if (hasVal(img)) {
+            try {
+                userAvatar.setImage(new Image(img, true));
+                userAvatar.setClip(new Circle(20, 20, 20));
+            } catch (Exception ignore) {}
+        }
+
+        int members = data.optInt("member_count", 0);
+        int online  = data.optInt("online_count", -1);
+        chatStatus.setText(online >= 0 ? (members + " members, " + online + " online")
+                : (members + " members"));
+    }
+
+    private void updateChannelHeader(ChatEntry entry, JSONObject data) {
+        chatTitle.setText(nz(data.optString("channel_name", entry.getName())));
+
+        String img = data.optString("image_url", "");
+        if (hasVal(img)) {
+            try {
+                userAvatar.setImage(new Image(img, true));
+                userAvatar.setClip(new Circle(20, 20, 20));
+            } catch (Exception ignore) {}
+        }
+
+        int subs = data.optInt("member_count", 0);
+        chatStatus.setText(subs + " subscribers");
+    }
+
+    public void onUserStatusChanged(String userUuid, String status, String lastSeenIso) {
+        if (currentChat == null || !"private".equalsIgnoreCase(currentChat.getType())) return;
+        var other = currentChat.getOtherUserId();
+        if (other == null || !other.toString().equalsIgnoreCase(userUuid)) return;
+
+        if ("online".equalsIgnoreCase(status)) {
+            chatStatus.setText("online");
+        } else {
+            if (hasVal(lastSeenIso)) {
+                var ts = parseWhen(lastSeenIso);
+                chatStatus.setText(ts != null ? ("last seen " + formatWhen(ts)) : "last seen recently");
+            } else {
+                chatStatus.setText("last seen recently");
+            }
+        }
+    }
+
+
+
+    private String userStatusText(boolean online, String lastSeenIso) {
+        if (online) return "online";
+
+        LocalDateTime ts = parseWhen(lastSeenIso);
+        if (ts == null) return "Last seen recently";
+
+        LocalDate today = LocalDate.now();
+        LocalDate d = ts.toLocalDate();
+
+        if (d.isEqual(today)) {
+            return FMT_HHMM.format(ts);
+        }
+
+        long days = ChronoUnit.DAYS.between(d, today);
+        if (days > 30) {
+            return "Last seen long time ago";
+        }
+        return "recently";
     }
 }

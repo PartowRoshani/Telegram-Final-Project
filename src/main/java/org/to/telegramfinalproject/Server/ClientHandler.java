@@ -2808,6 +2808,37 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+
+
+                    case "get_header_info": {
+                        try {
+                            String type = requestJson.getString("receiver_type"); // "private" | "group" | "channel"
+                            UUID receiverId = UUID.fromString(requestJson.getString("receiver_id"));
+
+                            UUID viewerId = null;
+                            if ("private".equalsIgnoreCase(type)) {
+                                String v = requestJson.optString("viewer_id",
+                                        requestJson.optString("my_id", null));
+                                if (v == null) {
+                                    response = new ResponseModel("error", "viewer_id (or my_id) is required for private chats.");
+                                    break;
+                                }
+                                viewerId = UUID.fromString(v);
+                            }
+
+                            org.json.JSONObject data = org.to.telegramfinalproject.Database.ChatInfoDatabase
+                                    .getHeaderInfo(type, receiverId, viewerId);
+
+                            response = new ResponseModel("success", "Header info fetched.", data);
+
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            response = new ResponseModel("error", "Failed to fetch header info.");
+                        }
+                        break;
+                    }
+
+
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);
                 }
