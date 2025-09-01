@@ -6,6 +6,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Circle;
+import org.to.telegramfinalproject.Client.AvatarLocalResolver;
 
 import java.util.Objects;
 
@@ -21,10 +22,6 @@ public class ChatItemController {
     @FXML private ImageView profileImageSystem;
     @FXML private Circle systemCircle;
 
-    // Default avatar resource path
-    private static final String DEFAULT_AVATAR =
-            "/org/to/telegramfinalproject/Avatars/default_avatar.png";
-
     /**
      * Set chat item data, including a profile image (or default).
      *
@@ -34,7 +31,7 @@ public class ChatItemController {
      * @param unread  Unread message count
      * @param imageUrl Path/URL of profile image (can be null/empty)
      */
-    public void setChatData(String name, String lastMsg, String time, int unread, String imageUrl) {
+    public void setChatData(String name, String lastMsg, String time, int unread, String imageUrl, String chatType) {
         chatName.setText(name);
         lastMessage.setText(lastMsg);
         chatTime.setText(time);
@@ -72,17 +69,52 @@ public class ChatItemController {
             systemAvatar.setManaged(true);
 
         } else if (imageUrl != null && !imageUrl.isEmpty()) {
-            profileImageUser.setImage(new Image(imageUrl, true));
+//            profileImageUser.setImage(new Image(imageUrl, true));
+//            profileImageUser.setVisible(true);
+//            profileImageUser.setManaged(true);
+
+            Image img = AvatarLocalResolver.load(imageUrl);
+            if (img != null) {
+                profileImageUser.setImage(img);
+                AvatarFX.circleClip(profileImageUser, 40);
+            } else {
+                String path;
+                if ("group".equalsIgnoreCase(chatType)) {
+                    path = "/org/to/telegramfinalproject/Avatars/default_group_profile.png";
+                } else if ("channel".equalsIgnoreCase(chatType)) {
+                    path = "/org/to/telegramfinalproject/Avatars/default_channel_profile.png";
+                } else {
+                    path = "/org/to/telegramfinalproject/Avatars/default_user_profile.png";
+                }
+                profileImageUser.setImage(new Image(
+                        java.util.Objects.requireNonNull(getClass().getResourceAsStream(path))
+                ));
+            }
             profileImageUser.setVisible(true);
             profileImageUser.setManaged(true);
 
         } else {
+            String path;
+            if ("group".equalsIgnoreCase(chatType)) {
+                path = "/org/to/telegramfinalproject/Avatars/default_group_profile.png";
+            } else if ("channel".equalsIgnoreCase(chatType)) {
+                path = "/org/to/telegramfinalproject/Avatars/default_channel_profile.png";
+            } else {
+                path = "/org/to/telegramfinalproject/Avatars/default_user_profile.png";
+            }
+
             profileImageUser.setImage(new Image(
-                    Objects.requireNonNull(getClass().getResourceAsStream(
-                            "/org/to/telegramfinalproject/Icons/default_profile.png"))
+                    Objects.requireNonNull(getClass().getResourceAsStream(path))
             ));
             profileImageUser.setVisible(true);
             profileImageUser.setManaged(true);
         }
+    }
+
+    public void setUnread(int unread) {
+        boolean show = unread > 0;
+        unreadCount.setVisible(show);
+        unreadCount.setManaged(show);
+        if (show) unreadCount.setText(String.valueOf(unread));
     }
 }

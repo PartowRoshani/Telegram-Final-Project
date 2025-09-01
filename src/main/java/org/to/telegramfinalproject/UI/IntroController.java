@@ -118,25 +118,34 @@ public class IntroController {
         slider.setDaemon(true);
         slider.start();
     }
+//
+//    @FXML
+//    private void handleStartMessaging(ActionEvent event) {
+//        try {
+//            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/login_view.fxml"));
+//            Scene loginScene = new Scene(loader.load());
+//
+//            // Get the current stage and its dimensions
+//            Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+//            double currentWidth = stage.getWidth();
+//            double currentHeight = stage.getHeight();
+//
+//            // Set the new scene and apply the previous size
+//            stage.setScene(loginScene);
+//            stage.setWidth(currentWidth);
+//            stage.setHeight(currentHeight);
+//            stage.show();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
 
     @FXML
     private void handleStartMessaging(ActionEvent event) {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/login_view.fxml"));
-            Scene loginScene = new Scene(loader.load());
-
-            // Get the current stage and its dimensions
-            Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-            double currentWidth = stage.getWidth();
-            double currentHeight = stage.getHeight();
-
-            // Set the new scene and apply the previous size
-            stage.setScene(loginScene);
-            stage.setWidth(currentWidth);
-            stage.setHeight(currentHeight);
-            stage.show();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        AppRouter.showLogin(); // همون Scene می‌مونه، فقط Root عوض میشه
     }
+
+    @FXML private void goRegister() { AppRouter.showRegister(); }
+
+
 }

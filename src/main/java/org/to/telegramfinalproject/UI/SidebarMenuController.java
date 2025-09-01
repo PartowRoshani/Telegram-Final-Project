@@ -14,6 +14,9 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
+import org.json.JSONObject;
+import org.to.telegramfinalproject.Client.AvatarLocalResolver;
+
 
 import java.io.IOException;
 import java.net.URL;
@@ -21,6 +24,9 @@ import java.net.URL;
 public class SidebarMenuController {
 
     private static final String ICON_PATH = "/org/to/telegramfinalproject/Icons/";
+
+
+
 
     @FXML private VBox sidebarRoot;
     @FXML private ImageView profileImage;
@@ -46,8 +52,10 @@ public class SidebarMenuController {
     @FXML
     public void initialize() {
         // Load default profile image
-        Image profile = loadImage("/org/to/telegramfinalproject/Avatars/default_profile.png");
+        Image profile = loadImage("/org/to/telegramfinalproject/Avatars/default_user_profile.png");
         if (profile != null) profileImage.setImage(profile);
+        AvatarFX.circleClip(profileImage, 56);
+
 
         setupButtonActions();
         setupToggleAction();
@@ -210,4 +218,58 @@ public class SidebarMenuController {
     private void openSettings() { System.out.println("Opening Settings..."); }
     private void openTelegramFeatures() { System.out.println("Opening Telegram Features..."); }
     private void openTelegramQnA() { System.out.println("Opening Telegram Q&A..."); }
+
+
+
+    public void setUserFromSession(JSONObject user) {
+        if (user == null) return;
+
+        // نام نمایشی (اول profile_name بعد username)
+        String displayName = user.optString("profile_name",
+                user.optString("username", ""));
+        usernameLabel.setText(displayName);
+
+        // عکس پروفایل: هم URL اینترنتی هم مسیر ریسورس را پشتیبانی کن
+        String img = user.optString("image_url", "");
+        Image pic = tryLoadImage(img);
+        if (pic == null) {
+            pic = loadImage("/org/to/telegramfinalproject/Avatars/default_user_profile.png");
+        }
+        if (pic != null) profileImage.setImage(pic);
+    }
+
+    // کمک‌کننده: هم URL و هم ریسورس کلاس‌پث را امتحان می‌کند
+//    private Image tryLoadImage(String src) {
+//        if (src == null || src.isBlank()) return null;
+//        try {
+//            // اگر ریسورس داخل پروژه است (با / شروع شود یا در resources موجود باشد)
+//            var res = getClass().getResource(src);
+//            if (res != null) return new Image(res.toExternalForm(), true);
+//            // در غیر این صورت فرض کن URL است (http/https/file)
+//            return new Image(src, true);
+//        } catch (Exception ignored) {
+//            return null;
+//        }
+//    }
+
+
+    private Image tryLoadImage(String src) {
+        if (src == null || src.isBlank()) return null;
+        try {
+            // اگر مسیر داخل resources است
+            var res = getClass().getResource(src);
+            if (res != null) return new Image(res.toExternalForm(), true);
+
+            // اگر مسیر نسبی سرور (مثل /avatars/...) است
+            String fileUri = AvatarLocalResolver.resolve(src);
+            if (fileUri != null) return new Image(fileUri, true);
+
+            // در غیر این صورت، فرض URL کامل
+            return new Image(src, true);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+
 }

@@ -1,3 +1,9 @@
+/* ===== Dark Theme Root ===== */
+.root {
+    -fx-background-color: #0f1c26;  /* overall dark base */
+    -fx-text-fill: #e8f1f8;
+}
+
 /* Sidebar buttons */
 .sidebar-btn {
     -fx-background-color: transparent;
@@ -170,7 +176,7 @@
 .search-placeholder { -fx-text-fill: #8ea1b2; -fx-font-size: 13px; }
 
 /* ===== Global search bar ===== */
-.global-search {
+.global-search-pane {
     -fx-background-color: #1b2b39;
     -fx-background-radius: 15;
     -fx-text-fill: #e8f1f8;
@@ -294,6 +300,86 @@
     -fx-background-radius: 10;
     -fx-font-weight: bold;
 }
+
+/* === Global Search List (Dark) === */
+.global-search-list {
+    -fx-background-color: #1b2735;              /* uniform dark background */
+    -fx-control-inner-background: #1b2735;
+    -fx-control-inner-background-alt: #1b2735;  /* disable stripes */
+}
+
+.global-search-list .virtual-flow,
+.global-search-list .clipped-container,
+.global-search-list .sheet {
+    -fx-background-color: #1b2735;              /* internal containers same */
+}
+
+.global-search-list .list-cell {
+    -fx-padding: 8 10;
+    -fx-background-color: #1b2735;              /* solid dark rows */
+    -fx-border-color: #2e3948;                  /* subtle divider */
+    -fx-border-width: 0 0 0.5 0;
+    -fx-alignment: CENTER_LEFT;
+    -fx-text-fill: #e8f1f8;                     /* light text */
+}
+
+.global-search-list .list-cell:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.08); /* lighter on hover */
+}
+
+.global-search-list .list-cell:selected {
+    -fx-background-color: #2a3a4a;              /* darker blue-gray on select */
+}
+
+/* Titles & subtitles */
+.global-search-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e8f1f8;
+}
+.global-search-subtitle {
+    -fx-font-size: 12px;
+    -fx-text-fill: #8ea1b2;                     /* muted gray-blue */
+}
+
+/* Search header */
+.search-header {
+    -fx-padding: 8 12;
+    -fx-background-color: #1b2735;
+    -fx-border-color: #2e3948;
+    -fx-border-width: 0 0 1 0;
+}
+.search-header-label {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e8f1f8;
+}
+
+/* No results */
+.no-results-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #8ea1b2;
+}
+
+/* Avatar placeholders */
+.global-search-avatar {
+    -fx-background-radius: 50%;
+    -fx-background-color: #444;
+    -fx-min-width: 36;
+    -fx-min-height: 36;
+}
+
+/* Close button */
+.search-close-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #e8f1f8;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+}
+.search-close-btn:hover {
+    -fx-text-fill: #2ca4ff;
+}
+
 
 /* ===== Overlay ===== */
 .overlay-root {

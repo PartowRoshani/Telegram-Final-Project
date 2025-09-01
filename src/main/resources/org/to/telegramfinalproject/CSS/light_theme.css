@@ -1,3 +1,8 @@
+.root {
+    -fx-base: #ffffff;
+    -fx-text-base-color: #000000;
+}
+
 /* Sidebar buttons */
 .sidebar-btn {
     -fx-background-color: transparent;
@@ -195,7 +200,7 @@
     -fx-cursor: hand;
 }
 
-.global-search {
+.global-search-pane {
     -fx-background-color: #f5f5f5;
     -fx-background-radius: 15;
     -fx-text-fill: #0f141a;
@@ -293,6 +298,108 @@
     -fx-background-radius: 10;
     -fx-font-weight: bold;
 }
+
+/* === Global Search List === */
+.global-search-list .list-cell {
+    -fx-padding: 8 10;
+    -fx-background-color: transparent;
+    -fx-border-color: #ddd;   /* light divider */
+    -fx-border-width: 0 0 0.5 0;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.global-search-list .list-cell:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.05); /* light hover */
+}
+
+.global-search-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: black;
+}
+
+.global-search-subtitle {
+    -fx-font-size: 12px;
+    -fx-text-fill: #666; /* gray for light mode */
+}
+
+/* Avatar placeholder (if no image) */
+.global-search-avatar {
+    -fx-background-radius: 50%;
+    -fx-background-color: #bbb;
+    -fx-min-width: 36;
+    -fx-min-height: 36;
+}
+
+/* Global search panel */
+.global-search-pane {
+    -fx-background-color: -fx-base;
+}
+
+.search-header {
+    -fx-padding: 8 12;
+    -fx-background-color: transparent;
+    -fx-border-color: #ddd;
+    -fx-border-width: 0 0 1 0;
+}
+
+.search-header-label {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-base-color;
+}
+
+.no-results-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: gray;
+}
+
+.close-btn {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-font-size: 14px;
+}
+
+/* ===== Global Search Result Panel ===== */
+.search-results-container {
+    -fx-background-color: -fx-base;
+    -fx-padding: 8;
+    -fx-spacing: 6;
+    -fx-border-color: transparent transparent #ddd transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.search-results-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-text-fill: -fx-text-base-color;
+}
+
+.search-result-item {
+    -fx-background-color: transparent;
+    -fx-padding: 6 10;
+    -fx-spacing: 8;
+}
+
+.search-result-item:hover {
+    -fx-background-color: rgba(0,0,0,0.05);
+}
+
+/* Avatar always square, not squeezed */
+.search-result-avatar {
+    -fx-fit-width: 40;
+    -fx-fit-height: 40;
+    -fx-preserve-ratio: true;
+}
+
+/* Close button */
+.search-close-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-base-color;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+}
+
 
 /* ===== Overlay ===== */
 .overlay-root {

@@ -27,13 +27,36 @@ public class ActionHandler {
     public static volatile boolean forceExitChat = false;
     public static ActionHandler instance;
 
+    //use for UI
+    private volatile String lastStatus = "error";   // success | error
+    private volatile String lastMessage = "";
+    // ===== UI hook for search results =====
 
 
 
+
+
+    public String getLastStatus()  { return lastStatus; }
+    public String getLastMessage() { return lastMessage; }
+    public boolean wasSuccess()    { return "success".equalsIgnoreCase(lastStatus); }
+
+
+
+//    private void handleRealTime(JSONObject json) throws IOException {
+//        IncomingMessageListener listener = new IncomingMessageListener(this.in);
+//        listener.handleRealTimeEvent (json);
+//    }
+
+    // ActionHandler.java
     private void handleRealTime(JSONObject json) throws IOException {
-        IncomingMessageListener listener = new IncomingMessageListener(this.in);
-        listener.handleRealTimeEvent (json);
+        IncomingMessageListener listener = TelegramClient.getInstance().getListener();
+        if (listener != null) {
+            listener.handleRealTimeEvent(json);
+        } else {
+            System.err.println("[RT] Listener not ready; dropping RT event: " + json);
+        }
     }
+
     public ActionHandler(PrintWriter out, BufferedReader in, Scanner scanner) {
         this.out = out;
         this.in = in;
@@ -42,6 +65,17 @@ public class ActionHandler {
 
     }
 
+    public void login(String username , String password){
+        JSONObject request = new JSONObject();
+        request.put("action", "login");
+        request.put("user_id", JSONObject.NULL);
+        request.put("username", username);
+        request.put("password", password);
+        request.put("profile_name", JSONObject.NULL);
+
+        this.send(request);
+
+    }
     public void loginHandler() {
         System.out.println("Login form: \n");
         System.out.print("Username: ");
@@ -111,6 +145,18 @@ public class ActionHandler {
     public void search() {
         System.out.print("Enter keyword to search: ");
         String keyword = scanner.nextLine();
+
+        if (Session.currentUser == null || !Session.currentUser.has("user_id")) {
+            System.out.println("You must be logged in to search.");
+            return;
+        }
+
+        String userId = Session.currentUser.getString("user_id");
+        SearchRequestModel model = new SearchRequestModel("search", keyword, userId);
+        send(model.toJson());
+    }
+
+    public void searchUI(String keyword) {
 
         if (Session.currentUser == null || !Session.currentUser.has("user_id")) {
             System.out.println("You must be logged in to search.");
@@ -197,7 +243,7 @@ public class ActionHandler {
     }
 
 
-    private void addContact(UUID contactId) {
+    public void addContact(UUID contactId) {
         JSONObject req = new JSONObject();
         req.put("action", "add_contact");
         req.put("user_id", Session.currentUser.getString("user_id"));
@@ -206,7 +252,7 @@ public class ActionHandler {
     }
 
 
-    private void joinGroupOrChannel(String type, String uuid) {
+    public void joinGroupOrChannel(String type, String uuid) {
         JSONObject req = new JSONObject();
         req.put("action", "join_" + type);
         req.put("user_id", Session.getUserUUID());
@@ -216,7 +262,7 @@ public class ActionHandler {
 
 
 
-    private ChatEntry fetchChatInfo(String receiverId, String receiverType) {
+    public ChatEntry fetchChatInfo(String receiverId, String receiverType) {
         JSONObject req = new JSONObject();
         req.put("action", "get_chat_info");
         req.put("receiver_id", receiverId);
@@ -256,7 +302,7 @@ public class ActionHandler {
     }
 
 
-    private void refreshChatList() {
+    public void refreshChatList() {
         JSONObject req = new JSONObject();
         req.put("action", "get_chat_list");
         req.put("user_id", Session.currentUser.getString("user_id"));
@@ -325,21 +371,38 @@ public class ActionHandler {
     }
 
     private ChatEntry parseChatEntry(JSONObject chat) {
-        ChatEntry entry = new ChatEntry(
-                UUID.fromString(chat.getString("internal_id")),
-                chat.getString("id"),
-                chat.getString("name"),
-                chat.optString("image_url", ""),
-                chat.getString("type"),
-                chat.isNull("last_message_time") ? null : LocalDateTime.parse(chat.getString("last_message_time")),
-                chat.optBoolean("is_owner", false),
-                chat.optBoolean("is_admin", false)
-        );
+        UUID internalId = null;
+        try { internalId = UUID.fromString(chat.getString("internal_id")); } catch (Exception ignored) {}
 
-        if (chat.has("other_user_id") && !chat.isNull("other_user_id")) {
-            entry.setOtherUserId(UUID.fromString(chat.getString("other_user_id")));
+        String id        = chat.optString("id", "");
+        String name      = chat.optString("name", "");
+        String imageUrl  = chat.optString("image_url", "");
+        String type      = chat.optString("type", "");
+        boolean isOwner  = chat.optBoolean("is_owner", false);
+        boolean isAdmin  = chat.optBoolean("is_admin", false);
+
+        LocalDateTime lastTime = null;
+        String lts = chat.optString("last_message_time", null);
+        if (lts != null && !"null".equalsIgnoreCase(lts)) {
+            try { lastTime = LocalDateTime.parse(lts); } catch (Exception ignored) {}
         }
-        entry.setSavedMessages(chat.optBoolean("is_saved_messages", false));
+
+        ChatEntry entry = new ChatEntry(internalId, id, name, imageUrl, type, lastTime, isOwner, isAdmin);
+
+        entry.setUnreadCount(chat.optInt("unread_count", 0));
+        String preview = chat.optString("last_message_preview", null);
+        if (preview != null && !"null".equalsIgnoreCase(preview)) {
+            entry.setLastMessagePreview(preview);
+        }
+
+        String other = chat.optString("other_user_id", null);
+        if (other != null && !"null".equalsIgnoreCase(other)) {
+            try { entry.setOtherUserId(UUID.fromString(other)); } catch (Exception ignored) {}
+        }
+
+        if (chat.has("is_saved_messages")) {
+            entry.setSavedMessages(chat.optBoolean("is_saved_messages", false));
+        }
 
         return entry;
     }
@@ -433,7 +496,7 @@ public class ActionHandler {
 
 
 
-    private void send(JSONObject request) {
+    public void send(JSONObject request) {
         try {
             if (!request.has("action") || request.isNull("action")) {
                 System.err.println("❌ Invalid request: missing action.");
@@ -469,6 +532,12 @@ public class ActionHandler {
             String status = response.optString("status", "error");
             if (!"success".equals(status) || !response.has("data") || response.isNull("data"))
                 return;
+
+
+            status  = response.optString("status","error");
+            String message = response.optString("message","");
+            this.lastStatus  = status;
+            this.lastMessage = message;
 
 
             switch (action) {
@@ -622,6 +691,8 @@ public class ActionHandler {
                     }
                     break;
                 case "search" :
+
+
                     JSONArray results = response.getJSONObject("data").getJSONArray("results");
 
                     if (results.isEmpty()) {
@@ -1057,7 +1128,7 @@ public class ActionHandler {
     }
 
 
-    private void viewProfile(UUID targetId) {
+    public void viewProfile(UUID targetId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_profile");
         req.put("target_id", targetId.toString());
@@ -1085,7 +1156,7 @@ public class ActionHandler {
     }
 
 
-    private void startPrivateChat(ContactEntry contact) {
+    public void startPrivateChat(ContactEntry contact) {
         UUID myId = UUID.fromString(Session.currentUser.getString("internal_uuid"));
         UUID contactId = contact.getContactId();
 
@@ -1115,10 +1186,10 @@ public class ActionHandler {
         );
         entry.setOtherUserId(contactId);
 
-        Session.chatList.add(0, entry); // اضافه به اول لیست
+        Session.chatList.add(0, entry);
         System.out.println("✅ Chat with " + contact.getProfileName() + " started.");
 
-        openChat(entry); // 👈 مستقیم وارد چت شو (اختیاری)
+        openChat(entry);
     }
 
 
@@ -1239,7 +1310,7 @@ public class ActionHandler {
         System.out.println("\nYour Chats:");
         System.out.println("0. 📦 Archived Chats");
 
-        // پیدا کردن Saved در لیست
+        //find save messages chat
         Integer savedIdxInActive = null;
         for (int i = 0; i < Session.activeChats.size(); i++) {
             if (Session.activeChats.get(i).isSavedMessages()) {
@@ -1248,23 +1319,19 @@ public class ActionHandler {
             }
         }
 
-        // مپ شمارهٔ نمایش → ایندکس واقعی در activeChats
         Map<Integer, Integer> displayToActive = new HashMap<>();
 
         int displayIndex = 1;
 
-        // چاپ Saved (در صورت وجود) و ثبت در مپ
         if (savedIdxInActive != null) {
             ChatEntry saved = Session.activeChats.get(savedIdxInActive);
             String last = (saved.getLastMessageTime() == null) ? "No messages yet" : saved.getLastMessageTime().toString();
             System.out.println(displayIndex + ". 💾 Saved Messages - Last: " + last);
 
-            // نکتهٔ کلیدی: مپ کن تا مثل بقیه با openChat باز شود
             displayToActive.put(displayIndex, savedIdxInActive);
             displayIndex++;
         }
 
-        // چاپ بقیهٔ چت‌ها + ثبت مپ
         for (int i = 0; i < Session.activeChats.size(); i++) {
             if (savedIdxInActive != null && i == savedIdxInActive) continue;
 
@@ -1276,7 +1343,6 @@ public class ActionHandler {
             displayIndex++;
         }
 
-        // انتخاب
         System.out.print("Select a chat by number: ");
         int choice;
         try {
@@ -1298,11 +1364,11 @@ public class ActionHandler {
         }
 
         ChatEntry selected = Session.activeChats.get(activeIdx);
-        openChat(selected); // برای Saved هم همین مسیر اجرا می‌شود
+        openChat(selected);
     }
 
 
-    private void showArchivedChats() {
+    public void showArchivedChats() {
         if (Session.archivedChats == null || Session.archivedChats.isEmpty()) {
             System.out.println("📭 No archived chats.");
             return;
@@ -1340,7 +1406,7 @@ public class ActionHandler {
 
 
 
-    private void openChat(ChatEntry chat) {
+    public void openChat(ChatEntry chat) {
 
         //for private chats only
         if (chat.getType().equalsIgnoreCase("private")) {
@@ -1573,7 +1639,7 @@ public class ActionHandler {
 //    }
 
 
-    private boolean showPrivateChatMenu(ChatEntry chat) {
+    public boolean showPrivateChatMenu(ChatEntry chat) {
 
         if (forceExitChat) {
             forceExitChat = false;
@@ -1677,7 +1743,7 @@ public class ActionHandler {
     }
 
 
-    private JSONObject getGroupPermissions(UUID groupId) {
+    public JSONObject getGroupPermissions(UUID groupId) {
         JSONObject req = new JSONObject();
         req.put("action", "get_group_permissions");
         req.put("group_id", groupId.toString());
@@ -1691,7 +1757,7 @@ public class ActionHandler {
 
 
 
-    private boolean showGroupChatMenu(ChatEntry chat) {
+    public boolean showGroupChatMenu(ChatEntry chat) {
         if (forceExitChat) {
             forceExitChat = false;
             System.out.println("🚪 Exiting chat due to real-time update.");
@@ -1804,7 +1870,7 @@ public class ActionHandler {
 
 
 
-    private boolean showChannelChatMenu(ChatEntry chat) {
+    public boolean showChannelChatMenu(ChatEntry chat) {
         if (forceExitChat) {
             forceExitChat = false;
             System.out.println("🚪 Exiting chat due to real-time update.");
@@ -1962,7 +2028,7 @@ public class ActionHandler {
 
 
 
-    private void transferOwnershipAndLeave(UUID groupId) {
+    public void transferOwnershipAndLeave(UUID groupId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_group_admins");
         req.put("group_id", groupId.toString());
@@ -2042,7 +2108,7 @@ public class ActionHandler {
     }
 
 
-    private void removeMemberFromGroup(UUID groupId) {
+    public void removeMemberFromGroup(UUID groupId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_group_members");
         req.put("group_id", groupId.toString());
@@ -2103,7 +2169,7 @@ public class ActionHandler {
 
 
 
-    private void addAdminToChannel(UUID channelId) {
+    public void addAdminToChannel(UUID channelId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_channel_subscribers");
         req.put("channel_id", channelId.toString());
@@ -2180,7 +2246,7 @@ public class ActionHandler {
 
 
 
-    private void addAdminToGroup(UUID groupId) {
+    public void addAdminToGroup(UUID groupId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_group_members");
         req.put("group_id", groupId.toString());
@@ -2242,7 +2308,7 @@ public class ActionHandler {
     }
 
 
-    private void viewGroupMembers(UUID groupId) {
+    public void viewGroupMembers(UUID groupId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_group_members");
         req.put("group_id", groupId.toString());
@@ -2270,7 +2336,7 @@ public class ActionHandler {
 
 
 
-    private void removeSubscriberFromChannel(UUID channelId) {
+    public void removeSubscriberFromChannel(UUID channelId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_channel_subscribers");
         req.put("channel_id", channelId.toString());
@@ -2330,7 +2396,7 @@ public class ActionHandler {
     }
 
 
-    private void transferChannelOwnershipAndLeave(UUID channelId) {
+    public void transferChannelOwnershipAndLeave(UUID channelId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_channel_admins");
         req.put("channel_id", channelId.toString());
@@ -2413,7 +2479,7 @@ public class ActionHandler {
 
 
 
-    private void deleteChannel(UUID channelId) {
+    public void deleteChannel(UUID channelId) {
         System.out.print("Are you sure you want to delete the channel? (yes/no): ");
         String confirm = scanner.nextLine().trim().toLowerCase();
 
@@ -2436,7 +2502,7 @@ public class ActionHandler {
     }
 
 
-    private void deleteGroup(UUID groupId) {
+    public void deleteGroup(UUID groupId) {
         System.out.print("Are you sure you want to delete the group? (yes/no): ");
         String confirm = scanner.nextLine().trim().toLowerCase();
 
@@ -2458,7 +2524,7 @@ public class ActionHandler {
         }
     }
 
-    private void deleteChat(UUID targetId, boolean both) {
+    public void deleteChat(UUID targetId, boolean both) {
         JSONObject req = new JSONObject();
         req.put("action", "delete_private_chat");
         req.put("chat_id", targetId.toString());
@@ -2475,7 +2541,7 @@ public class ActionHandler {
 
 
 
-    private void toggleBlock(UUID userId) {
+    public void toggleBlock(UUID userId) {
 
 
         JSONObject req = new JSONObject();
@@ -2497,7 +2563,7 @@ public class ActionHandler {
     }
 
 
-    private void leaveChat(UUID id, String type) {
+    public void leaveChat(UUID id, String type) {
         JSONObject req = new JSONObject();
         req.put("action", "leave_chat");
         req.put("user_id", Session.getUserUUID());
@@ -2518,7 +2584,7 @@ public class ActionHandler {
     }
 
 
-    private void removeAdminFromGroup(UUID groupId) {
+    public void removeAdminFromGroup(UUID groupId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_group_admins");
         req.put("group_id", groupId.toString());
@@ -2578,7 +2644,7 @@ public class ActionHandler {
     }
 
 
-    private void removeAdminFromChannel(UUID channelId) {
+    public void removeAdminFromChannel(UUID channelId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_channel_admins");
         req.put("channel_id", channelId.toString());
@@ -2642,7 +2708,7 @@ public class ActionHandler {
 
 
 
-    private void addMemberToGroup(UUID groupId, UUID userId) {
+    public void addMemberToGroup(UUID groupId, UUID userId) {
         JSONObject req = new JSONObject();
         req.put("action", "add_member_to_group");
         req.put("group_id", groupId.toString());
@@ -2654,7 +2720,7 @@ public class ActionHandler {
         }
     }
 
-    private void addSubscriberToChannel(UUID channelId, UUID targetUserId) {
+    public void addSubscriberToChannel(UUID channelId, UUID targetUserId) {
         JSONObject req = new JSONObject();
         req.put("action", "add_subscriber_to_channel");
         req.put("channel_id", channelId.toString());
@@ -2670,7 +2736,7 @@ public class ActionHandler {
         }
     }
 
-    private void GroupInfo(UUID groupId){
+    public void GroupInfo(UUID groupId){
         JSONObject req = new JSONObject();
         req.put("action", "get_chat_info");
         req.put("receiver_id", groupId.toString());
@@ -2699,7 +2765,7 @@ public class ActionHandler {
 
     }
 
-    private void editGroupInfo(UUID groupId) {
+    public void editGroupInfo(UUID groupId) {
         JSONObject req = new JSONObject();
         req.put("action", "get_chat_info");
         req.put("receiver_id", groupId.toString());
@@ -2775,7 +2841,7 @@ public class ActionHandler {
 
 
 
-    private void viewChannelSubscribers(UUID channelId) {
+    public void viewChannelSubscribers(UUID channelId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_channel_subscribers");
         req.put("channel_id", channelId.toString());
@@ -2797,7 +2863,7 @@ public class ActionHandler {
         }
     }
 
-    private void ChannelInfo(UUID channelInternalId){
+    public void ChannelInfo(UUID channelInternalId){
         JSONObject req = new JSONObject();
         req.put("action", "get_chat_info");
         req.put("receiver_id", channelInternalId.toString());
@@ -2826,7 +2892,7 @@ public class ActionHandler {
     }
 
 
-    private void editChannelInfo(UUID channelInternalId) {
+    public void editChannelInfo(UUID channelInternalId) {
         JSONObject req = new JSONObject();
         req.put("action", "get_chat_info");
         req.put("receiver_id", channelInternalId.toString());
@@ -2901,7 +2967,7 @@ public class ActionHandler {
     }
 
 
-    private JSONObject getResponse() {
+    public JSONObject getResponse() {
         try {
             return TelegramClient.responseQueue.take();
 
@@ -2931,7 +2997,7 @@ public class ActionHandler {
 
 
 
-    private void editAdminPermissions(UUID chatId, String chatType) {
+    public void editAdminPermissions(UUID chatId, String chatType) {
         JSONObject req = new JSONObject();
         req.put("action", chatType.equals("group") ? "view_group_admins" : "view_channel_admins");
         req.put(chatType + "_id", chatId.toString());
@@ -3028,7 +3094,7 @@ public class ActionHandler {
     }
 
 
-    private void viewChannelAdmins(UUID channelId) {
+    public void viewChannelAdmins(UUID channelId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_channel_admins");
         req.put("channel_id", channelId.toString());
@@ -3053,7 +3119,7 @@ public class ActionHandler {
     }
 
 
-    private JSONObject getChannelPermissions(UUID channelId) {
+    public JSONObject getChannelPermissions(UUID channelId) {
         JSONObject req = new JSONObject();
         req.put("action", "get_channel_permissions");
         req.put("channel_id", channelId.toString());
@@ -3353,7 +3419,7 @@ public class ActionHandler {
 
 
 
-    private void startMenuRefresherThread() {
+    public void startMenuRefresherThread() {
         Thread refresher = new Thread(() -> {
             System.out.println("🟡 Refresher tick. refreshCurrentChatMenu = " + Session.refreshCurrentChatMenu);
 
@@ -3382,7 +3448,7 @@ public class ActionHandler {
 
 
 
-    private void openForeignChat(ChatEntry chat) {
+    public void openForeignChat(ChatEntry chat) {
         System.out.println("🔍 Opening " + chat.getType() + " chat (not in your chat list)");
 
         JSONObject req = new JSONObject();
@@ -3446,7 +3512,7 @@ public class ActionHandler {
 
 
 
-    private void viewUserProfile(UUID userId) {
+    public void viewUserProfile(UUID userId) {
         JSONObject req = new JSONObject();
         req.put("action", "view_profile");
         req.put("target_id", userId.toString());
@@ -3471,7 +3537,7 @@ public class ActionHandler {
         }
     }
 
-    private void viewGroupOrChannelInfo(UUID id, String type) {
+    public void viewGroupOrChannelInfo(UUID id, String type) {
         JSONObject req = new JSONObject();
         req.put("action", "get_chat_info");
         req.put("receiver_id", id.toString());
@@ -3496,7 +3562,7 @@ public class ActionHandler {
 
 
     public void toggleArchive(UUID chatId, String chatType) {
-        // پیدا کردن چت از Session.chatList
+
         Optional<ChatEntry> optional = Session.chatList.stream()
                 .filter(c -> c.getId().equals(chatId))
                 .findFirst();
@@ -3522,7 +3588,7 @@ public class ActionHandler {
     }
 
 
-    private void archiveChat(UUID chatId, String chatType) {
+    public void archiveChat(UUID chatId, String chatType) {
         JSONObject req = new JSONObject();
         req.put("action", "archive_chat");
         req.put("chat_id", chatId.toString());
@@ -3531,7 +3597,7 @@ public class ActionHandler {
         if (res != null) System.out.println(res.getString("message"));
     }
 
-    private void unarchiveChat(UUID chatId, String chatType) {
+    public void unarchiveChat(UUID chatId, String chatType) {
         JSONObject req = new JSONObject();
         req.put("action", "unarchive_chat");
         req.put("chat_id", chatId.toString());
@@ -3663,7 +3729,6 @@ public class ActionHandler {
             }
         }
 
-        // 🔹 فقط ارسال پیام با chat_id و receiver_type
         JSONObject messageJson = new JSONObject();
         messageJson.put("action", "send_message");
         messageJson.put("receiver_type", receiverType);
@@ -3683,7 +3748,7 @@ public class ActionHandler {
         }
     }
 
-    private void refreshContactList() {
+    public void refreshContactList() {
         JSONObject req = new JSONObject();
         req.put("action", "get_contact_list");
         req.put("user_id", Session.currentUser.getString("user_id"));
@@ -3741,7 +3806,7 @@ public class ActionHandler {
         }
     }
 
-    private void viewMessagesInChat(ChatEntry chat) {
+    public void viewMessagesInChat(ChatEntry chat) {
         int offset = 0;
         int limit = 10;
 
@@ -3910,7 +3975,7 @@ public class ActionHandler {
         }
     }
 
-    private void editMessage(UUID messageId) {
+    public void editMessage(UUID messageId) {
         System.out.print("📝 Enter new content: ");
         String newContent = scanner.nextLine().trim();
 
@@ -3934,7 +3999,7 @@ public class ActionHandler {
     }
 
 
-    private void reactToMessage(UUID messageId) {
+    public void reactToMessage(UUID messageId) {
         System.out.print("😊 Enter your reaction (e.g., ❤️, 👍, 😂): ");
         String reaction = scanner.nextLine().trim();
 
@@ -3957,7 +4022,7 @@ public class ActionHandler {
     }
 
 
-    private void forwardMessage(UUID originalMessageId) {
+    public void forwardMessage(UUID originalMessageId) {
         System.out.println("\n📤 Select a chat to forward this message to:");
 
         List<ChatEntry> chatList = Session.chatList;
@@ -4001,7 +4066,7 @@ public class ActionHandler {
     }
 
 
-    private void replyToMessage(UUID messageId) {
+    public void replyToMessage(UUID messageId) {
         System.out.print("💬 Enter your reply: ");
         String content = scanner.nextLine().trim();
 
@@ -4030,7 +4095,7 @@ public class ActionHandler {
     }
 
 
-    private void deleteMessage(UUID messageId) {
+    public void deleteMessage(UUID messageId) {
         System.out.println("\n🗑️ Delete Message Options:");
         System.out.println("1. Delete for yourself (one-sided)");
         System.out.println("2. Delete for everyone (global) [only if allowed]");
@@ -4078,7 +4143,7 @@ public class ActionHandler {
         }
     }
 
-    private void showSidebarMenu() {
+    public void showSidebarMenu() {
         System.out.println("\n--- Sidebar Menu ---");
         System.out.println("1. View Profile");
         System.out.println("2. New Group");

@@ -11,6 +11,7 @@ import org.to.telegramfinalproject.Utils.GroupPermissionUtil;
 
 import java.io.*;
 import java.net.Socket;
+import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -125,78 +126,6 @@ public class ClientHandler implements Runnable {
                             }
 
 
-
-//                            for (Contact contact : contacts) {
-//                                User target = userDatabase.findByInternalUUID(contact.getContact_id());
-//                                if (target == null) continue;
-//                                LocalDateTime last = MessageDatabase.getLastMessageTimeBetween(user.getInternal_uuid(), target.getInternal_uuid(), "private");
-//
-////                                chatList.add(new ChatEntry(
-////                                        target.getInternal_uuid(),      // internal UUID
-////                                        target.getUser_id(),            // public display ID
-////                                        target.getProfile_name(),
-////                                        target.getImage_url(),
-////                                        "private",
-////                                        last,
-////                                        false,
-////                                        false
-////                                ));
-//
-//                                UUID targetId = target.getInternal_uuid();
-//
-//                                ChatEntry entry = new ChatEntry(
-//                                        targetId,
-//                                        target.getUser_id(),
-//                                        target.getProfile_name(),
-//                                        target.getImage_url(),
-//                                        "private",
-//                                        last,
-//                                        false,
-//                                        false
-//                                );
-//
-//
-//
-//                            }
-
-
-//
-//                            List<PrivateChat> privateChats = PrivateChatDatabase.findChatsOfUser(currentUser.getInternal_uuid());
-//                            for (PrivateChat chat : privateChats) {
-//                                UUID otherId = chat.getUser1_id().equals(currentUser.getInternal_uuid()) ?
-//                                        chat.getUser2_id() : chat.getUser1_id();
-//
-//                                User otherUser = userDatabase.findByInternalUUID(otherId);
-//                                if (otherUser == null) continue;
-//
-//                                LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTime(chat.getChat_id(), "private");
-//
-//
-//                                ChatEntry entry = new ChatEntry(
-//                                        chat.getChat_id(),
-//                                        otherUser.getUser_id(),
-//                                        otherUser.getProfile_name(),
-//                                        otherUser.getImage_url(),
-//                                        "private",
-//                                        lastMessageTime,
-//                                        false,
-//                                        false
-//                                );
-//                                entry.setOtherUserId(otherId);
-//
-//                                if (currentUser.getInternal_uuid() == otherId) {
-//                                    entry.setSavedMessages(true);
-//                                }
-//
-//                                if (archivedChatIds.contains(chat.getChat_id())) {
-//                                    archivedChatList.add(entry);
-//                                    chatList.add(entry);
-//                                } else {
-//                                    activeChatList.add(entry);
-//                                    chatList.add(entry);
-//                                }
-//                            }
-
                             List<PrivateChat> privateChats = PrivateChatDatabase.findChatsOfUser(currentUser.getInternal_uuid());
 
                             ChatEntry savedEntry = null;
@@ -229,9 +158,11 @@ public class ClientHandler implements Runnable {
                                 );
                                 entry.setOtherUserId(otherId);
                                 if (isSelf) {
-                                    entry.setSavedMessages(true);   // فلگ مهم
-                                    savedEntry = entry;             // برای بردن به اول لیست
+                                    entry.setSavedMessages(true);
+                                    savedEntry = entry;
                                 }
+
+                                enrichChatEntry(entry, user.getInternal_uuid());
 
                                 if (!isSelf && archivedChatIds.contains(chat.getChat_id())) {
                                     archivedChatList.add(entry);
@@ -270,6 +201,7 @@ public class ClientHandler implements Runnable {
                                         isOwner,
                                         isAdmin
                                 );
+                                enrichChatEntry(entry, user.getInternal_uuid());
 
                                 if (archivedChatIds.contains(group.getInternal_uuid())) {
                                     archivedChatList.add(entry);
@@ -308,6 +240,8 @@ public class ClientHandler implements Runnable {
                                         isOwner,
                                         isAdmin
                                 );
+
+                                enrichChatEntry(entry, user.getInternal_uuid());
 
                                 if (archivedChatIds.contains(channel.getInternal_uuid())) {
                                     archivedChatList.add(entry);
@@ -774,9 +708,9 @@ public class ClientHandler implements Runnable {
 
                             ChatEntry entry = new ChatEntry(
                                     chat.getChat_id(),
-                                    otherUser.getUser_id(),
-                                    otherUser.getProfile_name(),
-                                    otherUser.getImage_url(),
+                                    isSavedMessages ? "Saved Messages" : otherUser.getUser_id(),
+                                    isSavedMessages ? "Saved Messages" : otherUser.getProfile_name(),
+                                    isSavedMessages ? null : otherUser.getImage_url(),
                                     "private",
                                     lastMessageTime,
                                     false,
@@ -784,18 +718,20 @@ public class ClientHandler implements Runnable {
                             );
                             entry.setOtherUserId(otherId);
 
+
                             // Mark it as saved messages if it's the special self-chat
                             if (isSavedMessages) {
                                 entry.setSavedMessages(true);
                             }
+                            enrichChatEntry(entry, currentUser.getInternal_uuid());
 
-                            if (archivedChatIds.contains(chat.getChat_id())) {
+                            if (archivedChatIds.contains(chat.getChat_id()) && !isSavedMessages) {
                                 archivedChatList.add(entry);
-                                chatList.add(entry);
                             } else {
                                 activeChatList.add(entry);
-                                chatList.add(entry);
                             }
+                            chatList.add(entry);
+
                         }
 
 
@@ -825,6 +761,8 @@ public class ClientHandler implements Runnable {
                                     isOwner,
                                     isAdmin
                             );
+
+                            enrichChatEntry(entry, currentUser.getInternal_uuid());
 
                             if (archivedChatIds.contains(group.getInternal_uuid())) {
                                 archivedChatList.add(entry);
@@ -863,6 +801,7 @@ public class ClientHandler implements Runnable {
                                     isOwner,
                                     isAdmin
                             );
+                            enrichChatEntry(entry, currentUser.getInternal_uuid());
 
                             if (archivedChatIds.contains(channel.getInternal_uuid())) {
                                 archivedChatList.add(entry);
@@ -1406,6 +1345,160 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "get_messages_UI": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+
+                        try {
+                            final String receiverId   = requestJson.getString("receiver_id");
+                            final String receiverType = requestJson.getString("receiver_type").toLowerCase();
+                            final int offset          = requestJson.optInt("offset", 0);
+                            final int limit           = requestJson.optInt("limit", 50);
+
+                            List<Message> messages = new ArrayList<>();
+
+                            switch (receiverType) {
+                                case "private" -> {
+                                    // receiver_id = private_chat.chat_id
+                                    UUID chatId = UUID.fromString(receiverId);
+                                    List<UUID> members = PrivateChatDatabase.getMembers(chatId);
+                                    if (members == null || !members.contains(currentUser.getInternal_uuid())) {
+                                        response = new ResponseModel("error", "You're not a member of this private chat.");
+                                        break;
+                                    }
+                                    messages = MessageDatabase.privateChatHistory(chatId, currentUser.getInternal_uuid());
+                                }
+                                case "group" -> {
+                                    Group group = GroupDatabase.findByInternalUUID(UUID.fromString(receiverId));
+                                    if (group == null) {
+                                        response = new ResponseModel("error", "Group not found.");
+                                        break;
+                                    }
+                                    messages = MessageDatabase.groupChatHistory(group.getInternal_uuid(), currentUser.getInternal_uuid());
+                                }
+                                case "channel" -> {
+                                    Channel channel = ChannelDatabase.findByInternalUUID(UUID.fromString(receiverId));
+                                    if (channel == null) {
+                                        response = new ResponseModel("error", "Channel not found.");
+                                        break;
+                                    }
+                                    messages = MessageDatabase.channelChatHistory(channel.getInternal_uuid(), currentUser.getInternal_uuid());
+                                }
+                                default -> {
+                                    response = new ResponseModel("error", "Invalid receiver type.");
+                                    break;
+                                }
+                            }
+                            if (response != null) break;
+
+                            if (offset > 0 || limit > 0) {
+                                int from = Math.max(0, Math.min(offset, messages.size()));
+                                int to   = Math.max(from, Math.min(from + limit, messages.size()));
+                                messages = messages.subList(from, to);
+                            }
+
+                            JSONArray messageArray = new JSONArray();
+
+                            for (Message m : messages) {
+                                JSONObject obj = new JSONObject();
+
+                                obj.put("message_id", m.getMessage_id().toString());
+                                obj.put("sender_id",  m.getSender_id().toString());
+
+                                User senderUser = userDatabase.findByInternalUUID(m.getSender_id());
+                                obj.put("sender_name", senderUser != null ? senderUser.getProfile_name() : "Unknown");
+
+                                obj.put("receiver_id",   m.getReceiver_id().toString());
+                                obj.put("receiver_type", m.getReceiver_type());
+
+                                String receiverName = switch (m.getReceiver_type()) {
+                                    case "group" -> {
+                                        Group g = GroupDatabase.findByInternalUUID(m.getReceiver_id());
+                                        yield g != null ? g.getGroup_name() : "Unknown group";
+                                    }
+                                    case "channel" -> {
+                                        Channel c = ChannelDatabase.findByInternalUUID(m.getReceiver_id());
+                                        yield c != null ? c.getChannel_name() : "Unknown channel";
+                                    }
+                                    case "private" -> {
+                                        UUID otherId = PrivateChatDatabase.getOtherParticipant(m.getReceiver_id(), currentUser.getInternal_uuid());
+                                        User other   = userDatabase.findByInternalUUID(otherId);
+                                        yield other != null ? other.getProfile_name() : "Unknown user";
+                                    }
+                                    default -> "Unknown";
+                                };
+                                obj.put("receiver_name", receiverName);
+
+                                obj.put("content",       m.getContent());
+                                obj.put("message_type",  m.getMessage_type());      // TEXT/IMAGE/AUDIO/VIDEO/FILE
+                                obj.put("send_at",       m.getSend_at().toString());
+
+                                obj.put("is_edited",           m.isIs_edited());
+                                obj.put("is_deleted_globally", m.isIs_deleted_globally());
+                                obj.put("edited_at",           m.getEdited_at() != null ? m.getEdited_at().toString() : JSONObject.NULL);
+
+                                if (m.getReply_to_id() != null) {
+                                    obj.put("reply_to_id", m.getReply_to_id().toString());
+
+                                    Message replied = MessageDatabase.findById(m.getReply_to_id());
+                                    if (replied != null) {
+                                        User rSender = userDatabase.findByInternalUUID(replied.getSender_id());
+                                        obj.put("reply_to_sender",  rSender != null ? rSender.getProfile_name() : "Unknown");
+                                        obj.put("reply_to_content", replied.getContent());
+                                        obj.put("reply_to_type",    replied.getMessage_type());
+                                    }
+                                } else {
+                                    obj.put("reply_to_id", JSONObject.NULL);
+                                }
+
+                                if (m.getOriginal_message_id() != null && m.getForwarded_from() != null) {
+                                    User originalSender = userDatabase.findByInternalUUID(m.getForwarded_from());
+                                    obj.put("is_forwarded", true);
+                                    obj.put("forwarded_from", originalSender != null
+                                            ? originalSender.getProfile_name()
+                                            : m.getForwarded_from().toString());
+                                    obj.put("forwarded_by", senderUser != null ? senderUser.getProfile_name() : "Unknown");
+                                    obj.put("forwarded_from_id", m.getForwarded_from().toString());
+                                } else {
+                                    obj.put("is_forwarded",   false);
+                                    obj.put("forwarded_from", JSONObject.NULL);
+                                    obj.put("forwarded_by",   JSONObject.NULL);
+                                }
+
+                                JSONArray reactionsArr = new JSONArray();
+                                try {
+                                    List<String> reactions = MessageReactionDatabase.getReactions(m.getMessage_id());
+                                    if (reactions != null && !reactions.isEmpty()) {
+                                        Map<String, Integer> counter = new HashMap<>();
+                                        for (String r : reactions) {
+                                            counter.put(r, counter.getOrDefault(r, 0) + 1);
+                                        }
+                                        for (Map.Entry<String, Integer> e : counter.entrySet()) {
+                                            JSONObject ro = new JSONObject();
+                                            ro.put("emoji", e.getKey());
+                                            ro.put("count", e.getValue());
+                                            reactionsArr.put(ro);
+                                        }
+                                    }
+                                } catch (Exception ignore) {}
+                                obj.put("reactions", reactionsArr);
+
+                                messageArray.put(obj);
+                            }
+
+                            JSONObject data = new JSONObject();
+                            data.put("messages", messageArray);
+
+                            response = new ResponseModel("success", "Messages fetched.", data);
+
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error fetching messages: " + e.getMessage());
+                        }
+                        break;
+                    }
+
                     case "toggle_block": {
                         if (currentUser == null) {
                             response = new ResponseModel("error", "Unauthorized. Please login first.");
@@ -1523,21 +1616,16 @@ public class ClientHandler implements Runnable {
                             break;
                         }
 
-                        // دریافت شناسه چت و نوع حذف (یک‌طرفه یا دوطرفه)
                         UUID targetId = UUID.fromString(requestJson.getString("chat_id"));
                         boolean both = requestJson.getBoolean("both");
 
-                        // Real-Time Event Dispatch (اطلاع‌رسانی ریل تایم)
                         if (both) {
-                            // حذف دوطرفه
                             RealTimeEventDispatcher.notifyChatDeleted("private", targetId, List.of(currentUser.getInternal_uuid()));
                             RealTimeEventDispatcher.notifyChatDeleted("private", currentUser.getInternal_uuid(), List.of(targetId));
                         } else {
-                            // حذف یک‌طرفه
                             RealTimeEventDispatcher.notifyChatDeleted("private", targetId, List.of(currentUser.getInternal_uuid()));
                         }
 
-                        // فراخوانی متد حذف چت
                         response = handleDeleteChat(requestJson);
                         break;
                     }
@@ -2642,6 +2730,115 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "mark_as_read": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+                        try {
+                            UUID chatId = UUID.fromString(requestJson.getString("receiver_id"));
+                            String chatType = requestJson.getString("receiver_type").toLowerCase();
+                            int limit = requestJson.optInt("limit", 500);
+
+                            List<UUID> targetMessageIds = new ArrayList<>();
+                            if (requestJson.has("message_ids")) {
+                                JSONArray arr = requestJson.getJSONArray("message_ids");
+                                for (int i = 0; i < arr.length(); i++) {
+                                    targetMessageIds.add(UUID.fromString(arr.getString(i)));
+                                }
+                            } else {
+                                targetMessageIds = MessageDatabase.getUnreadMessageIds(
+                                        currentUser.getInternal_uuid(), chatId, chatType, limit
+                                );
+                            }
+
+                            int updatedStatus = 0;
+                            int insertedReceipts = 0;
+
+                            try (Connection c = ConnectionDb.connect()) {
+                                c.setAutoCommit(false);
+                                for (UUID mid : targetMessageIds) {
+                                    updatedStatus   += MessageDatabase.setMessageReadIfNeeded(mid, currentUser.getInternal_uuid());
+                                    insertedReceipts+= MessageDatabase.insertReceiptIfAbsent(mid, currentUser.getInternal_uuid());
+                                }
+                                c.commit();
+                            } catch (Exception tx) {
+                                tx.printStackTrace();
+                            }
+
+                            JSONObject data = new JSONObject();
+                            data.put("marked_count", targetMessageIds.size());
+                            data.put("status_updates", updatedStatus);
+                            data.put("receipts_inserted", insertedReceipts);
+
+                            response = new ResponseModel("success", "Marked as read.", data);
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error in mark_as_read: " + e.getMessage());
+                        }
+                        break;
+                    }
+
+                    case "get_other_user_status": {
+                        try {
+                            String userIdStr = requestJson.getString("user_id");
+                            UUID user_id = UUID.fromString(userIdStr);
+
+                            String lastSeenStr = userDatabase.getLastSeen(user_id); // returns ISO string?
+                            JSONObject data = new JSONObject();
+
+                            if (lastSeenStr != null && !"Unknown".equals(lastSeenStr)) {
+                                // parse string to time
+                                LocalDateTime lastSeen = LocalDateTime.parse(lastSeenStr);
+                                long diffMillis = java.time.Duration.between(lastSeen, LocalDateTime.now()).toMillis();
+
+                                boolean online = diffMillis <= 120_000;
+
+                                data.put("online", online);
+                                data.put("last_seen", lastSeen.toString());
+
+                                response = new ResponseModel("success", "Status fetched.", data);
+                            } else {
+                                response = new ResponseModel("error", "User not found.");
+                            }
+
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            response = new ResponseModel("error", "Failed to fetch status.");
+                        }
+                        break;
+                    }
+
+
+
+                    case "get_header_info": {
+                        try {
+                            String type = requestJson.getString("receiver_type"); // "private" | "group" | "channel"
+                            UUID receiverId = UUID.fromString(requestJson.getString("receiver_id"));
+
+                            UUID viewerId = null;
+                            if ("private".equalsIgnoreCase(type)) {
+                                String v = requestJson.optString("viewer_id",
+                                        requestJson.optString("my_id", null));
+                                if (v == null) {
+                                    response = new ResponseModel("error", "viewer_id (or my_id) is required for private chats.");
+                                    break;
+                                }
+                                viewerId = UUID.fromString(v);
+                            }
+
+                            org.json.JSONObject data = org.to.telegramfinalproject.Database.ChatInfoDatabase
+                                    .getHeaderInfo(type, receiverId, viewerId);
+
+                            response = new ResponseModel("success", "Header info fetched.", data);
+
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            response = new ResponseModel("error", "Failed to fetch header info.");
+                        }
+                        break;
+                    }
+
+
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);
                 }
@@ -2768,6 +2965,8 @@ public class ClientHandler implements Runnable {
                 RealTimeEventDispatcher.sendToUser(receiver, chatPayload);
             }
 
+            RealTimeEventDispatcher.sendToUser(senderId, chatPayload);
+
             JSONObject data = new JSONObject();
             data.put("message_id", messageId.toString());
             return new ResponseModel("success", "Message sent successfully.", data);
@@ -2853,6 +3052,37 @@ public class ClientHandler implements Runnable {
         return new ResponseModel("success", "Saved Messages ready.", data);
     }
 
+
+
+
+    private void enrichChatEntry(ChatEntry e, UUID me) {
+        Message last = MessageDatabase.getLastMessage(e.getId(), e.getType());
+        if (last != null) {
+            e.setLastMessageTime(String.valueOf(last.getSend_at()));
+            e.setLastMessagePreview(buildPreview(last));
+            e.setLastMessageType(last.getMessage_type());
+            e.setLastMessageSenderId(last.getSender_id());
+        }
+
+        int unread = MessageDatabase.getUnreadCount(me, e.getId(), e.getType());
+        e.setUnreadCount(unread);
+    }
+
+    private String buildPreview(Message m) {
+        String t = m.getMessage_type();
+        if ("TEXT".equalsIgnoreCase(t)) {
+            String c = m.getContent();
+            if (c == null) return "";
+            return c.length() > 120 ? c.substring(0, 120) + "…" : c;
+        }
+        switch (t) {
+            case "IMAGE": return "[Image]";
+            case "AUDIO": return "[Audio]";
+            case "VIDEO": return "[Video]";
+            case "FILE":  return "[File]";
+            default:      return "[Message]";
+        }
+    }
 
 
 }
