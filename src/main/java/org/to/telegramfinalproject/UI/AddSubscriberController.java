@@ -12,7 +12,7 @@ import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class AddMembersController {
+public class AddSubscriberController {
 
     @FXML private VBox contactsList;
     @FXML private VBox addMembersCard;
@@ -22,14 +22,15 @@ public class AddMembersController {
     @FXML private Button searchIcon;
     @FXML private Label memberCountLabel;
     @FXML private FlowPane selectedMembersPane;
-    @FXML private Button cancelButton;
-    @FXML private Button createButton;
+    @FXML private Button skipButton;
+    @FXML private Button addButton;
 
     // Keep selected contacts
     private final Set<Contact> selectedContacts = new HashSet<>();
 
-    private String groupName;
-    private File groupImageFile;
+    private String channelName;
+    private File channelImageFile;
+    private String description;
 
     // Sample data for testing
     private final List<Contact> allContacts = Arrays.asList(
@@ -52,10 +53,9 @@ public class AddMembersController {
         updateMemberCount();
 
         // Sort + render initially
-        List<Contact> sorted = allContacts.stream()
+        renderContacts(allContacts.stream()
                 .sorted(Comparator.comparing(Contact::getName))
-                .collect(Collectors.toList());
-        renderContacts(sorted);
+                .collect(Collectors.toList()));
 
         // Search filter
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -70,19 +70,20 @@ public class AddMembersController {
         // Auto-focus
         Platform.runLater(() -> searchField.requestFocus());
 
-        // Cancel closes overlay
-        cancelButton.setOnAction(e -> MainController.getInstance().closeOverlay(addMembersCard.getParent()));
+        // Skip → ignore selection and create chat
+        skipButton.setOnAction(e -> {
+            createChannel(); // always creates, even if no members selected
+        });
+
+        // Add → requires at least one member
+        addButton.setOnAction(e -> {
+            if (!selectedContacts.isEmpty()) {
+                createChannel();
+            }
+        });
 
         // Close when clicking outside
         overlayBackground.setOnMouseClicked(e -> MainController.getInstance().closeOverlay(addMembersCard.getParent()));
-
-        // Create action
-        createButton.setOnAction(e -> {
-            if (selectedContacts.isEmpty()) {
-                return;
-            }
-            createGroup();
-        });
 
         // Smooth scroll
         contactsScroll.getStylesheets().add(getClass().getResource("/org/to/telegramfinalproject/CSS/scrollpane.css").toExternalForm());
@@ -104,54 +105,15 @@ public class AddMembersController {
         updateSearchIcon(ThemeManager.getInstance().isDarkMode());
     }
 
-    private void createGroup() {
-//        String groupName = this.groupName; // set earlier from setGroupInfo()
-//        File groupImage = this.groupImageFile; // also passed earlier
-//
-//        // Collect selected members
-//        List<String> memberIds = selectedContacts.stream()
-//                .map(Contact::getId) // you need some unique identifier for contacts
-//                .collect(Collectors.toList());
-//
-//        // Build JSON payload for server
-//        JSONObject req = new JSONObject();
-//        req.put("action", "create_group");
-//        req.put("name", groupName);
-//        req.put("members", memberIds);
-//
-//        if (groupImage != null) {
-//            req.put("image_path", groupImage.getAbsolutePath());
-//            // or upload the file separately depending on your backend design
-//        }
-//
-//        try {
-//            JSONObject res = NetworkClient.sendWithResponse(req); // your socket wrapper
-//            if ("success".equals(res.getString("status"))) {
-//                // Get new group chat ID from server
-//                String chatId = res.getString("chat_id");
-//
-//                // ✅ Close overlay
-//                MainController.getInstance().closeOverlay(overlayRoot);
-//
-//                // ✅ Open chat immediately
-//                FXMLLoader loader = new FXMLLoader(getClass().getResource(
-//                        "/org/to/telegramfinalproject/Fxml/chat_page.fxml"));
-//                Node chatPage = loader.load();
-//
-//                ChatPageController chatController = loader.getController();
-//                chatController.setChat(groupName,
-//                        groupImage != null ? groupImage.toURI().toString()
-//                                : "/org/to/telegramfinalproject/Avatars/default_group.png");
-//
-//                MainController.getInstance().getChatDisplayArea().getChildren().setAll(chatPage);
-//
-//            } else {
-//                showAlert("Failed to create group: " + res.getString("message"));
-//            }
-//        } catch (Exception ex) {
-//            ex.printStackTrace();
-//            showAlert("Error creating group.");
-//        }
+    private void createChannel() {
+        // TODO: real server request → for now just print and close overlay
+        System.out.println("✅ Creating group/channel: " + channelName);
+        System.out.println("Selected members: " + selectedContacts.stream()
+                .map(Contact::getName).collect(Collectors.joining(", ")));
+
+        MainController.getInstance().closeOverlay(addMembersCard.getParent());
+
+        // TODO: open chat immediately (like you did with newGroup)
     }
 
     private void renderContacts(List<Contact> contacts) {
@@ -239,15 +201,10 @@ public class AddMembersController {
         searchIcon.setGraphic(icon);
     }
 
-    public void setGroupInfo(String groupName, File groupImageFile) {
-        this.groupName = groupName;
-        this.groupImageFile = groupImageFile;
-
-        // You can use these later when creating the group
-        System.out.println("Group name passed: " + groupName);
-        if (groupImageFile != null) {
-            System.out.println("Group image: " + groupImageFile.getName());
-        }
+    public void setChannelInfo(String name, String description, File image) {
+        this.channelName = name;
+        this.channelImageFile = image;
+        this.description = description;
     }
 
     // Inner class for contact data

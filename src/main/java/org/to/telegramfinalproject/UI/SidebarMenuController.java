@@ -210,7 +210,19 @@ public class SidebarMenuController {
         }
     }
 
-    private void createNewChannel() { System.out.println("Creating New Channel..."); }
+    private void createNewChannel() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                    "/org/to/telegramfinalproject/Fxml/new_channel.fxml"));
+            Node channelOverlay = loader.load();
+
+            // Show overlay (like MyProfile, Contacts, etc.)
+            MainController.getInstance().showOverlay(channelOverlay);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     private void openContacts() {
         try {

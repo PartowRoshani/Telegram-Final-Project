@@ -97,9 +97,4 @@ public class NewGroupController {
         // Auto_focus search bar when overlay opens
         Platform.runLater(() -> groupNameField.requestFocus());
     }
-
-    private void showAlert(String msg) {
-        Alert alert = new Alert(Alert.AlertType.WARNING, msg, ButtonType.OK);
-        alert.showAndWait();
-    }
 }

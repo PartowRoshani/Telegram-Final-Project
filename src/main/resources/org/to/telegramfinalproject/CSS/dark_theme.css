@@ -715,3 +715,48 @@
 .member-chip:hover {
     -fx-background-color: #31475b;  /* lighter on hover */
 }
+
+.desc-counter {
+    -fx-font-size: 11px;
+    -fx-text-fill: #aaa;   /* slightly lighter gray for dark background */
+    -fx-alignment: CENTER_RIGHT;
+}
+
+/* ===== TextArea Scrollbar Styling ===== */
+.text-area .scroll-pane .scroll-bar:vertical {
+    -fx-pref-width: 6px;       /* super thin */
+    -fx-background-color: transparent;
+    -fx-opacity: 0;            /* hidden by default */
+    -fx-padding: 0;
+}
+
+.text-area .scroll-pane:hover .scroll-bar:vertical {
+    -fx-opacity: 0.6;          /* appear on hover */
+    -fx-transition: opacity 0.3s ease;
+}
+
+.text-area .scroll-pane .thumb {
+    -fx-background-color: rgba(120,120,120,0.5); /* subtle gray */
+    -fx-background-radius: 2;
+}
+
+.text-area .scroll-pane .scroll-bar:horizontal {
+    -fx-opacity: 0;  /* hide horizontal completely */
+    -fx-max-height: 0;
+}
+
+/* Channel description text area */
+.channel-desc-area {
+    -fx-background-color: #1f2a36;   /* dark background */
+    -fx-text-fill: #eee;             /* text color */
+    -fx-control-inner-background: #1f2a36; /* inner background */
+    -fx-prompt-text-fill: #888;      /* placeholder */
+    -fx-border-color: #444;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+/* Fix for the inner content region */
+.channel-desc-area .content {
+    -fx-background-color: #1f2a36;
+}
