@@ -191,7 +191,21 @@ public class SidebarMenuController {
     // Example button actions
     private void createNewGroup() { System.out.println("Creating New Group..."); }
     private void createNewChannel() { System.out.println("Creating New Channel..."); }
-    private void openContacts() { System.out.println("Opening Contacts..."); }
+
+    private void openContacts() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                    "/org/to/telegramfinalproject/Fxml/contacts.fxml"));
+            Node contactsOverlay = loader.load();
+
+            // Show overlay on top of everything
+            MainController.getInstance().showOverlay(contactsOverlay);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void openSavedMessages() { System.out.println("Opening Saved Messages..."); }
     private void openSettings() { System.out.println("Opening Settings..."); }
     private void openTelegramFeatures() { System.out.println("Opening Telegram Features..."); }

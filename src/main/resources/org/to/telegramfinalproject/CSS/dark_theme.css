@@ -444,3 +444,99 @@
 .camera-button:hover {
     -fx-background-color: #0077b6;
 }
+
+.contacts-card {
+    -fx-background-color: #1f2a36;
+    -fx-background-radius: 8;
+    -fx-padding: 12;
+}
+
+.contacts-header {
+    -fx-padding: 8 0 8 0;
+}
+.contacts-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #fff;
+}
+.icon-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #fff;
+}
+
+.contact-item {
+    -fx-padding: 8 12;
+    -fx-background-color: #1e2a35;
+    -fx-background-radius: 6;
+
+    /* Add subtle shadow like light theme */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 4, 0.2, 0, 1);
+}
+
+.contact-item:hover {
+    -fx-background-color: #253544; /* subtle hover */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 6, 0.3, 0, 1); /* stronger on hover */
+}
+
+.contact-name {
+    -fx-font-size: 14px;
+    -fx-text-fill: #eee;
+}
+.contact-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #999;
+}
+
+.footer-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #1e90ff;
+    -fx-font-weight: bold;
+}
+
+.overlay-background {
+    -fx-background-color: rgba(0, 0, 0, 0.4); /* semi-transparent black */
+    -fx-pref-width: 100%;
+    -fx-pref-height: 100%;
+}
+
+.contacts-search-box {
+    -fx-background-color: #253544;
+    -fx-background-radius: 10;
+    -fx-padding: 6 10;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 8, 0.3, 0, 1);
+    -fx-alignment: center-left;
+}
+
+.contacts-search {
+    -fx-background-color: #253544;
+    -fx-border-color: #253544;
+    -fx-prompt-text-fill: #777; /* Placeholder text */
+    -fx-text-fill: #eee;        /* Actual user text (light so it’s visible) */
+    -fx-font-size: 13px;
+}
+
+.search-icon {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-opacity: 0.7;
+}
+.search-icon:hover {
+    -fx-opacity: 1;
+}
+
+.no-contacts-label {
+    -fx-text-fill: #aaa;
+    -fx-font-size: 13px;
+}
+
+.contacts-scroll {
+    -fx-background-color: transparent; /* outer scroll */
+}
+
+.contacts-scroll > .viewport {
+    -fx-background-color: #1f2a36; /* matches contacts-card */
+}
+
+.contacts-list {
+    -fx-background-color: #1f2a36; /* make sure the VBox background also matches */
+}

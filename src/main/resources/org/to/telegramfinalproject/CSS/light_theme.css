@@ -443,3 +443,91 @@
 .camera-button:hover {
     -fx-background-color: #0077b6;
 }
+
+.contacts-card {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-padding: 12;
+}
+
+.contacts-header {
+    -fx-padding: 8 0 8 0;
+}
+.contacts-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #000;
+}
+.icon-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #000;
+}
+
+.contacts-search {
+    -fx-background-color: #f5f5f5;
+    -fx-background-radius: 6;
+    -fx-padding: 6;
+    -fx-font-size: 13px;
+}
+
+.contact-item {
+    -fx-padding: 8 12;
+    -fx-background-color: white;
+    -fx-background-radius: 6;
+}
+
+.contact-item:hover {
+    -fx-background-color: #f0f0f0; /* highlight on hover */
+}
+
+.contact-name {
+    -fx-font-size: 14px;
+    -fx-text-fill: #111;
+}
+.contact-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #666;
+}
+
+.footer-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #0078d7;
+    -fx-font-weight: bold;
+}
+
+.overlay-background {
+    -fx-background-color: rgba(0, 0, 0, 0.4); /* semi-transparent black */
+    -fx-pref-width: 100%;
+    -fx-pref-height: 100%;
+}
+
+.contacts-search-box {
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 6;
+    -fx-padding: 6 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 4, 0.2, 0, 1);
+    -fx-alignment: center-left;
+}
+
+.contacts-search {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-prompt-text-fill: #aaa;
+    -fx-text-fill: #222;
+    -fx-font-size: 13px;
+}
+
+.search-icon {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-opacity: 0.8;
+}
+.search-icon:hover {
+    -fx-opacity: 1;
+}
+
+.no-contacts-label {
+    -fx-text-fill: #777;   /* light theme */
+    -fx-font-size: 13px;
+}
+
