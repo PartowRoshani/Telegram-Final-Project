@@ -624,5 +624,94 @@
 }
 
 .contacts-list {
-    -fx-background-color: #1f2a36; /* make sure the VBox background also matches */
+    -fx-background-color: #1f2a36;
+}
+
+/* ===== Group Card ===== */
+.group-card {
+    -fx-background-color: #1f2a36;
+    -fx-background-radius: 8;
+    -fx-padding: 16;
+}
+
+.group-name-label {
+    -fx-text-fill: #1e90ff;   /* same blue as light theme */
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.group-input {
+    -fx-background-color: transparent;
+    -fx-border-color: #444;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 4 2;
+    -fx-text-fill: #eee;
+    -fx-prompt-text-fill: #777;
+}
+
+.group-camera-button {
+    -fx-background-color: #3390ec;
+    -fx-background-radius: 50%;
+    -fx-cursor: hand;
+}
+
+.footer-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #3390ec;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+/* Group name field normal */
+.group-name-field {
+    -fx-background-color: transparent;
+    -fx-border-color: #1e90ff;
+    -fx-border-width: 0 0 2 0; /* underline only */
+    -fx-text-fill: #fff;
+    -fx-prompt-text-fill: #777;
+    -fx-focus-color: transparent; /* prevent default blue glow */
+    -fx-faint-focus-color: transparent;
+}
+
+/* Error state for group name */
+.group-name-label.error {
+    -fx-text-fill: #e74c3c; /* red */
+}
+
+.group-name-field.error {
+    -fx-border-color: #e74c3c;
+    -fx-border-width: 0 0 2 0; /* only underline */
+    -fx-focus-color: transparent; /* remove default blue glow */
+}
+
+/* Member count label */
+.member-count {
+    -fx-font-size: 12px;
+    -fx-text-fill: #aaa; /* lighter gray for dark background */
+}
+
+/* Pane holding selected members */
+.selected-members-pane {
+    -fx-background-color: transparent;
+    -fx-padding: 6;
+    -fx-hgap: 6;
+    -fx-vgap: 6;
+}
+
+/* Footer */
+.contacts-footer {
+    -fx-background-color: transparent;
+    -fx-padding: 8 12;
+}
+
+/* Chip for selected members */
+.member-chip {
+    -fx-background-color: #253544;  /* dark bluish bubble */
+    -fx-background-radius: 16;
+    -fx-padding: 4 8;
+    -fx-spacing: 6;
+    -fx-alignment: center;
+}
+.member-chip:hover {
+    -fx-background-color: #31475b;  /* lighter on hover */
 }

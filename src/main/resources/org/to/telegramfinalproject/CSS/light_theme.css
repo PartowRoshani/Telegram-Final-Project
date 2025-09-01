@@ -637,7 +637,85 @@
 }
 
 .no-contacts-label {
-    -fx-text-fill: #777;   /* light theme */
+    -fx-text-fill: #777;
     -fx-font-size: 13px;
 }
 
+/* ===== Group Card ===== */
+.group-card {
+    -fx-background-color: #fff;
+    -fx-background-radius: 8;
+    -fx-padding: 16;
+}
+
+/* Group name label */
+.group-name-label {
+    -fx-text-fill: #1e90ff; /* blue color */
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+/* Group name input */
+.group-name-field {
+    -fx-background-color: transparent;
+    -fx-border-width: 0 0 2 0;   /* only bottom line */
+    -fx-border-color: #1e90ff;   /* blue underline */
+    -fx-padding: 4 0 4 0;
+    -fx-font-size: 13px;
+}
+
+.group-camera-button {
+    -fx-background-color: #3390ec;
+    -fx-background-radius: 50%;
+    -fx-cursor: hand;
+}
+
+.footer-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #3390ec;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+/* Error state for group name */
+.group-name-label.error {
+    -fx-text-fill: #e74c3c; /* red */
+}
+
+.group-name-field.error {
+    -fx-border-color: #e74c3c;
+    -fx-border-width: 0 0 2 0; /* only underline */
+    -fx-focus-color: transparent; /* remove default blue glow */
+}
+
+/* Member count label (top right in header) */
+.member-count {
+    -fx-font-size: 12px;
+    -fx-text-fill: #777; /* subtle gray */
+}
+
+/* Pane holding selected members (chips flow horizontally) */
+.selected-members-pane {
+    -fx-background-color: transparent;
+    -fx-padding: 6;
+    -fx-hgap: 6;
+    -fx-vgap: 6;
+}
+
+/* Footer with Cancel & Create buttons */
+.contacts-footer {
+    -fx-background-color: transparent;
+    -fx-padding: 8 12;
+}
+
+/* Small chip for selected members */
+.member-chip {
+    -fx-background-color: #d9d9d9;  /* light gray bubble */
+    -fx-background-radius: 16;
+    -fx-padding: 4 8;
+    -fx-spacing: 6;
+    -fx-alignment: center;
+}
+.member-chip:hover {
+    -fx-background-color: #c6c6c6;  /* slightly darker on hover */
+}

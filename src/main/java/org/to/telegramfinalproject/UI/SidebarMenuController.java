@@ -196,8 +196,20 @@ public class SidebarMenuController {
         }
     }
 
-    // Example button actions
-    private void createNewGroup() { System.out.println("Creating New Group..."); }
+    private void createNewGroup() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                    "/org/to/telegramfinalproject/Fxml/new_group.fxml"));
+            Node groupOverlay = loader.load();
+
+            // Show overlay (like MyProfile, Contacts, etc.)
+            MainController.getInstance().showOverlay(groupOverlay);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void createNewChannel() { System.out.println("Creating New Channel..."); }
 
     private void openContacts() {

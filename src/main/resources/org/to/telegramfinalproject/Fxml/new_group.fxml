@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<StackPane fx:id="overlayRoot" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.NewGroupController"
+           styleClass="overlay-root">
+
+    <!-- Dimmed background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Group card -->
+    <VBox fx:id="newGroupCard"
+          styleClass="group-card"
+          spacing="16"
+          alignment="CENTER"
+          prefWidth="400" maxWidth="400"
+          prefHeight="220" maxHeight="220">
+
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <!-- Group Picture -->
+            <Button fx:id="cameraButton"
+                    prefWidth="64" prefHeight="64"
+                    styleClass="group-camera-button">
+                <graphic>
+                    <ImageView fx:id="cameraIcon"
+                               fitWidth="28" fitHeight="28"
+                               preserveRatio="true"/>
+                </graphic>
+            </Button>
+
+            <!-- Group Name -->
+            <VBox spacing="4" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
+                <Label fx:id="groupNameLabel" text="Group name" styleClass="group-name-label"/>
+                <TextField fx:id="groupNameField"
+                           promptText="Enter group name"
+                           styleClass="group-name-field"
+                           HBox.hgrow="ALWAYS"/>
+            </VBox>
+        </HBox>
+
+        <!-- Footer: Cancel + Next -->
+        <HBox alignment="CENTER_RIGHT" spacing="16">
+            <Button fx:id="cancelButton" text="Cancel" styleClass="footer-button"/>
+            <Button fx:id="nextButton" text="Next" styleClass="footer-button"/>
+        </HBox>
+    </VBox>
+</StackPane>

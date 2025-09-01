@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.geometry.Insets?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.AddMembersController"
+           styleClass="overlay-root">
+
+    <!-- Background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Add Members card -->
+    <VBox fx:id="addMembersCard" styleClass="contacts-card"
+          prefWidth="360" maxWidth="360"
+          prefHeight="520" maxHeight="520">
+
+        <!-- ===== Header ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="10" styleClass="contacts-header">
+            <Label text="Add Members" styleClass="contacts-title"/>
+            <!-- Member count -->
+            <Label fx:id="memberCountLabel" text="0 / 200000" styleClass="member-count"/>
+            <Pane HBox.hgrow="ALWAYS"/> <!-- pushes elements to right -->
+        </HBox>
+
+        <!-- ===== Selected Members Row ===== -->
+        <FlowPane fx:id="selectedMembersPane"
+                  hgap="6" vgap="6"
+                  styleClass="selected-members-pane">
+            <padding>
+                <Insets top="6" right="6" bottom="6" left="6"/>
+            </padding>
+        </FlowPane>
+
+        <!-- ===== Search Bar with Icon ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="6" styleClass="contacts-search-box">
+            <Button fx:id="searchIcon" styleClass="search-icon"/>
+            <TextField fx:id="searchField"
+                       promptText="Search"
+                       styleClass="contacts-search"
+                       HBox.hgrow="ALWAYS"/>
+        </HBox>
+
+        <Separator styleClass="section-separator"/>
+
+        <!-- ===== Contacts List (fills space) ===== -->
+        <ScrollPane fx:id="contactsScroll"
+                    fitToWidth="true"
+                    vbarPolicy="AS_NEEDED"
+                    hbarPolicy="NEVER"
+                    VBox.vgrow="ALWAYS"
+                    styleClass="contacts-scroll">
+            <VBox fx:id="contactsList" spacing="6" styleClass="contacts-list"/>
+        </ScrollPane>
+
+        <Separator styleClass="section-separator"/>
+
+        <!-- ===== Footer ===== -->
+        <HBox alignment="CENTER_RIGHT" styleClass="contacts-footer">
+            <padding>
+                <Insets top="8" right="8" bottom="8" left="8"/>
+            </padding>
+            <Button fx:id="cancelButton" text="Cancel" styleClass="footer-button"/>
+            <Button fx:id="createButton" text="Create" styleClass="footer-button"/>
+        </HBox>
+    </VBox>
+</StackPane>
