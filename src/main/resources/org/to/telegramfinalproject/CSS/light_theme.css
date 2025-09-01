@@ -581,6 +581,9 @@
     -fx-padding: 8 12;
     -fx-background-color: white;
     -fx-background-radius: 6;
+
+    /* Soft shadow for separation */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 4, 0.2, 0, 1);
 }
 
 .contact-item:hover {

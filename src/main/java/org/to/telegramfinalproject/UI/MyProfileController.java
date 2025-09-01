@@ -41,7 +41,7 @@ public class MyProfileController {
         // Default avatar
         profileImage.setImage(new Image(
                 Objects.requireNonNull(getClass().getResourceAsStream(
-                        "/org/to/telegramfinalproject/Avatars/default_profile.png"))
+                        "/org/to/telegramfinalproject/Avatars/default_user_profile.png"))
         ));
 
         // Register scene for ThemeManager → stylesheet swap will handle colors/icons

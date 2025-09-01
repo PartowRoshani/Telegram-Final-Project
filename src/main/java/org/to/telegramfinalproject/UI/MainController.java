@@ -398,7 +398,8 @@ public class MainController {
                     ? chat.getImageUrl()
                     : null;
 
-            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount(), imageUrl, chat.getType());            item.setOnMouseClicked(e -> openChat(chat));
+            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount(), imageUrl, chat.getType());
+            item.setOnMouseClicked(e -> openChat(chat));
             chatListContainer.getChildren().add(item);
 
             itemControllers.put(chat.getId(), cc);
@@ -967,11 +968,4 @@ public class MainController {
 
         return false;
     }
-
-
-
-
-
-
-
 }

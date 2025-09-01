@@ -23,18 +23,18 @@ public class ContactsController {
 
     // Sample data for testing (later fetch from DB/server)
     private final List<Contact> allContacts = Arrays.asList(
-            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_profile.png"),
-            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_profile.png"),
-            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_profile.png"),
-            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_profile.png"),
-            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_profile.png"),
-            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_profile.png"),
-            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_profile.png"),
-            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_profile.png"),
-            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_profile.png"),
-            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_profile.png"),
-            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_profile.png"),
-            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_profile.png")
+            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
+            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
+            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
+            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
+            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
+            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
+            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
+            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
+            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
+            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
+            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
+            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_user_profile.png")
     );
 
     @FXML
