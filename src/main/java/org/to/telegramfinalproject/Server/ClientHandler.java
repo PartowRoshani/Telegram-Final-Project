@@ -77,6 +77,17 @@ public class ClientHandler implements Runnable {
 
                 String line = inputLine.trim();
 
+
+                if("AVATAR".equalsIgnoreCase(line)){
+
+                        out.println(new JSONObject().put("status","ready").toString());
+                        out.flush();
+                        handleAvatarFrame(dis, out, this.currentUser.getInternal_uuid());
+                    continue;
+
+
+                }
+
                 if ("MEDIA".equalsIgnoreCase(inputLine.trim())) {
                     handleMediaFrame(dis, out);
                     continue;
@@ -95,6 +106,8 @@ public class ClientHandler implements Runnable {
                     handleMediaDownload(dis, dos, cu);
                     continue;
                 }
+
+
 
                 JSONObject requestJson = new JSONObject(inputLine);
                 String action = requestJson.getString("action");
@@ -2731,6 +2744,8 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+
+
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);
                 }
@@ -3617,4 +3632,150 @@ public class ClientHandler implements Runnable {
 
 
 
+    private static final int MAGIC_AVATAR = 0x41565431; // "AVT1"
+    private static final long MAX_AVATAR = 3L * 1024 * 1024;
+
+    private void handleAvatarFrame(DataInputStream dis, PrintWriter out, UUID currentUserId) {
+        try {
+            int magic = dis.readInt();
+            if (magic != MAGIC_AVATAR) { out.println(err("bad magic")); out.flush(); return; }
+
+            int headerLen = dis.readInt();
+            if (headerLen <= 0 || headerLen > 64*1024) { out.println(err("bad header length")); out.flush(); return; }
+
+            byte[] headerBytes = dis.readNBytes(headerLen);
+            if (headerBytes.length != headerLen) { out.println(err("header truncated")); out.flush(); return; }
+
+            JSONObject h = new JSONObject(new String(headerBytes, java.nio.charset.StandardCharsets.UTF_8));
+
+            long contentLen = dis.readLong();
+            if (contentLen <= 0 || contentLen > MAX_AVATAR) {
+                skip(dis, contentLen);
+                out.println(err("file too large/invalid")); out.flush(); return;
+            }
+
+            String targetType = h.optString("target_type", "user").toLowerCase();
+            UUID targetId;
+            if ("user".equals(targetType)) {
+                String s = h.optString("target_id", "");
+                targetId = s.isEmpty() ? currentUserId : UUID.fromString(s);
+                if (!targetId.equals(currentUserId)) {
+                    skip(dis, contentLen);
+                    out.println(err("forbidden")); out.flush(); return;
+                }
+            } else {
+                String s = h.optString("target_id", "");
+                if (s.isEmpty()) { skip(dis, contentLen); out.println(err("missing target_id")); out.flush(); return; }
+                targetId = UUID.fromString(s);
+                if (!hasManagePermission(currentUserId, targetType, targetId)) {
+                    skip(dis, contentLen);
+                    out.println(err("forbidden")); out.flush(); return;
+                }
+            }
+
+            String fileName = h.optString("file_name", "avatar.bin");
+            String mimeType = h.optString("mime_type", "application/octet-stream");
+            if (!isAllowedImageMime(mimeType)) { skip(dis, contentLen); out.println(err("unsupported mime")); out.flush(); return; }
+            if (fileName.length() > 200) fileName = fileName.substring(0,200);
+
+            java.nio.file.Path baseDir = java.nio.file.Paths.get("uploads").toAbsolutePath().normalize();
+            String subdir = "avatars/" + java.time.LocalDate.now();
+            java.nio.file.Path dir = baseDir.resolve(subdir).normalize();
+            java.nio.file.Files.createDirectories(dir);
+
+            String ext = guessExt_Profile(fileName, mimeType); // ⬅️ این یکی را صدا بزن
+            String storedName = java.util.UUID.randomUUID() + ext;
+            java.nio.file.Path targetPath = dir.resolve(storedName).normalize();
+
+            try (OutputStream fos = new BufferedOutputStream(java.nio.file.Files.newOutputStream(
+                    targetPath, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING))) {
+                long remaining = contentLen;
+                byte[] buf = new byte[8192];
+                while (remaining > 0) {
+                    int toRead = (int)Math.min(buf.length, remaining);
+                    int n = dis.read(buf, 0, toRead);
+                    if (n == -1) throw new EOFException("stream ended early");
+                    fos.write(buf, 0, n);
+                    remaining -= n;
+                }
+            }
+            String requestId = h.optString("message_id", null); // ⬅️ اضافه
+
+            long fileSize = java.nio.file.Files.size(targetPath);
+            String fileUrl = "/" + subdir.replace('\\','/') + "/" + storedName;  // /avatars/YYYY-MM-DD/uuid.jpg
+
+            boolean ok = updateProfileImageUrl(targetType, targetId, fileUrl);
+
+            JSONObject ack = new JSONObject()
+                    .put("status", ok ? "success" : "error")
+                    .put("message_id", requestId == null ? JSONObject.NULL : requestId) // ⬅️ اضافه
+                    .put("target_type", targetType)
+                    .put("target_id", targetId.toString())
+                    .put("file_name", fileName)
+                    .put("mime_type", mimeType)
+                    .put("file_size", fileSize)
+                    .put("display_url", fileUrl);
+
+            out.println(ack.toString());
+            out.flush();
+
+            if (ok) {
+                // (اختیاری) Broadcast به اعضای مرتبط
+                // broadcastProfileChange(targetType, targetId, fileUrl);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            out.println(err("exception"));
+            out.flush();
+        }
+    }
+
+    private static String err(String m) { return new JSONObject().put("status","error").put("message",m).toString(); }
+
+    private static boolean isAllowedImageMime(String mime) {
+        if (mime == null) return false;
+        return mime.equals("image/jpeg") || mime.equals("image/png") || mime.equals("image/webp");
+    }
+
+    private static String guessExt_Profile(String fileName, String mime) {
+        String lower = fileName.toLowerCase();
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return ".jpg";
+        if (lower.endsWith(".png")) return ".png";
+        if (lower.endsWith(".webp")) return ".webp";
+        return switch (mime) {
+            case "image/jpeg" -> ".jpg";
+            case "image/png"  -> ".png";
+            case "image/webp" -> ".webp";
+            default -> ".bin";
+        };
+    }
+
+
+
+    private boolean updateProfileImageUrl(String targetType, UUID targetId, String url) {
+        String sql = switch (targetType) {
+            case "user"    -> "UPDATE users SET image_url=? WHERE internal_uuid=?";
+            case "channel" -> "UPDATE channels SET image_url=? WHERE id=?";
+            case "group"   -> "UPDATE groups SET image_url=? WHERE id=?";
+            default        -> null;
+        };
+        if (sql == null) return false;
+        try (Connection c = ConnectionDb.connect(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, url);
+            ps.setObject(2, targetId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    private boolean hasManagePermission(UUID currentUserId, String type, UUID targetId) {
+        return true; // فعلاً
+    }
+
 }
+
+
+
+
+
+

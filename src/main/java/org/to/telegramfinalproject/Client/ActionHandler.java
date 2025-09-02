@@ -10,6 +10,8 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
@@ -367,17 +369,28 @@ public class ActionHandler {
                 System.out.println("Group name can't be empty.");
             }
         }
-        System.out.print("Enter image URL (optional): ");
-        String imageUrl = scanner.nextLine();
+//        System.out.print("Enter image URL (optional): ");
+//        String imageUrl = scanner.nextLine();
+//
+//        JSONObject req = new JSONObject();
+//        req.put("action", "create_group");
+//        req.put("user_id", Session.getUserUUID());
+//        req.put("group_id", groupId);
+//        req.put("group_name", groupName);
+//        req.put("image_url", imageUrl.isBlank() ? JSONObject.NULL : imageUrl);
+
+        System.out.print("Enter image path/URL (optional): ");
+        String imageInput = scanner.nextLine();
+        String prepared = prepareAvatar(imageInput); // ← جدید
 
         JSONObject req = new JSONObject();
         req.put("action", "create_group");
         req.put("user_id", Session.getUserUUID());
         req.put("group_id", groupId);
         req.put("group_name", groupName);
-        req.put("image_url", imageUrl.isBlank() ? JSONObject.NULL : imageUrl);
-
+        req.put("image_url", prepared == null ? JSONObject.NULL : prepared);
         send(req);
+
     }
 
 
@@ -405,16 +418,28 @@ public class ActionHandler {
                 System.out.println("Channel name can't be empty.");
             }
         }
-        System.out.print("Enter image URL (optional): ");
-        String imageUrl = scanner.nextLine();
+//        System.out.print("Enter image URL (optional): ");
+//        String imageUrl = scanner.nextLine();
+//
+//        JSONObject req = new JSONObject();
+//        req.put("action", "create_channel");
+//        req.put("user_id", Session.getUserUUID());
+//        req.put("channel_id", channelId);
+//        req.put("channel_name", channelName);
+//        req.put("image_url", imageUrl.isBlank() ? JSONObject.NULL : imageUrl);
+//
+//        send(req);
+
+        System.out.print("Enter image path/URL (optional): ");
+        String imageInput = scanner.nextLine();
+        String prepared = prepareAvatar(imageInput);
 
         JSONObject req = new JSONObject();
         req.put("action", "create_channel");
         req.put("user_id", Session.getUserUUID());
         req.put("channel_id", channelId);
         req.put("channel_name", channelName);
-        req.put("image_url", imageUrl.isBlank() ? JSONObject.NULL : imageUrl);
-
+        req.put("image_url", prepared == null ? JSONObject.NULL : prepared);
         send(req);
     }
 
@@ -2701,78 +2726,170 @@ public class ActionHandler {
 
     }
 
-    private void editGroupInfo(UUID groupId) {
-        JSONObject req = new JSONObject();
-        req.put("action", "get_chat_info");
-        req.put("receiver_id", groupId.toString());
-        req.put("receiver_type", "group");
+//    private void editGroupInfo(UUID groupId) {
+//        JSONObject req = new JSONObject();
+//        req.put("action", "get_chat_info");
+//        req.put("receiver_id", groupId.toString());
+//        req.put("receiver_type", "group");
+//
+//        JSONObject res = sendWithResponse(req);
+//        if (res == null || !res.getString("status").equals("success")) {
+//            System.out.println("❌ Failed to fetch group info.");
+//            return;
+//        }
+//
+//        JSONObject data = res.getJSONObject("data");
+//
+//        String currentId = data.getString("id");
+//        String currentName = data.getString("name");
+//        String currentDesc = data.optString("description", null);
+//        String currentImage = data.optString("image_url", null);
+//
+//        System.out.println("\n--- Current Group Info ---");
+//        System.out.println("1. Group ID: " + currentId);
+//        System.out.println("2. Name: " + currentName);
+//        System.out.println("3. Description: " + currentDesc);
+//        System.out.println("4. Image URL: " + currentImage);
+//        System.out.println("0. Cancel");
+//
+//        System.out.print("Select the field you want to edit (0-4): ");
+//        String choice = scanner.nextLine().trim();
+//
+//        String newGroupId = currentId;
+//        String newName = currentName;
+//        String newDesc = currentDesc;
+//        String newImage = currentImage;
+//
+//        switch (choice) {
+//            case "1" -> {
+//                System.out.print("Enter new Group ID: ");
+//                newGroupId = scanner.nextLine().trim();
+//            }
+//            case "2" -> {
+//                System.out.print("Enter new Group Name: ");
+//                newName = scanner.nextLine().trim();
+//            }
+//            case "3" -> {
+//                System.out.print("Enter new Description: ");
+//                newDesc = scanner.nextLine().trim();
+//            }
+//            case "4" -> {
+//                System.out.print("Enter new Image URL: ");
+//                newImage = scanner.nextLine().trim();
+//            }
+//            case "0" -> {
+//                System.out.println("Cancelled.");
+//                return;
+//            }
+//            default -> {
+//                System.out.println("Invalid choice.");
+//                return;
+//            }
+//        }
+//
+//        JSONObject editReq = new JSONObject();
+//        editReq.put("action", "edit_group_info");
+//        editReq.put("group_id", groupId.toString()); // internal_uuid
+//        editReq.put("new_group_id", newGroupId);
+//        editReq.put("name", newName);
+//        editReq.put("description", newDesc);
+//        editReq.put("image_url", newImage);
+//
+//        JSONObject editRes = sendWithResponse(editReq);
+//        if (editRes != null)
+//            System.out.println(editRes.getString("message"));
+//    }
 
-        JSONObject res = sendWithResponse(req);
-        if (res == null || !res.getString("status").equals("success")) {
+
+    private void editGroupInfo(UUID groupInternalId) {
+        // 1) fetch current info
+        JSONObject getReq = new JSONObject()
+                .put("action", "get_chat_info")
+                .put("receiver_id", groupInternalId.toString())
+                .put("receiver_type", "group");
+
+        JSONObject res = sendWithResponse(getReq);
+        if (res == null || !"success".equalsIgnoreCase(res.optString("status"))) {
             System.out.println("❌ Failed to fetch group info.");
             return;
         }
 
-        JSONObject data = res.getJSONObject("data");
-
-        String currentId = data.getString("id");
-        String currentName = data.getString("name");
-        String currentDesc = data.optString("description", null);
-        String currentImage = data.optString("image_url", null);
-
-        System.out.println("\n--- Current Group Info ---");
-        System.out.println("1. Group ID: " + currentId);
-        System.out.println("2. Name: " + currentName);
-        System.out.println("3. Description: " + currentDesc);
-        System.out.println("4. Image URL: " + currentImage);
-        System.out.println("0. Cancel");
-
-        System.out.print("Select the field you want to edit (0-4): ");
-        String choice = scanner.nextLine().trim();
-
-        String newGroupId = currentId;
-        String newName = currentName;
-        String newDesc = currentDesc;
-        String newImage = currentImage;
-
-        switch (choice) {
-            case "1" -> {
-                System.out.print("Enter new Group ID: ");
-                newGroupId = scanner.nextLine().trim();
-            }
-            case "2" -> {
-                System.out.print("Enter new Group Name: ");
-                newName = scanner.nextLine().trim();
-            }
-            case "3" -> {
-                System.out.print("Enter new Description: ");
-                newDesc = scanner.nextLine().trim();
-            }
-            case "4" -> {
-                System.out.print("Enter new Image URL: ");
-                newImage = scanner.nextLine().trim();
-            }
-            case "0" -> {
-                System.out.println("Cancelled.");
-                return;
-            }
-            default -> {
-                System.out.println("Invalid choice.");
-                return;
-            }
+        JSONObject data = res.optJSONObject("data");
+        if (data == null) {
+            System.out.println("❌ Invalid response (no data).");
+            return;
         }
 
-        JSONObject editReq = new JSONObject();
-        editReq.put("action", "edit_group_info");
-        editReq.put("group_id", groupId.toString()); // internal_uuid
-        editReq.put("new_group_id", newGroupId);
-        editReq.put("name", newName);
-        editReq.put("description", newDesc);
-        editReq.put("image_url", newImage);
+        String curId   = data.optString("id", "");
+        String curName = data.optString("name", "");
+        String curDesc = data.isNull("description") ? null : data.optString("description", null);
+        String curImg  = data.isNull("image_url")   ? null : data.optString("image_url", null);
 
+        System.out.println("\n--- Current Group Info ---");
+        System.out.println("1) Group ID     : " + curId);
+        System.out.println("2) Name         : " + curName);
+        System.out.println("3) Description  : " + curDesc);
+        System.out.println("4) Image URL    : " + curImg);
+        System.out.println("0) Cancel");
+        System.out.print("Select the field to edit (0-4): ");
+
+        String choice = scanner.nextLine().trim();
+        if ("0".equals(choice)) {
+            System.out.println("Cancelled.");
+            return;
+        }
+
+        String inId = "", inName = "", inDesc = "", inImg = "";
+        switch (choice) {
+            case "1" -> { System.out.print("Enter NEW Group ID (leave empty to keep): "); inId = scanner.nextLine(); }
+            case "2" -> { System.out.print("Enter NEW Group Name (leave empty to keep): "); inName = scanner.nextLine(); }
+            case "3" -> {
+                System.out.print("Enter NEW Description (empty=keep, '-' or 'none'=remove): ");
+                inDesc = scanner.nextLine();
+            }
+            case "4" -> {
+                System.out.print("Enter NEW Image (empty=keep, '-' or 'none'=remove, path or /avatars/... or URL): ");
+                inImg = scanner.nextLine();
+            }
+            default -> { System.out.println("Invalid choice."); return; }
+        }
+
+        // 2) build edit request — ALWAYS send required fields
+        String outId   = isBlank(inId)   ? curId   : inId.trim();
+        String outName = isBlank(inName) ? curName : inName.trim();
+
+        JSONObject editReq = new JSONObject()
+                .put("action", "edit_group_info")
+                .put("group_id", groupInternalId.toString()) // internal_uuid of group
+                .put("new_group_id", outId)                  // REQUIRED by server
+                .put("name", outName);                       // send name always
+
+        // description logic
+        if (isBlank(inDesc)) {
+            if (curDesc != null) editReq.put("description", curDesc);
+        } else if (isRemoveToken(inDesc)) {
+            editReq.put("description", JSONObject.NULL);     // remove
+        } else {
+            editReq.put("description", inDesc.trim());
+        }
+
+        // image_url logic
+        if (isBlank(inImg)) {
+            if (curImg != null) editReq.put("image_url", curImg);
+        } else if (isRemoveToken(inImg)) {
+            editReq.put("image_url", JSONObject.NULL);       // remove
+        } else {
+            String prepared = prepareAvatar(inImg);
+            if (prepared != null) editReq.put("image_url", prepared);
+        }
+
+        // 3) send
         JSONObject editRes = sendWithResponse(editReq);
-        if (editRes != null)
-            System.out.println(editRes.getString("message"));
+        if (editRes == null) {
+            System.out.println("⚠️ No response.");
+            return;
+        }
+        System.out.println(editRes.optString("message", editRes.optString("status", "done")));
     }
 
 
@@ -2827,79 +2944,177 @@ public class ActionHandler {
 
     }
 
+//
+//    private void editChannelInfo(UUID channelInternalId) {
+//        JSONObject req = new JSONObject();
+//        req.put("action", "get_chat_info");
+//        req.put("receiver_id", channelInternalId.toString());
+//        req.put("receiver_type", "channel");
+//
+//        JSONObject res = sendWithResponse(req);
+//        if (res == null || !res.getString("status").equals("success")) {
+//            System.out.println("❌ Failed to fetch channel info.");
+//            return;
+//        }
+//
+//        JSONObject data = res.getJSONObject("data");
+//
+//        String currentId = data.getString("id");
+//        String currentName = data.getString("name");
+//        String currentDesc = data.optString("description", null);
+//        String currentImage = data.optString("image_url", null);
+//
+//        System.out.println("\n--- Current Channel Info ---");
+//        System.out.println("1. Channel ID: " + currentId);
+//        System.out.println("2. Name: " + currentName);
+//        System.out.println("3. Description: " + currentDesc);
+//        System.out.println("4. Image URL: " + currentImage);
+//        System.out.println("0. Cancel");
+//
+//        System.out.print("Select the field you want to edit (0-4): ");
+//        String choice = scanner.nextLine().trim();
+//
+//        String newChannelId = currentId;
+//        String newName = currentName;
+//        String newDesc = currentDesc;
+//        String newImage = currentImage;
+//
+//        switch (choice) {
+//            case "1" -> {
+//                System.out.print("Enter new Channel ID: ");
+//                newChannelId = scanner.nextLine().trim();
+//            }
+//            case "2" -> {
+//                System.out.print("Enter new Channel Name: ");
+//                newName = scanner.nextLine().trim();
+//            }
+//            case "3" -> {
+//                System.out.print("Enter new Description: ");
+//                newDesc = scanner.nextLine().trim();
+//            }
+//            case "4" -> {
+//                System.out.print("Enter new Image URL: ");
+//                newImage = scanner.nextLine().trim();
+//            }
+//            case "0" -> {
+//                System.out.println("Cancelled.");
+//                return;
+//            }
+//            default -> {
+//                System.out.println("Invalid choice.");
+//                return;
+//            }
+//        }
+//
+//        JSONObject editReq = new JSONObject();
+//        editReq.put("action", "edit_channel_info");
+//        editReq.put("channel_id", channelInternalId.toString()); // internal_uuid
+//        editReq.put("new_channel_id", newChannelId);
+//        editReq.put("name", newName);
+//        editReq.put("description", newDesc);
+//        editReq.put("image_url", newImage);
+//
+//        JSONObject editRes = sendWithResponse(editReq);
+//        if (editRes != null)
+//            System.out.println(editRes.getString("message"));
+//    }
+
+
+    private static boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
+    private static boolean isRemoveToken(String s) {
+        return s != null && (s.equals("-") || s.equalsIgnoreCase("none"));
+    }
+
 
     private void editChannelInfo(UUID channelInternalId) {
-        JSONObject req = new JSONObject();
-        req.put("action", "get_chat_info");
-        req.put("receiver_id", channelInternalId.toString());
-        req.put("receiver_type", "channel");
+        // 1) fetch current info
+        JSONObject getReq = new JSONObject()
+                .put("action", "get_chat_info")
+                .put("receiver_id", channelInternalId.toString())
+                .put("receiver_type", "channel");
 
-        JSONObject res = sendWithResponse(req);
-        if (res == null || !res.getString("status").equals("success")) {
+        JSONObject res = sendWithResponse(getReq);
+        if (res == null || !"success".equalsIgnoreCase(res.optString("status"))) {
             System.out.println("❌ Failed to fetch channel info.");
             return;
         }
 
-        JSONObject data = res.getJSONObject("data");
-
-        String currentId = data.getString("id");
-        String currentName = data.getString("name");
-        String currentDesc = data.optString("description", null);
-        String currentImage = data.optString("image_url", null);
-
-        System.out.println("\n--- Current Channel Info ---");
-        System.out.println("1. Channel ID: " + currentId);
-        System.out.println("2. Name: " + currentName);
-        System.out.println("3. Description: " + currentDesc);
-        System.out.println("4. Image URL: " + currentImage);
-        System.out.println("0. Cancel");
-
-        System.out.print("Select the field you want to edit (0-4): ");
-        String choice = scanner.nextLine().trim();
-
-        String newChannelId = currentId;
-        String newName = currentName;
-        String newDesc = currentDesc;
-        String newImage = currentImage;
-
-        switch (choice) {
-            case "1" -> {
-                System.out.print("Enter new Channel ID: ");
-                newChannelId = scanner.nextLine().trim();
-            }
-            case "2" -> {
-                System.out.print("Enter new Channel Name: ");
-                newName = scanner.nextLine().trim();
-            }
-            case "3" -> {
-                System.out.print("Enter new Description: ");
-                newDesc = scanner.nextLine().trim();
-            }
-            case "4" -> {
-                System.out.print("Enter new Image URL: ");
-                newImage = scanner.nextLine().trim();
-            }
-            case "0" -> {
-                System.out.println("Cancelled.");
-                return;
-            }
-            default -> {
-                System.out.println("Invalid choice.");
-                return;
-            }
+        JSONObject data = res.optJSONObject("data");
+        if (data == null) {
+            System.out.println("❌ Invalid response (no data).");
+            return;
         }
 
-        JSONObject editReq = new JSONObject();
-        editReq.put("action", "edit_channel_info");
-        editReq.put("channel_id", channelInternalId.toString()); // internal_uuid
-        editReq.put("new_channel_id", newChannelId);
-        editReq.put("name", newName);
-        editReq.put("description", newDesc);
-        editReq.put("image_url", newImage);
+        String curId   = data.optString("id", "");
+        String curName = data.optString("name", "");
+        String curDesc = data.isNull("description") ? null : data.optString("description", null);
+        String curImg  = data.isNull("image_url")   ? null : data.optString("image_url", null);
 
+        System.out.println("\n--- Current Channel Info ---");
+        System.out.println("1) Channel ID   : " + curId);
+        System.out.println("2) Name         : " + curName);
+        System.out.println("3) Description  : " + curDesc);
+        System.out.println("4) Image URL    : " + curImg);
+        System.out.println("0) Cancel");
+        System.out.print("Select the field to edit (0-4): ");
+
+        String choice = scanner.nextLine().trim();
+        if ("0".equals(choice)) {
+            System.out.println("Cancelled.");
+            return;
+        }
+
+        String inId = "", inName = "", inDesc = "", inImg = "";
+        switch (choice) {
+            case "1" -> { System.out.print("Enter NEW Channel ID (leave empty to keep): "); inId = scanner.nextLine(); }
+            case "2" -> { System.out.print("Enter NEW Channel Name (leave empty to keep): "); inName = scanner.nextLine(); }
+            case "3" -> {
+                System.out.print("Enter NEW Description (empty=keep, '-' or 'none'=remove): ");
+                inDesc = scanner.nextLine();
+            }
+            case "4" -> {
+                System.out.print("Enter NEW Image (empty=keep, '-' or 'none'=remove, path or /avatars/... or URL): ");
+                inImg = scanner.nextLine();
+            }
+            default -> { System.out.println("Invalid choice."); return; }
+        }
+
+        // 2) build edit request — ALWAYS send required fields
+        String outId   = isBlank(inId)   ? curId   : inId.trim();
+        String outName = isBlank(inName) ? curName : inName.trim();
+
+        JSONObject editReq = new JSONObject()
+                .put("action", "edit_channel_info")
+                .put("channel_id", channelInternalId.toString()) // internal_uuid of channel
+                .put("new_channel_id", outId)                    // REQUIRED by server
+                .put("name", outName);                           // send name always
+
+        // description logic
+        if (isBlank(inDesc)) {
+            if (curDesc != null) editReq.put("description", curDesc);
+        } else if (isRemoveToken(inDesc)) {
+            editReq.put("description", JSONObject.NULL);         // remove
+        } else {
+            editReq.put("description", inDesc.trim());
+        }
+
+        // image_url logic
+        if (isBlank(inImg)) {
+            if (curImg != null) editReq.put("image_url", curImg);
+        } else if (isRemoveToken(inImg)) {
+            editReq.put("image_url", JSONObject.NULL);           // remove
+        } else {
+            String prepared = prepareAvatar(inImg);
+            if (prepared != null) editReq.put("image_url", prepared);
+        }
+
+        // 3) send
         JSONObject editRes = sendWithResponse(editReq);
-        if (editRes != null)
-            System.out.println(editRes.getString("message"));
+        if (editRes == null) {
+            System.out.println("⚠️ No response.");
+            return;
+        }
+        System.out.println(editRes.optString("message", editRes.optString("status", "done")));
     }
 
 
@@ -4498,6 +4713,119 @@ public class ActionHandler {
         }
         return safeName(name);
     }
+
+
+    public void uploadAvatar(File file) {
+        if (file == null || !file.exists() || !file.isFile()) {
+            System.out.println("❌ Invalid file");
+            return;
+        }
+
+        final UUID requestId = UUID.randomUUID();
+
+        try {
+            String mime = detectMime(file, "IMAGE");
+            if (mime == null) mime = "image/*";
+
+            // header مثل مدیا، ولی برای آواتار
+            JSONObject header = new JSONObject()
+                    .put("message_id", requestId.toString()) // برای مچ ACK
+                    .put("target_type", "user")              // یا channel/group
+                    // .put("target_id", "…")                // اگر channel/group بود
+                    .put("file_name", file.getName())
+                    .put("mime_type", mime);
+
+            byte[] headerBytes = header.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            long contentLen = file.length();
+
+            // صف پاسخ (مثل sendMediaMessage)
+            BlockingQueue<JSONObject> q = new LinkedBlockingQueue<>(1);
+            TelegramClient.pendingResponses.put(requestId.toString(), q);
+
+            try {
+                // 🔹 سوئیچ به حالت آواتار (مثل "MEDIA\n")
+                outBin.write("AVATAR\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                outBin.flush();
+
+                // 🔹 فریم باینری: مجیک + headerLen + header + contentLen + content
+                outBin.writeInt(0x41565431);              // "AVT1"
+                outBin.writeInt(headerBytes.length);
+                outBin.write(headerBytes);
+                outBin.writeLong(contentLen);
+
+                try (InputStream fis = new BufferedInputStream(new FileInputStream(file))) {
+                    byte[] buf = new byte[8192]; int n;
+                    while ((n = fis.read(buf)) != -1) outBin.write(buf, 0, n);
+                }
+                outBin.flush();
+
+                // 🔹 انتظار ACK (مثل مدیا)
+                JSONObject ack = q.poll(20, java.util.concurrent.TimeUnit.SECONDS);
+                if (ack == null) {
+                    System.out.println("❌ Avatar ACK timeout for " + requestId);
+                    return;
+                }
+
+                if ("success".equalsIgnoreCase(ack.optString("status"))) {
+                    String url = ack.optString("display_url", null);
+                    System.out.println("✅ Avatar uploaded. url=" + url);
+                    // (اختیاری) رفرش UI + شکستن کش:
+                    // MainController.getInstance().refreshMyAvatar(url + "?v=" + System.currentTimeMillis());
+                } else {
+                    System.out.println("❌ Avatar failed: " + ack.optString("message"));
+                }
+            } finally {
+                TelegramClient.pendingResponses.remove(requestId.toString());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("❌ uploadAvatar error: " + e.getMessage());
+        }
+    }
+
+
+    private static final Path UPLOADS_ROOT =
+            Paths.get(System.getProperty("app.uploads.root", "uploads"))
+                    .toAbsolutePath().normalize();
+
+    private String prepareAvatar(String input) {
+        if (input == null || input.isBlank()) return null;
+
+        // اگر URL کامل است، دست نزن
+        if (input.startsWith("http://") || input.startsWith("https://") || input.startsWith("file:")) {
+            return input;
+        }
+
+        try {
+            Path src = Paths.get(input).toAbsolutePath().normalize();
+            if (!Files.exists(src)) {
+                System.out.println("⚠️ Image file not found: " + src);
+                return null;
+            }
+
+            String ext = getExt(src.getFileName().toString());
+            String day = LocalDate.now().toString();
+            String fileName = java.util.UUID.randomUUID() + (ext.isEmpty() ? ".jpg" : ext);
+
+            Path destDir = UPLOADS_ROOT.resolve("avatars").resolve(day);
+            Files.createDirectories(destDir);
+            Path dest = destDir.resolve(fileName);
+            Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
+
+            // مقدار نسبی که سرور/کلاینت‌های دیگر هم می‌فهمند
+            return "/avatars/" + day + "/" + fileName;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private static String getExt(String name) {
+        int i = name.lastIndexOf('.');
+        return (i >= 0) ? name.substring(i) : "";
+    }
+
 
 
 }
