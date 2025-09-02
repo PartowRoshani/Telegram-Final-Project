@@ -195,7 +195,7 @@ public class ChannelDatabase {
         """;
 
         try (Connection conn = ConnectionDb.connect()) {
-            // مرحله اول: ساخت کانال
+
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, channel.getChannel_id());
             stmt.setString(2, channel.getChannel_name());
@@ -208,9 +208,8 @@ public class ChannelDatabase {
             if (!rs.next()) return false;
 
             UUID internalUUID = (UUID) rs.getObject("internal_uuid");
-            channel.setInternal_uuid(internalUUID); // اختیاری برای پیگیری بعدی
+            channel.setInternal_uuid(internalUUID);
 
-            // مرحله دوم: افزودن کاربر به لیست سابسکرایبرها
             PreparedStatement subStmt = conn.prepareStatement(subscriberSql);
             subStmt.setObject(1, internalUUID);
             subStmt.setObject(2, creatorId);

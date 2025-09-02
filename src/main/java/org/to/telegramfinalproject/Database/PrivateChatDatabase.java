@@ -388,5 +388,26 @@ public class PrivateChatDatabase {
                 rs.getBoolean("user2_deleted")
         );
     }
+    public static boolean isParticipant(java.util.UUID chatId, java.util.UUID userId) {
+        String sql = """
+        SELECT 1
+        FROM private_chat
+        WHERE chat_id = ?
+          AND (user1_id = ? OR user2_id = ?)
+        LIMIT 1
+    """;
+        try (var c = ConnectionDb.connect();
+             var ps = c.prepareStatement(sql)) {
+            ps.setObject(1, chatId);
+            ps.setObject(2, userId);
+            ps.setObject(3, userId);
+            try (var rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
 }

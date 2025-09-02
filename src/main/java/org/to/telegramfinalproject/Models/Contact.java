@@ -19,6 +19,7 @@ public class Contact {
         this.added_at = LocalDateTime.now();
     }
 
+
     public void setUser_id(UUID user_id){this.user_id = user_id;}
     public void setContact_id(UUID contact_id){this.contact_id = contact_id;}
     public void setAdd_at(LocalDateTime add_at){this.added_at =add_at;}

@@ -8,6 +8,9 @@ import org.to.telegramfinalproject.UI.MainController;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +18,7 @@ import java.util.concurrent.BlockingQueue;
 
 public class IncomingMessageListener implements Runnable {
     private final BufferedReader in;
+    private volatile boolean running = true;
     public enum UIMode { CONSOLE, UI }
     private final UIMode uiMode; // runtime mode
 
@@ -36,16 +40,47 @@ public class IncomingMessageListener implements Runnable {
         try {
             System.out.println("👂 Real-Time Listener started.");
 
-            String line;
-            while ((line = in.readLine()) != null) {
+            while (running) {
+                if (TelegramClient.mediaBusy.get()) {
+                    try { Thread.sleep(15); } catch (InterruptedException ignored) {}
+                    continue;
+                }
 
+                if (!in.ready()) {
+                    try { Thread.sleep(10); } catch (InterruptedException ignored) {}
+                    continue;
+                }
 
-                JSONObject response = new JSONObject(line);
+                String line = in.readLine();
+                if (line == null) {
+                    break;
+                }
+
+                if (line.isBlank()) continue;
+
+                final JSONObject response;
+                try {
+                    response = new JSONObject(line);
+                } catch (Exception badJson) {
+                    System.out.println("⚠️ [Listener] Non-JSON line ignored: " + line);
+                    continue;
+                }
+
                 System.out.println("📥 Received raw line: " + line);
 
-               //if it has reqID answer
+                // --- Media ACK routing by message_id ---
+                String mid = response.optString("message_id", "");
+                if (!mid.isEmpty()) {
+                    BlockingQueue<JSONObject> q = TelegramClient.pendingResponses.get(mid);
+                    if (q != null) {
+                        q.put(response);
+                        continue;
+                    }
+                }
+
+                // --- General request_id response routing ---
                 if (response.has("request_id")) {
-                    String requestId = response.getString("request_id");
+                    String requestId = response.optString("request_id", "");
                     System.out.println("📬 Response with request_id: " + requestId);
                     System.out.println("📬 Full response: " + response.toString(2));
 
@@ -56,15 +91,12 @@ public class IncomingMessageListener implements Runnable {
                         System.out.println("⚠️ No pending queue for request_id = " + requestId + ". Putting in responseQueue...");
                         TelegramClient.responseQueue.put(response);
                     }
-
                     continue;
                 }
 
-
-
-                //if it has action check it
+                // --- Real-time actions ---
                 if (response.has("action")) {
-                    String action = response.getString("action");
+                    String action = response.optString("action", "");
                     System.out.println("🎯 [Listener] Action received: " + response.toString(2));
                     System.out.println("🎯 Received action: " + action);
 
@@ -73,11 +105,12 @@ public class IncomingMessageListener implements Runnable {
                     } else {
                         TelegramClient.responseQueue.put(response);
                     }
-
                 } else if (response.has("status") && response.has("message")) {
-                    TelegramClient.responseQueue.put(response); // general answer
+                    // General success/error
+                    TelegramClient.responseQueue.put(response);
                 } else {
-                    TelegramClient.responseQueue.put(response); // fallback
+                    // Fallback
+                    TelegramClient.responseQueue.put(response);
                 }
             }
 
@@ -94,7 +127,9 @@ public class IncomingMessageListener implements Runnable {
                  "update_group_or_channel", "chat_deleted",
                  "blocked_by_user", "unblocked_by_user", "message_seen",
                  "removed_from_group", "removed_from_channel",
-                 "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated","created_private_chat" , "message_reacted" , "message_unreacted","chat_updated" -> true;
+                 "became_admin", "removed_admin", "ownership_transferred",
+                 "admin_permissions_updated", "created_private_chat",
+                 "message_reacted", "message_unreacted" , "chat_updated"-> true;
             default -> false;
         };
     }
@@ -113,9 +148,11 @@ public class IncomingMessageListener implements Runnable {
                 System.out.println("🔄 Chat list changed. Updating...");
                 Session.forceRefreshChatList = true;
 
-                String chatId = msg.getString("chat_id");
-                String chatType = msg.getString("chat_type");
-                ActionHandler.requestChatInfo(chatId, chatType);
+                String chatId = msg.optString("chat_id", "");
+                String chatType = msg.optString("chat_type", "");
+                if (!chatId.isBlank() && !chatType.isBlank()) {
+                    ActionHandler.requestChatInfo(chatId, chatType);
+                }
 
                 if (action.equals("removed_from_group") || action.equals("removed_from_channel") || action.equals("chat_deleted")) {
                     System.out.println("🚫 You were removed from the chat or chat was deleted. Exiting...");
@@ -198,78 +235,136 @@ public class IncomingMessageListener implements Runnable {
                 System.out.println("\n❓ Unknown real-time action: " + action);
                 System.out.println(msg.toString(2));
             }
+            default -> displayRealTimeMessage(action, msg);
         }
 
         System.out.print(">> ");
     }
 
+//    private void updateLastMessageTime(JSONObject msg) {
+//        try {
+//            UUID chatUUID = UUID.fromString(msg.getString("chat_id"));
+//            String newTime = msg.optString("last_message_time", null);
+//
+//            Session.chatList.stream().filter(chat -> chat.getId().equals(chatUUID)).findFirst()
+//                    .ifPresent(chat -> {
+//                        chat.setLastMessageTime(newTime);
+//                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
+//                    });
+//
+//            Session.activeChats.stream().filter(chat -> chat.getId().equals(chatUUID)).findFirst()
+//                    .ifPresent(chat -> {
+//                        chat.setLastMessageTime(newTime);
+//                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
+//                    });
+//
+//            Session.archivedChats.stream().filter(chat -> chat.getId().equals(chatUUID)).findFirst()
+//                    .ifPresent(chat -> {
+//                        chat.setLastMessageTime(newTime);
+//                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
+//                    });
+//
+//            Session.chatList.sort((c1, c2) -> {
+//                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
+//                if (c1.getLastMessageTime() == null) return 1;
+//                if (c2.getLastMessageTime() == null) return -1;
+//                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime());
+//            });
+//            Session.activeChats.sort((c1, c2) -> {
+//                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
+//                if (c1.getLastMessageTime() == null) return 1;
+//                if (c2.getLastMessageTime() == null) return -1;
+//                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime());
+//            });
+//            Session.archivedChats.sort((c1, c2) -> {
+//                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
+//                if (c1.getLastMessageTime() == null) return 1;
+//                if (c2.getLastMessageTime() == null) return -1;
+//                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime());
+//            });
+//
+//            if (Session.inChatListMenu) {
+//                ActionHandler.displayChatList();
+//                System.out.print("Select a chat by number: ");
+//            }
+//
+//        } catch (Exception e) {
+//            System.out.println("❌ Failed to update last message time: " + e.getMessage());
+//        }
+//    }
+
+
     private void updateLastMessageTime(JSONObject msg) {
         try {
             UUID chatUUID = UUID.fromString(msg.getString("chat_id"));
             String newTime = msg.optString("last_message_time", null);
+            if (newTime == null || newTime.isBlank()) return;
 
-            Session.chatList.stream()
-                    .filter(chat -> chat.getId().equals(chatUUID))
-                    .findFirst()
-                    .ifPresent(chat -> {
-                        chat.setLastMessageTime(newTime);
-                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
-                    });
+            updateOneList(Session.chatList, chatUUID, newTime);
+            updateOneList(Session.activeChats, chatUUID, newTime);
+            updateOneList(Session.archivedChats, chatUUID, newTime);
 
-            Session.activeChats.stream()
-                    .filter(chat -> chat.getId().equals(chatUUID))
-                    .findFirst()
-                    .ifPresent(chat -> {
-                        chat.setLastMessageTime(newTime);
-                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
-                    });
-
-            Session.archivedChats.stream()
-                    .filter(chat -> chat.getId().equals(chatUUID))
-                    .findFirst()
-                    .ifPresent(chat -> {
-                        chat.setLastMessageTime(newTime);
-                        System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
-                    });
-
-            Session.chatList.sort((c1, c2) -> {
-                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
-                if (c1.getLastMessageTime() == null) return 1;
-                if (c2.getLastMessageTime() == null) return -1;
-                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime()); // descending
-            });
-            Session.activeChats.sort((c1, c2) -> {
-                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
-                if (c1.getLastMessageTime() == null) return 1;
-                if (c2.getLastMessageTime() == null) return -1;
-                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime()); // descending
-            });
-            Session.archivedChats.sort((c1, c2) -> {
-                if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
-                if (c1.getLastMessageTime() == null) return 1;
-                if (c2.getLastMessageTime() == null) return -1;
-                return c2.getLastMessageTime().compareTo(c1.getLastMessageTime()); // descending
-            });
-
-
-
+            sortByLastMessageTime(Session.chatList);
+            sortByLastMessageTime(Session.activeChats);
+            sortByLastMessageTime(Session.archivedChats);
 
             if (Session.inChatListMenu) {
                 ActionHandler.displayChatList();
                 System.out.print("Select a chat by number: ");
             }
-
         } catch (Exception e) {
             System.out.println("❌ Failed to update last message time: " + e.getMessage());
         }
     }
 
+    private void updateOneList(List<ChatEntry> list, UUID chatUUID, String newTime) {
+        if (list == null) return;
+        for (ChatEntry chat : list) {
+            if (chatUUID.equals(chat.getId())) {            // ✅ internal UUID
+                chat.setLastMessageTime(newTime);
+                System.out.println("✅ Updated last message time for chat: " + chat.getDisplayId());
+                break;
+            }
+        }
+    }
+
+    private static void sortByLastMessageTime(java.util.List<ChatEntry> list) {
+        if (list == null) return;
+        list.sort((a, b) -> {
+            var ta = parseTs(String.valueOf(a.getLastMessageTime()));
+            var tb = parseTs(String.valueOf(b.getLastMessageTime()));
+            if (ta == null && tb == null) return 0;
+            if (ta == null) return 1;
+            if (tb == null) return -1;
+            return tb.compareTo(ta);
+        });
+
+
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).isSavedMessages()) {
+                list.add(0, list.remove(i));
+                break;
+            }
+        }
+    }
+
+    private static java.time.LocalDateTime parseTs(String s) {
+        if (s == null) return null;
+        s = s.trim();
+        if (s.isEmpty() || s.equalsIgnoreCase("null")) return null;
+        try { return java.time.OffsetDateTime.parse(s).toLocalDateTime(); } catch (Exception ignore) {}
+        try { return java.time.LocalDateTime.parse(s, java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME); } catch (Exception ignore) {}
+        return null;
+    }
+
+
 
     private void handleAdminRoleChanged(JSONObject data) throws IOException {
-        String chatType = data.getString("chat_type");
-        String chatId = data.optString("group_id", data.optString("channel_id", data.optString("chat_id", null)));
+        String chatType = data.optString("chat_type", "");
+        String chatId = data.optString("group_id",
+                data.optString("channel_id", data.optString("chat_id", "")));
 
-        if (chatId == null) {
+        if (chatId.isBlank()) {
             System.out.println("⚠️ No valid ID found in real-time data: " + data.toString(2));
             return;
         }
@@ -277,11 +372,10 @@ public class IncomingMessageListener implements Runnable {
         System.out.println("\n🔄 Your admin status changed. Updating chat info...");
 
         try {
-            // 1. get chat info
-            JSONObject chatInfoReq = new JSONObject();
-            chatInfoReq.put("action", "get_chat_info");
-            chatInfoReq.put("receiver_id", chatId);
-            chatInfoReq.put("receiver_type", chatType);
+            JSONObject chatInfoReq = new JSONObject()
+                    .put("action", "get_chat_info")
+                    .put("receiver_id", chatId)
+                    .put("receiver_type", chatType);
             System.out.println("📤 Sending get_chat_info: " + chatInfoReq);
             JSONObject chatInfoResp = ActionHandler.sendWithResponse(chatInfoReq);
             JSONObject chatData = chatInfoResp.getJSONObject("data");
@@ -307,21 +401,17 @@ public class IncomingMessageListener implements Runnable {
                 Session.currentChatEntry = chat;
             });
 
-            // 2. get permission
             JSONObject permissionReq = new JSONObject();
             if (chatType.equalsIgnoreCase("group")) {
-                permissionReq.put("action", "get_group_permissions");
-                permissionReq.put("group_id", chatId);
+                permissionReq.put("action", "get_group_permissions").put("group_id", chatId);
             } else {
-                permissionReq.put("action", "get_channel_permissions");
-                permissionReq.put("channel_id", chatId);
+                permissionReq.put("action", "get_channel_permissions").put("channel_id", chatId);
             }
 
             JSONObject permissionResp = ActionHandler.sendWithResponse(permissionReq);
             JSONObject perm = permissionResp.getJSONObject("data");
             entry.ifPresent(chat -> chat.setPermissions(perm));
 
-            // 3. set currentChatId
             Session.currentChatId = chatUUID.toString();
 
             System.out.println("🧪 Checking refresh conditions...");
@@ -344,20 +434,11 @@ public class IncomingMessageListener implements Runnable {
         }
     }
 
-
-
-
-
-
-
-
-
-
     private void displayRealTimeMessage(String action, JSONObject msg) {
         switch (action) {
             case "new_message" -> {
                 String senderName = msg.optString("sender_name","Unknown");
-                String content    = msg.optString("content","(empty)");
+                String content    = msg.optString("content","");
                 String sendAt     = msg.optString("send_at","-");
                 String chatId     = msg.optString("receiver_id", msg.optString("chat_id",""));
                 String kind       = msg.optString("kind","plain");
@@ -376,47 +457,47 @@ public class IncomingMessageListener implements Runnable {
                         Session.currentChatId != null && Session.currentChatId.equals(chatId);
 
                 if (isInCurrentChat) {
+                    if (content.isBlank()) content = "(no content)"; // برای مدیا بدون کپشن
                     System.out.println(senderName + ": " + prefix + content + "   (" + sendAt + ")");
                 } else {
-                    System.out.println("💬 Message from " + senderName + ": " + prefix + content);
+                    String preview = content.isBlank() ? "[media]" : content;
+                    System.out.println("💬 Message from " + senderName + ": " + prefix + preview);
                     Session.forceRefreshChatList = true;
                 }
             }
 
-
             case "message_edited" -> {
                 System.out.println("\n✏️ Message Edited:");
-                System.out.println("ID: " + msg.getString("message_id"));
-                System.out.println("New Content: " + msg.getString("new_content"));
-                System.out.println("Edit Time: " + msg.getString("edited_at"));
+                System.out.println("ID: " + msg.optString("message_id",""));
+                System.out.println("New Content: " + msg.optString("new_content",""));
+                System.out.println("Edit Time: " + msg.optString("edited_at",""));
             }
             case "message_deleted_global" -> {
                 System.out.println("\n🗑️ Message Deleted:");
-                System.out.println("Message ID: " + msg.getString("message_id"));
+                System.out.println("Message ID: " + msg.optString("message_id",""));
             }
             case "message_reacted", "message_unreacted" -> {
-                String mid    = msg.getString("message_id");
-                String emoji  = msg.getString("emoji");
-                JSONObject counts = msg.optJSONObject("counts");
+                String mid    = msg.optString("message_id","");
+                String emoji  = msg.optString("emoji","");
                 int n = msg.optInt("count_for_emoji", 0);
                 System.out.println("\n⭐ Reaction update on " + mid + " : " + emoji + " → " + n);
             }
 
             case "user_status_changed" -> {
                 System.out.println("\n🔄 User Status Changed:");
-                System.out.println("User: " + msg.getString("user_id"));
-                System.out.println("Status: " + msg.getString("status"));
+                System.out.println("User: " + msg.optString("user_id",""));
+                System.out.println("Status: " + msg.optString("status",""));
             }
             case "blocked_by_user" -> {
-                System.out.println("\n⛔ You were blocked by user: " + msg.getString("blocker_id"));
+                System.out.println("\n⛔ You were blocked by user: " + msg.optString("blocker_id",""));
             }
             case "unblocked_by_user" -> {
-                System.out.println("\n✅ You were unblocked by user: " + msg.getString("unblocker_id"));
+                System.out.println("\n✅ You were unblocked by user: " + msg.optString("unblocker_id",""));
             }
             case "message_seen" -> {
                 System.out.println("\n👁️ Your message was seen:");
-                System.out.println("Message ID: " + msg.getString("message_id"));
-                System.out.println("Seen at: " + msg.getString("seen_at"));
+                System.out.println("Message ID: " + msg.optString("message_id",""));
+                System.out.println("Seen at: " + msg.optString("seen_at",""));
             }
             default -> {
                 System.out.println("\n❓ Unknown real-time action: " + action);
@@ -424,6 +505,9 @@ public class IncomingMessageListener implements Runnable {
             }
         }
     }
+
+
+
 
 
 
