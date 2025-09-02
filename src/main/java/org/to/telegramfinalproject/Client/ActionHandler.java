@@ -2,18 +2,22 @@ package org.to.telegramfinalproject.Client;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.to.telegramfinalproject.Database.PrivateChatDatabase;
+import org.to.telegramfinalproject.Database.ContactDatabase;
 import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Models.ContactEntry;
 import org.to.telegramfinalproject.Models.SearchRequestModel;
+import org.to.telegramfinalproject.Models.SearchResultModel;
 
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 
 public class ActionHandler {
@@ -22,7 +26,6 @@ public class ActionHandler {
     private final Scanner scanner;
     public static volatile boolean forceExitChat = false;
     public static ActionHandler instance;
-    private final DataOutputStream outBin;
 
     //use for UI
     private volatile String lastStatus = "error";   // success | error
@@ -54,12 +57,12 @@ public class ActionHandler {
         }
     }
 
-    public ActionHandler(PrintWriter out, BufferedReader in, DataOutputStream outBin, Scanner scanner) {
+    public ActionHandler(PrintWriter out, BufferedReader in, Scanner scanner) {
         this.out = out;
         this.in = in;
-        this.outBin = outBin;
         this.scanner = scanner;
         ActionHandler.instance = this;
+
     }
 
     public void login(String username , String password){
@@ -542,12 +545,6 @@ public class ActionHandler {
                 case "register":
                     Session.currentUser = response.getJSONObject("data");
 
-                    //for downloaded medias
-                    UUID accountId = UUID.fromString(Session.currentUser.getString("internal_uuid"));
-                    Session.downloadsIndex = new DownloadsIndex(accountId);
-
-
-
                     JSONArray chatListJson = Session.currentUser.getJSONArray("chat_list");
                     JSONArray Archived = Session.currentUser.getJSONArray("archived_chat_list");
                     JSONArray Active = Session.currentUser.getJSONArray("active_chat_list");
@@ -662,6 +659,7 @@ public class ActionHandler {
 
 
 
+
                     Session.activeChats = activeChats;
                     Session.archivedChats = archivedChats;
                     Session.chatList = chatList;
@@ -751,7 +749,7 @@ public class ActionHandler {
 
                                 if (existing != null) {
                                     openChat(existing);
-                               } else {
+                                } else {
                                     ChatEntry preview = new ChatEntry();
                                     preview.setId(String.valueOf(uuid));
                                     preview.setDisplayId(selected.getString("id"));
@@ -860,13 +858,13 @@ public class ActionHandler {
 
 
 
-                break;
+                    break;
 
 
                 case "create_group":
                 case "create_channel":
                     if (response.has("data")) {
-                    JSONObject chatJson = response.getJSONObject("data");
+                        JSONObject chatJson = response.getJSONObject("data");
 
                         ChatEntry chat = new ChatEntry(
                                 UUID.fromString(chatJson.getString("internal_id")),
@@ -881,12 +879,12 @@ public class ActionHandler {
 
 
                         refreshChatList();
-                    System.out.println("✅ Created and opening chat...");
-                    refreshChatList();
-                    openChat(chat);
-                }
+                        System.out.println("✅ Created and opening chat...");
+                        refreshChatList();
+                        openChat(chat);
+                    }
 
-                break;
+                    break;
 
                 case "get_messages":
                     JSONArray messages = response.getJSONObject("data").getJSONArray("messages");
@@ -1471,7 +1469,7 @@ public class ActionHandler {
             JSONObject m = messages.getJSONObject(i);
             String senderId = m.getString("sender_id");
             String senderName = m.optString("sender_name", "Other");
-            String content = m.optString("content", "");
+            String content = m.getString("content");
             String time = m.getString("send_at");
 
             String label = senderId.equals(Session.currentUser.getString("internal_uuid")) ? "You" : senderName;
@@ -1693,7 +1691,7 @@ public class ActionHandler {
 
             String input = scanner.nextLine().trim();
             switch (input) {
-                case "1" -> sendMessageInteractive(chatId, "private");
+                case "1" -> sendMessage(chatId, "private");
                 case "2" -> { viewMessagesInChat(chat); }
                 case "3" -> { return false; }
                 default -> System.out.println("Invalid choice.");
@@ -1712,7 +1710,7 @@ public class ActionHandler {
 
         String input = scanner.nextLine().trim();
         switch (input) {
-            case "1" -> sendMessageInteractive(chat.getId(), "private");
+            case "1" -> sendMessage(chatId, "private");
             case "2" -> toggleBlock(chat.getOtherUserId());
             case "3" -> { deleteChat(chatId, false); return true; }
             case "4" -> { deleteChat(chatId, true);  return true; }
@@ -1808,7 +1806,7 @@ public class ActionHandler {
 
         String input = scanner.nextLine();
         switch (input) {
-            case "1" -> sendMessageInteractive(chat.getId(), "group");
+            case "1" -> sendMessage(chat.getId(), "group");
             case "2" -> viewGroupMembers(chat.getId());
             case "3" -> {
                 if (isOwner || (isAdmin && perms.optBoolean("can_add_members", false)))
@@ -1935,7 +1933,7 @@ public class ActionHandler {
         switch (input) {
             case "1" -> {
                 if (isOwner || (isAdmin && perms.optBoolean("can_post", false))) {
-                    sendMessageInteractive(chat.getId(), "channel");
+                    sendMessage(chat.getId(), "channel");
                 } else {
                     System.out.println("❌ You don't have permission to post.");
                 }
@@ -3675,135 +3673,82 @@ public class ActionHandler {
 
 
 
-//    public void sendMessage(UUID chatId, String receiverType) {
-//        Scanner scanner = new Scanner(System.in);
-//
-//        System.out.print("Enter your message: ");
-//        String content = scanner.nextLine();
-//
-//        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE): ");
-//        String messageType = scanner.nextLine().toUpperCase();
-//        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
-//        while (!allowedTypes.contains(messageType)) {
-//            System.out.print("❌ Invalid type. Try again (TEXT / IMAGE / VIDEO / FILE): ");
-//            messageType = scanner.nextLine().toUpperCase();
-//        }
-//
-//        JSONArray attachmentsArray = new JSONArray();
-//        System.out.print("Do you want to attach files? (yes/no): ");
-//        if (scanner.nextLine().equalsIgnoreCase("yes")) {
-//            while (true) {
-//                System.out.print("File URL: ");
-//                String fileUrl = scanner.nextLine();
-//                System.out.print("File Type (IMAGE / VIDEO / FILE): ");
-//                String fileType = scanner.nextLine().toUpperCase();
-//
-//                JSONObject fileJson = new JSONObject();
-//                fileJson.put("file_url", fileUrl);
-//                fileJson.put("file_type", fileType);
-//                attachmentsArray.put(fileJson);
-//
-//                System.out.print("Add another file? (yes/no): ");
-//                if (!scanner.nextLine().equalsIgnoreCase("yes")) break;
-//            }
-//        }
-//
-//
-//
-//        JSONObject messageJson = new JSONObject();
-//        messageJson.put("action", "send_message");
-//        messageJson.put("receiver_type", receiverType);
-//        messageJson.put("receiver_id", chatId.toString());
-//        messageJson.put("content", content);
-//        messageJson.put("message_type", messageType);
-//
-//        if (!attachmentsArray.isEmpty()) {
-//            messageJson.put("attachments", attachmentsArray);
-//        }
-//
-//        JSONObject response = sendWithResponse(messageJson);
-//        if (response != null && response.getString("status").equals("success")) {
-//            System.out.println("✅ Message sent! ID: " + response.getJSONObject("data").getString("message_id"));
-//        } else {
-//            System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "No response"));
-//        }
-//    }
+    public void sendMessage(UUID chatId, String receiverType) {
+        Scanner scanner = new Scanner(System.in);
 
+        System.out.print("Enter your message: ");
+        String content = scanner.nextLine();
 
-//    public void sendMessage(UUID chatId, String receiverType) {
-//        Scanner scanner = new Scanner(System.in);
-//
-//        System.out.print("Enter your message (leave empty if file only): ");
-//        String content = scanner.nextLine();
-//
-//        System.out.print("Enter message type (TEXT / IMAGE / AUDIO / FILE / GIF): ");
-//        String messageType = scanner.nextLine().toUpperCase();
-//        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "AUDIO", "FILE", "GIF");
-//        while (!allowedTypes.contains(messageType)) {
-//            System.out.print("❌ Invalid type. Try again (TEXT / IMAGE / AUDIO / FILE / GIF): ");
-//            messageType = scanner.nextLine().toUpperCase();
-//        }
-//
-//        JSONArray attachmentsArray = new JSONArray();
-//        System.out.print("Attach files? (yes/no): ");
-//        if (scanner.nextLine().equalsIgnoreCase("yes")) {
-//            while (true) {
-//                System.out.println("Paste the JSON you got from /upload (or leave empty to enter minimal fields):");
-//                String jsonLine = scanner.nextLine().trim();
-//
-//                JSONObject fileJson;
-//                if (!jsonLine.isEmpty()) {
-//                    // انتظار خروجی کامل /upload
-//                    fileJson = new JSONObject(jsonLine);
-//                    // اگه خروجی /upload تو ریشه‌ست، تبدیلش کن به ساختار attachment
-//                    fileJson = new JSONObject()
-//                            .put("file_url", fileJson.optString("file_url", ""))
-//                            .put("file_type", fileJson.optString("file_type", "FILE"))
-//                            .put("file_name", fileJson.optString("file_name", ""))
-//                            .put("file_size", fileJson.optLong("file_size", 0))
-//                            .put("mime_type", fileJson.optString("mime_type", ""))
-//                            .put("width", fileJson.isNull("width") ? JSONObject.NULL : fileJson.optInt("width"))
-//                            .put("height", fileJson.isNull("height") ? JSONObject.NULL : fileJson.optInt("height"))
-//                            .put("duration_seconds", fileJson.isNull("duration_seconds") ? JSONObject.NULL : fileJson.optInt("duration_seconds"))
-//                            .put("thumbnail_url", fileJson.isNull("thumbnail_url") ? JSONObject.NULL : fileJson.optString("thumbnail_url", null));
-//                } else {
-//                    // ورودی حداقلی
-//                    System.out.print("File URL: ");
-//                    String fileUrl = scanner.nextLine();
-//                    System.out.print("File Type (IMAGE / AUDIO / FILE / GIF): ");
-//                    String fileType = scanner.nextLine().toUpperCase();
-//
-//                    fileJson = new JSONObject();
-//                    fileJson.put("file_url", fileUrl);
-//                    fileJson.put("file_type", fileType);
-//                }
-//
-//                attachmentsArray.put(fileJson);
-//
-//                System.out.print("Add another file? (yes/no): ");
-//                if (!scanner.nextLine().equalsIgnoreCase("yes")) break;
-//            }
-//        }
-//
-//        JSONObject messageJson = new JSONObject();
-//        messageJson.put("action", "send_message");
-//        messageJson.put("receiver_type", receiverType);    // "private"/"group"/"channel"
-//        messageJson.put("receiver_id", chatId.toString()); // در private = chat_id
-//        messageJson.put("content", content);
-//        messageJson.put("message_type", messageType);
-//        if (attachmentsArray.length() > 0) {
-//            messageJson.put("attachments", attachmentsArray);
-//        }
-//
-//        JSONObject response = sendWithResponse(messageJson);
-//        if (response != null && response.getString("status").equals("success")) {
-//            System.out.println("✅ Message sent! ID: " + response.getJSONObject("data").getString("message_id"));
-//        } else {
-//            System.out.println("❌ Failed to send message: " + (response != null ? response.optString("message","No message") : "No response"));
-//        }
-//    }
-//
-    private void refreshContactList() {
+        System.out.print("Enter message type (TEXT / IMAGE / VIDEO / FILE / AUDIO): ");
+        String messageType = scanner.nextLine().toUpperCase();
+        Set<String> allowedTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+        while (!allowedTypes.contains(messageType)) {
+            System.out.print("❌ Invalid type. Try again (TEXT / IMAGE / VIDEO / FILE / AUDIO): ");
+            messageType = scanner.nextLine().toUpperCase();
+        }
+
+        JSONArray attachmentsArray = new JSONArray();
+        System.out.print("Do you want to attach files? (yes/no): ");
+        if (scanner.nextLine().equalsIgnoreCase("yes")) {
+            while (true) {
+                System.out.print("File URL: ");
+                String fileUrl = scanner.nextLine();
+
+                // URL validation
+                if (fileUrl.isEmpty()) {
+                    System.out.print("URL can not be empty. Try again.");
+                    continue;
+                }
+
+                if (fileUrl.contains(" ")) {
+                    System.out.println("URL cannot contain spaces. Try again.");
+                    continue;
+                }
+
+                if (!fileUrl.isEmpty() && !fileUrl.matches("^(http|https)://.*$")) {
+                    System.out.println("Invalid URL format. Please enter a valid HTTP/HTTPS link.");
+                    continue;
+                }
+
+                System.out.print("File Type (IMAGE / VIDEO / FILE / AUDIO): ");
+                String fileType = scanner.nextLine().toUpperCase();
+
+                Set<String> allowedFileTypes = Set.of("TEXT", "IMAGE", "VIDEO", "FILE");
+                while (!allowedFileTypes.contains(fileType)) {
+                    System.out.print("❌ Invalid type. Try again (IMAGE / VIDEO / FILE / AUDIO): ");
+                    fileType = scanner.nextLine().toUpperCase();
+                }
+
+                JSONObject fileJson = new JSONObject();
+                fileJson.put("file_url", fileUrl);
+                fileJson.put("file_type", fileType);
+                attachmentsArray.put(fileJson);
+
+                System.out.print("Add another file? (yes/no): ");
+                if (!scanner.nextLine().equalsIgnoreCase("yes")) break;
+            }
+        }
+
+        JSONObject messageJson = new JSONObject();
+        messageJson.put("action", "send_message");
+        messageJson.put("receiver_type", receiverType);
+        messageJson.put("receiver_id", chatId.toString());
+        messageJson.put("content", content);
+        messageJson.put("message_type", messageType);
+
+        if (!attachmentsArray.isEmpty()) {
+            messageJson.put("attachments", attachmentsArray);
+        }
+
+        JSONObject response = sendWithResponse(messageJson);
+        if (response != null && response.getString("status").equals("success")) {
+            System.out.println("✅ Message sent! ID: " + response.getJSONObject("data").getString("message_id"));
+        } else {
+            System.out.println("❌ Failed to send message: " + (response != null ? response.getString("message") : "No response"));
+        }
+    }
+
+    public void refreshContactList() {
         JSONObject req = new JSONObject();
         req.put("action", "get_contact_list");
         req.put("user_id", Session.currentUser.getString("user_id"));
@@ -3915,18 +3860,6 @@ public class ActionHandler {
                     replyLabel = "↪️ Reply to " + repliedSender + ": \"" + repliedContent + "\"";
                 }
 
-                JSONArray atts = msg.optJSONArray("attachments");
-                if (atts != null && atts.length() > 0) {
-                    System.out.println("  📎 " + atts.length() + " attachment(s)");
-                    for (int a = 0; a < atts.length(); a++) {
-                        JSONObject att = atts.getJSONObject(a);
-                        String fn = att.optString("file_name", "(unnamed)");
-                        long sz = att.optLong("file_size", 0);
-                        System.out.printf("    - #%d %s (%s)\n", a + 1, fn, humanSize(sz));
-                    }
-                }
-
-
                 JSONArray reactions = msg.optJSONArray("reactions");
                 if (reactions != null && !reactions.isEmpty()) {
                     System.out.print(" 💬 Reactions: ");
@@ -3961,7 +3894,7 @@ public class ActionHandler {
             }
 
             if(input.equalsIgnoreCase("S")){
-                sendMessageInteractive(chat.getId(), chat.getType());
+                sendMessage(chat.getId(), chat.getType());
             }
             try {
                 int index = Integer.parseInt(input);
@@ -3976,10 +3909,6 @@ public class ActionHandler {
                 boolean isSender = senderId.toString().equals(Session.currentUser.getString("internal_uuid"));
                 boolean isChannel = chat.getType().equals("channel");
                 boolean isOwnerOrAdmin = chat.isOwner() || chat.isAdmin();
-                //for media
-                JSONArray atts = selected.optJSONArray("attachments");
-                boolean hasAttachments = (atts != null && atts.length() > 0);
-
 
                 System.out.println("\n🎯 Selected message by " + selected.getString("sender_name"));
 
@@ -4004,9 +3933,6 @@ public class ActionHandler {
                     if (isSender || isOwnerOrAdmin) {
                         System.out.println("5. Delete");
                     }
-                }
-                if (hasAttachments) {
-                    System.out.println("D. Download attachment");
                 }
 
                 System.out.println("0. Back to message list");
@@ -4040,15 +3966,6 @@ public class ActionHandler {
                             System.out.println("❌ You are not allowed to delete this message.");
                     }
                     case "0" -> {}
-
-                    case "D", "d" -> {
-                        if (hasAttachments) {
-                            downloadAttachmentFlow(chat, selected);
-                        } else {
-                            System.out.println("🚫 No attachments to download.");
-                        }
-                    }
-
                     default -> System.out.println("❌ Invalid option.");
                 }
 
@@ -4059,122 +3976,6 @@ public class ActionHandler {
     }
 
     public void editMessage(UUID messageId) {
-    private void downloadAttachmentFlow(ChatEntry chat, JSONObject msg) {
-        JSONArray atts = msg.optJSONArray("attachments");
-        if (atts == null || atts.length() == 0) {
-            System.out.println("🚫 No attachments.");
-            return;
-        }
-
-        int idx = 0;
-        if (atts.length() > 1) {
-            System.out.print("Which attachment [1.." + atts.length() + "]? ");
-            try {
-                String ans = scanner.nextLine().trim();
-                if (!ans.isEmpty()) {
-                    int n = Integer.parseInt(ans);
-                    if (n >= 1 && n <= atts.length()) idx = n - 1;
-                }
-            } catch (Exception ignored) { idx = 0; }
-        }
-
-        JSONObject att = atts.getJSONObject(idx);
-        String mediaKeyStr = att.optString("media_key", "");
-        if (mediaKeyStr.isBlank()) {
-            System.out.println("❌ Attachment missing media_key.");
-            return;
-        }
-
-        UUID mediaKey = UUID.fromString(mediaKeyStr);
-        String rawName = att.optString("file_name", mediaKey.toString());
-        String fileName = sanitizeFileName(rawName);
-        long declaredSize = att.optLong("file_size", 0L);
-
-        //  ~/Downloads/TeleSock/<Account>/<Chat>/
-        String accFolder  = accountFolderName();
-        String chatFolder = chatFolderName(chat);
-        Path saveDir = Paths.get(System.getProperty("user.home"),
-                "Downloads", "TeleSock", accFolder, chatFolder);
-
-        System.out.println("👤 AccountFolder = " + accFolder);
-        System.out.println("💬 ChatFolder    = " + chatFolder);
-        System.out.println("📁 SaveDir       = " + saveDir);
-
-        try { Files.createDirectories(saveDir); }
-        catch (IOException e) {
-            System.out.println("❌ Cannot create folder: " + saveDir + " -> " + e.getMessage());
-            return;
-        }
-
-        DownloadsIndex di = Session.downloadsIndex;
-        if (di != null) {
-            Path existing = di.find(mediaKey);
-            if (existing != null) {
-                System.out.println("✅ Already downloaded: " + existing);
-                return;
-            }
-        }
-        Path target = uniquePath(saveDir, fileName);
-
-        TelegramClient.mediaBusy.set(true);
-        try {
-            Path saved = TelegramClient.getDownloader()
-                    .download(mediaKey, saveDir, target.getFileName().toString());
-
-            long sizeToRecord = declaredSize > 0 ? declaredSize : Files.size(saved);
-            if (di != null) di.put(mediaKey, saved, sizeToRecord);
-
-            System.out.println("✅ Saved to: " + saved + "  (" + humanSize(sizeToRecord) + ")");
-        } catch (Exception ex) {
-            System.out.println("❌ Download failed: " + ex.getMessage());
-        } finally {
-            TelegramClient.mediaBusy.set(false);
-        }
-    }
-
-
-
-
-    private static Path uniquePath(Path dir, String fileName) {
-        Path p = dir.resolve(fileName);
-        if (!Files.exists(p)) return p;
-
-        String name = fileName;
-        String ext  = "";
-        int dot = fileName.lastIndexOf('.');
-        if (dot > 0 && dot < fileName.length()-1) {
-            name = fileName.substring(0, dot);
-            ext  = fileName.substring(dot); // includes dot
-        }
-        int i = 1;
-        while (true) {
-            Path cand = dir.resolve(String.format("%s (%d)%s", name, i, ext));
-            if (!Files.exists(cand)) return cand;
-            i++;
-        }
-    }
-
-    private static String sanitizeFileName(String s) {
-        s = s.replace("\\", "/");
-        if (s.contains("/")) s = s.substring(s.lastIndexOf('/') + 1);
-        s = s.replaceAll("[\\\\/:*?\"<>|]", "_");
-        if (s.equals(".") || s.equals("..") || s.isBlank()) s = "file";
-        return s;
-    }
-
-    private static String humanSize(long b) {
-        if (b <= 0) return "0 B";
-        String[] u = {"B","KB","MB","GB","TB"};
-        int i = (int) Math.floor(Math.log(b) / Math.log(1024));
-        if (i < 0) i = 0;
-        if (i >= u.length) i = u.length - 1;
-        double v = b / Math.pow(1024, i);
-        return String.format("%.1f %s", v, u[i]);
-    }
-
-
-
-    private void editMessage(UUID messageId) {
         System.out.print("📝 Enter new content: ");
         String newContent = scanner.nextLine().trim();
 
@@ -4390,183 +4191,4 @@ public class ActionHandler {
     }
 
 
-
-    public void sendMessageInteractive(UUID receiverId, String receiverType) {
-        Scanner sc = new Scanner(System.in);
-
-        System.out.print("Type (TEXT / IMAGE / AUDIO): ");
-        String type = sc.nextLine().trim().toUpperCase();
-        while (!Set.of("TEXT","IMAGE","AUDIO").contains(type)) {
-            System.out.print("❌ Invalid. Try (TEXT / IMAGE / AUDIO): ");
-            type = sc.nextLine().trim().toUpperCase();
-        }
-
-        System.out.print("Text (optional for media; empty = no caption): ");
-        String text = sc.nextLine();
-
-        if ("TEXT".equals(type)) {
-            sendTextMessage(receiverId, receiverType, text);
-        } else {
-            System.out.print("File path: ");
-            String path = sc.nextLine().trim();
-            File f = new File(path);
-            if (!f.isFile()) {
-                System.out.println("❌ File not found");
-                return;
-            }
-            try {
-                sendMediaMessage(receiverId, receiverType, type, f, text);
-            } catch (Exception e) {
-                e.printStackTrace();
-                System.out.println("❌ Media send failed: " + e.getMessage());
-            }
-        }
-    }
-
-    private void sendTextMessage(UUID receiverId, String receiverType, String content) {
-        JSONObject req = new JSONObject()
-                .put("action", "send_message")
-                .put("receiver_type", receiverType)
-                .put("receiver_id", receiverId.toString())
-                .put("message_type", "TEXT")
-                .put("content", content == null ? "" : content);
-
-        JSONObject resp = sendWithResponse(req);
-        if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
-            System.out.println("✅ Sent. id=" + resp.optJSONObject("data").optString("message_id",""));
-        } else {
-            System.out.println("❌ Failed: " + (resp != null ? resp.optString("message") : "no response"));
-        }
-    }
-
-
-    public void sendMediaMessage(UUID receiverId, String receiverType, String type /* IMAGE/AUDIO */, File file, String caption) {
-        if (file == null) {
-            System.out.println("❌ File is null");
-            return;
-        }
-        if (!file.exists()) {
-            System.out.println("❌ File not found: " + file.getAbsolutePath());
-            return;
-        }
-        if (file.isDirectory()) {
-            System.out.println("❌ Path is a directory, expected a file: " + file.getAbsolutePath());
-            return;
-        }
-
-        final UUID messageId = UUID.randomUUID();
-
-        try {
-            String mime = detectMime(file, type.toUpperCase());
-            if (mime == null) mime = type.equalsIgnoreCase("IMAGE") ? "image/*" : "audio/*";
-
-            JSONObject header = new JSONObject()
-                    .put("message_id", messageId.toString())
-                    .put("sender_id", TelegramClient.loggedInUserId.toString())
-                    .put("receiver_type", receiverType)      // private|group|channel
-                    .put("receiver_id", receiverId.toString())
-                    .put("message_type", type.toUpperCase()) // IMAGE | AUDIO
-                    .put("file_name", file.getName())
-                    .put("mime_type", mime)
-                    .put("text", caption == null ? "" : caption);
-
-            byte[] headerBytes = header.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            long contentLen = file.length();
-
-            BlockingQueue<JSONObject> q = new LinkedBlockingQueue<>(1);
-            TelegramClient.pendingResponses.put(messageId.toString(), q);
-
-            try {
-
-                outBin.write("MEDIA\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
-                outBin.flush();
-
-                // 2) binary frame: magic + headerLen + header + contentLen + content
-                outBin.writeInt(0x4D444D31);                 // "MDM1"
-                outBin.writeInt(headerBytes.length);         // headerLen (int)
-                outBin.write(headerBytes);                   // header
-                outBin.writeLong(contentLen);                // contentLen (long)
-
-                try (InputStream fis = new BufferedInputStream(new FileInputStream(file))) {
-                    byte[] buf = new byte[8192];
-                    int n;
-                    while ((n = fis.read(buf)) != -1) {
-                        outBin.write(buf, 0, n);
-                    }
-                }
-                outBin.flush();
-
-                JSONObject ack = q.poll(20, java.util.concurrent.TimeUnit.SECONDS);
-                if (ack == null) {
-                    System.out.println("❌ Media ACK timeout for " + messageId);
-                    return;
-                }
-
-                String status = ack.optString("status", "error");
-                if ("success".equalsIgnoreCase(status)) {
-                    System.out.println("✅ Media sent. id=" + ack.optString("message_id") +
-                            " url=" + ack.optString("file_url"));
-                } else {
-                    System.out.println("❌ Media failed: " + ack.optString("message"));
-                }
-
-            } finally {
-                TelegramClient.pendingResponses.remove(messageId.toString());
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("❌ sendMediaMessage error: " + e.getMessage());
-        }
-    }
-
-
-    private static String detectMime(File f, String typeUpper /* IMAGE or AUDIO */) {
-        try {
-            String m = java.nio.file.Files.probeContentType(f.toPath());
-            if (m != null) return m;
-        } catch (Exception ignored) {}
-        String name = f.getName().toLowerCase();
-        if (name.endsWith(".png"))  return "image/png";
-        if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
-        if (name.endsWith(".gif"))  return "image/gif";
-        if (name.endsWith(".mp3"))  return "audio/mpeg";
-        if (name.endsWith(".wav"))  return "audio/wav";
-        if (name.endsWith(".ogg"))  return "audio/ogg";
-        return typeUpper.equals("IMAGE") ? "image/*" : "audio/*";
-    }
-
-
-
-    private static String safeName(String s) {
-        if (s == null) return "unknown";
-        s = s.replace("\\", "/");
-        if (s.contains("/")) s = s.substring(s.lastIndexOf('/') + 1);
-        s = s.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
-        if (s.isEmpty() || s.equals(".") || s.equals("..")) s = "unknown";
-        return s;
-    }
-
-    private static String accountFolderName() {
-        JSONObject me = Session.currentUser;
-        String acc = me.optString("username",
-                me.optString("user_id",
-                        me.optString("profile_name",
-                                me.optString("internal_uuid", "me"))));
-        return safeName(acc);
-    }
-
-    private static String chatFolderName(ChatEntry chat) {
-        String name = chat.getName();
-        if (name == null || name.isBlank()) {
-            name = chat.getDisplayId() != null && !chat.getDisplayId().isBlank()
-                    ? chat.getDisplayId()
-                    : String.valueOf(chat.getId());
-        }
-        return safeName(name);
-    }
-
-
 }
-
-

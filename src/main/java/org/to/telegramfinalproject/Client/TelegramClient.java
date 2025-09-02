@@ -128,7 +128,10 @@ package org.to.telegramfinalproject.Client;
 
 import org.json.JSONObject;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -137,11 +140,9 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TelegramClient {
     private static final String SERVER_HOST = "localhost";
-    private static final int SERVER_PORT = 8080;
     private static final int SERVER_PORT = 8000;
 
     private static TelegramClient instance;
@@ -157,13 +158,6 @@ public class TelegramClient {
     public static final BlockingQueue<JSONObject> responseQueue = new LinkedBlockingQueue<>();
     public static final Map<String, BlockingQueue<JSONObject>> pendingResponses = new ConcurrentHashMap<>();
     public static UUID loggedInUserId = null;
-    public static final Map<String, BlockingQueue<JSONObject>> pendingResponses = new ConcurrentHashMap<>();
-    private DataInputStream inBin;                     // NEW
-    private static SocketMediaDownloader downloader;   // NEW
-    public static final AtomicBoolean mediaBusy = new AtomicBoolean(false); //
-    private DownloadsIndex downloadIndex;
-
-    private static TelegramClient instance;
 
     private volatile boolean listenerStarted = false;
 
@@ -174,14 +168,8 @@ public class TelegramClient {
 
     public static synchronized TelegramClient getInstance() {
         if (instance == null) instance = new TelegramClient();
-    public static SocketMediaDownloader getDownloader() {
-        return downloader;
-    }
-
-    public static TelegramClient getInstance() {
         return instance;
     }
-    private DataOutputStream outBin;
 
 //    public void startConsole() {
 //        try {
@@ -196,18 +184,6 @@ public class TelegramClient {
 
     public void startConsole() {
         try {
-            socket = new Socket(SERVER_HOST, SERVER_PORT);
-            InputStream rawIn  = socket.getInputStream();
-            OutputStream rawOut = socket.getOutputStream();
-            in  = new BufferedReader(new InputStreamReader(rawIn, StandardCharsets.UTF_8));
-            out = new PrintWriter(new OutputStreamWriter(rawOut, StandardCharsets.UTF_8), true);
-
-            inBin  = new DataInputStream(rawIn);
-            outBin = new DataOutputStream(rawOut);
-            downloader = new SocketMediaDownloader(out, inBin, outBin);
-
-            System.out.println("✅ Connected to Telegram Server");
-            handler = new ActionHandler(out, in, outBin, scanner);
             connectIfNeeded();
             initHandlerIfNeeded();
             startListenerOnce(IncomingMessageListener.UIMode.CONSOLE);  // ← کنسول
@@ -293,7 +269,7 @@ public class TelegramClient {
 
                         UUID internalId = UUID.fromString(Session.currentUser.getString("internal_uuid"));
                         loggedInUserId = internalId;
-                        this.downloadIndex = DownloadIndexRegistry.forAccount(internalId);
+
                         handler.userMenu(internalId);
                     } else {
                         System.out.println("❌ Login failed.");
@@ -335,4 +311,3 @@ public class TelegramClient {
     }
 
 }
-
