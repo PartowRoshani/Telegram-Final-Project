@@ -24,6 +24,8 @@ public class NewGroupController {
     @FXML private Button cancelButton;
     @FXML private Button nextButton;
     @FXML private StackPane overlayRoot;   // the root
+    @FXML private TextField groupIdField;
+    @FXML private Label groupIdLabel;
 
     private File groupImageFile;
 
@@ -58,11 +60,20 @@ public class NewGroupController {
 
         nextButton.setOnAction(e -> {
             String groupName = groupNameField.getText().trim();
+            String groupId = groupIdField.getText().trim();
 
             if (groupName.isEmpty()) {
                 // Apply error style
                 groupNameField.getStyleClass().add("error");
                 groupNameLabel.getStyleClass().add("error");
+
+                return;
+            }
+
+            if (groupId.isEmpty()) {
+                // Apply error style
+                groupIdField.getStyleClass().add("error");
+                groupIdLabel.getStyleClass().add("error");
 
                 return;
             }
@@ -74,7 +85,7 @@ public class NewGroupController {
 
                 // Optional: pass groupName and image to AddMembersController
                 AddMembersController controller = loader.getController();
-                controller.setGroupInfo(groupName, groupImageFile);
+                controller.setGroupInfo(groupName, groupId, groupImageFile);
 
                 // Close the current "New Group" overlay
                 MainController.getInstance().closeOverlay(overlayRoot);
@@ -87,10 +98,19 @@ public class NewGroupController {
             }
         });
 
+        // Reset error state when typing
         groupNameField.textProperty().addListener((obs, oldVal, newVal) -> {
             if (!newVal.trim().isEmpty()) {
                 groupNameField.getStyleClass().remove("error");
                 groupNameLabel.getStyleClass().remove("error");
+            }
+        });
+
+        // Reset error state when typing
+        groupIdField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal.trim().isEmpty()) {
+                groupIdField.getStyleClass().remove("error");
+                groupIdLabel.getStyleClass().remove("error");
             }
         });
 
