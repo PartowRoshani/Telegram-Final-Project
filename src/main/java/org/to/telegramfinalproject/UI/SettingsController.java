@@ -52,7 +52,19 @@ public class SettingsController {
         // Buttons
         myAccountButton.setOnAction(e -> openEditProfile());
 
-        privacyButton.setOnAction(e -> System.out.println("Privacy and Security"));
+        privacyButton.setOnAction(e ->
+        {
+            try {
+                FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                        "/org/to/telegramfinalproject/Fxml/privacy_security.fxml"));
+                Node privacyOverlay = loader.load();
+
+                MainController.getInstance().showOverlay(privacyOverlay);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        });
+
         faqButton.setOnAction(e -> System.out.println("Telegram Q&A"));
         featuresButton.setOnAction(e -> System.out.println("Telegram Features"));
 

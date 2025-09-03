@@ -898,3 +898,94 @@
 .settings-option:pressed {
     -fx-background-color: #1f2a36;
 }
+
+/* Card */
+.privacy-card {
+    -fx-background-color: #1f2a36;
+    -fx-background-radius: 10;
+    -fx-padding: 16;
+}
+
+/* Header */
+.privacy-header {
+    -fx-padding: 8 12 8 12;
+}
+.privacy-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+/* Section Titles */
+.section-title {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #bbbbbb;
+}
+
+/* Items */
+.privacy-item {
+    -fx-padding: 4 0 4 0;
+}
+.item-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #aaa;
+}
+.privacy-input {
+    -fx-background-color: #2a3b47;
+    -fx-text-fill: white;
+    -fx-background-radius: 6;
+    -fx-padding: 4;
+}
+
+/* Buttons */
+.action-button {
+    -fx-background-color: #3a86ff;
+    -fx-text-fill: white;
+    -fx-background-radius: 6;
+    -fx-padding: 6 12;
+}
+.manage-button {
+    -fx-background-color: #1f2a36;
+    -fx-text-fill: #3a86ff;
+    -fx-font-size: 12px;
+}
+
+.privacy-section {
+    -fx-spacing: 8;
+    -fx-padding: 10 0 10 0;
+    -fx-background-color: transparent;
+    -fx-border-color: #2f2f2f;
+    -fx-border-width: 0 0 0 0;
+}
+
+.privacy-form {
+    -fx-spacing: 8;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 8 0 8 0;
+}
+
+.privacy-form .label {
+    -fx-font-size: 12px;
+    -fx-text-fill: white;
+}
+
+/* Error state (same for both themes) */
+.password-label.error {
+    -fx-text-fill: red;
+}
+
+.password-field.error {
+    -fx-text-fill: red;
+}
+
+.text-field.error {
+    -fx-text-fill: red;
+}
+
+.toggle-visibility-btn {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-padding: 0 6 0 6;
+    -fx-font-size: 14px;
+}
