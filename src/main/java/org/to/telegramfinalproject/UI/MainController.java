@@ -36,6 +36,9 @@ public class MainController {
     @FXML private ImageView noResultIcon;
     @FXML private ScrollPane globalSearchScroll;
     @FXML private VBox globalSearchResultsContainer;
+
+
+
     private enum SearchMode {
         GLOBAL,
         CHAT
@@ -1110,6 +1113,25 @@ public class MainController {
         if (Session.activeChats != null) Session.activeChats.sort(byTimeDesc);
 
         refreshChatListUI();
+    }
+
+
+    public void addChatAndSelect(org.to.telegramfinalproject.Models.ChatEntry entry) {
+        // در Session نگه‌داری
+        if (org.to.telegramfinalproject.Client.Session.chatList.stream()
+                .noneMatch(c -> c.getId().equals(entry.getId()))) {
+            org.to.telegramfinalproject.Client.Session.chatList.add(0, entry);
+            org.to.telegramfinalproject.Client.Session.activeChats.add(0, entry);
+        }
+        // سایدبارت اگر متدی برای رفرش دارد صداش بزن (اسمش را با کلاس خودت هماهنگ کن)
+        try {
+            this.refreshChatListUI(); // اگر نداری، این خط را حذف کن
+        } catch (Exception ignore) {}
+
+        // نمایش پیج چت
+        if (getChatPageController() != null) {
+            getChatPageController().showChat(entry);
+        }
     }
 
 

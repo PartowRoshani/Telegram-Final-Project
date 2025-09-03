@@ -887,24 +887,28 @@ public class ClientHandler implements Runnable {
                             break;
                         }
                         try {
-                            String channelId = requestJson.getString("channel_id");
+                            String channelId   = requestJson.getString("channel_id");
                             String channelName = requestJson.getString("channel_name");
-                            String userIdStr = requestJson.getString("user_id");
-                            String imageUrl = requestJson.optString("image_url", null);
+                            String userIdStr   = requestJson.getString("user_id");
+                            String imageUrl    = requestJson.optString("image_url", null);
+                            String description = requestJson.optString("description", null); // اختیاری
 
                             UUID creatorUUID = UUID.fromString(userIdStr);
 
+                            // اگر سرویس‌ات ورودی توضیح را می‌پذیرد، از متد اورلودشده استفاده کن:
+                            // boolean created = ChannelService.createChannel(channelId, channelName, creatorUUID, imageUrl, description);
                             boolean created = ChannelService.createChannel(channelId, channelName, creatorUUID, imageUrl);
 
                             if (created) {
                                 Channel createdChannel = ChannelDatabase.findByChannelId(channelId);
                                 if (createdChannel != null) {
-                                    JSONObject data = new JSONObject();
+                                    org.json.JSONObject data = new org.json.JSONObject();
                                     data.put("internal_id", createdChannel.getInternal_uuid().toString());
                                     data.put("id", createdChannel.getChannel_id());
                                     data.put("name", createdChannel.getChannel_name());
                                     data.put("image_url", createdChannel.getImage_url());
                                     data.put("type", "channel");
+                                    if (description != null) data.put("description", description);
 
                                     response = new ResponseModel("success", "Channel created.", data);
                                 } else {
@@ -1163,44 +1167,104 @@ public class ClientHandler implements Runnable {
                     }
 
 
-                    case "add_member_to_group": {
+//                    case "add_member_to_group": {
+//                        if (currentUser == null) {
+//                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+//                            break;
+//                        }
+//                        UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+//                        UUID targetUserId = UUID.fromString(requestJson.getString("user_id"));
+//
+//                        if (!GroupPermissionUtil.canAddMembers(groupId, currentUser.getInternal_uuid())) {
+//                            response = new ResponseModel("error", "You are not allowed to add members.");
+//                            break;
+//                        }
+//
+//                        if (GroupDatabase.isUserInGroup(targetUserId, groupId)) {
+//                            response = new ResponseModel("error", "User is already a member.");
+//                            break;
+//                        }
+//
+//                        boolean success = GroupDatabase.addMemberToGroup(targetUserId, groupId);
+//
+//                        Group group = GroupDatabase.findByInternalUUID(groupId);
+//
+//                        //RealTime
+//                        if (success && group != null) {
+//                            RealTimeEventDispatcher.notifyAddedToChat(
+//                                    "group",
+//                                    group.getInternal_uuid(),
+//                                    group.getGroup_name(),
+//                                    group.getImage_url(),
+//                                    targetUserId
+//                            );
+//                        }
+//
+//                        response = success
+//                                ? new ResponseModel("success", "Member added to group.")
+//                                : new ResponseModel("error", "Failed to add member.");
+//                        break;
+//
+//                    }
+
+
+                    case "add_members_to_group": {
                         if (currentUser == null) {
                             response = new ResponseModel("error", "Unauthorized. Please login first.");
                             break;
                         }
                         UUID groupId = UUID.fromString(requestJson.getString("group_id"));
-                        UUID targetUserId = UUID.fromString(requestJson.getString("user_id"));
-
                         if (!GroupPermissionUtil.canAddMembers(groupId, currentUser.getInternal_uuid())) {
                             response = new ResponseModel("error", "You are not allowed to add members.");
                             break;
                         }
 
-                        if (GroupDatabase.isUserInGroup(targetUserId, groupId)) {
-                            response = new ResponseModel("error", "User is already a member.");
+                        org.json.JSONArray arr = requestJson.optJSONArray("user_ids");
+                        if (arr == null || arr.isEmpty()) {
+                            response = new ResponseModel("error", "user_ids is empty.");
                             break;
                         }
 
-                        boolean success = GroupDatabase.addMemberToGroup(targetUserId, groupId);
-
                         Group group = GroupDatabase.findByInternalUUID(groupId);
-
-                        //RealTime
-                        if (success && group != null) {
-                            RealTimeEventDispatcher.notifyAddedToChat(
-                                    "group",
-                                    group.getInternal_uuid(),
-                                    group.getGroup_name(),
-                                    group.getImage_url(),
-                                    targetUserId
-                            );
+                        if (group == null) {
+                            response = new ResponseModel("error", "Group not found.");
+                            break;
                         }
 
-                        response = success
-                                ? new ResponseModel("success", "Member added to group.")
-                                : new ResponseModel("error", "Failed to add member.");
-                        break;
+                        int added = 0, skipped = 0, failed = 0;
+                        for (int i = 0; i < arr.length(); i++) {
+                            try {
+                                UUID targetUserId = UUID.fromString(arr.getString(i));
+                                if (GroupDatabase.isUserInGroup(targetUserId, groupId)) {
+                                    skipped++;
+                                    continue;
+                                }
+                                boolean ok = GroupDatabase.addMemberToGroup(targetUserId, groupId);
+                                if (ok) {
+                                    added++;
+                                    RealTimeEventDispatcher.notifyAddedToChat(
+                                            "group",
+                                            group.getInternal_uuid(),
+                                            group.getGroup_name(),
+                                            group.getImage_url(),
+                                            targetUserId
+                                    );
+                                } else {
+                                    failed++;
+                                }
+                            } catch (Exception ex) {
+                                failed++;
+                            }
+                        }
 
+                        JSONObject data = new JSONObject()
+                                .put("added", added)
+                                .put("skipped", skipped)
+                                .put("failed", failed)
+                                .put("group_id", group.getInternal_uuid().toString());
+
+                        response = new ResponseModel("success", "Batch add finished.", data);
+                        break;
                     }
 
 

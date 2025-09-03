@@ -54,6 +54,15 @@ public class ChatEntry {
 
     }
 
+    public ChatEntry(UUID internalId, String type, String name, String displayId) {
+        this.internalId = internalId;
+        this.type = type;
+        this.displayId = displayId;
+        this.name = name;
+
+    }
+
+
     public boolean isOwner() {
         return isOwner;
     }
@@ -73,6 +82,7 @@ public class ChatEntry {
     public UUID getId() {
         return internalId;
     }
+
 
     public String getDisplayId() {
         return displayId;
@@ -179,5 +189,22 @@ public class ChatEntry {
     public void setLastMessageTime(LocalDateTime t) {
         this.lastMessageTime = t;
     }
+
+
+
+    public static ChatEntry fromServer(UUID internalId,
+                                       String type,
+                                       String name,
+                                       String displayId,
+                                       String imageUrl,
+                                       boolean isOwner,
+                                       boolean isAdmin) {
+        ChatEntry e = new ChatEntry(internalId, type, name, displayId); // اگر سازنده‌ات فرق دارد، مطابق آن بساز
+        e.setImageUrl(imageUrl);
+        e.setOwner(isOwner);
+        e.setAdmin(isAdmin);
+        return e;
+    }
+
 
 }

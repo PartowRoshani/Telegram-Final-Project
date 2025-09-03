@@ -1,12 +1,16 @@
 package org.to.telegramfinalproject.UI;
 
 import javafx.application.Platform;
-import javafx.fxml.FXML;
 import javafx.geometry.Pos;
+import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.to.telegramfinalproject.Client.ActionHandler;
+import org.to.telegramfinalproject.Client.Session;
 
 import java.io.File;
 import java.util.*;
@@ -25,68 +29,23 @@ public class AddMembersController {
     @FXML private Button cancelButton;
     @FXML private Button createButton;
 
-    // Keep selected contacts
-    private final Set<Contact> selectedContacts = new HashSet<>();
-
+    // گروه هدف
+    private UUID groupInternalId;
     private String groupName;
-    private String groupId;
+    private String groupDisplayId;
     private File groupImageFile;
 
-    // Sample data for testing
-    private final List<Contact> allContacts = Arrays.asList(
-            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_user_profile.png")
-    );
+    // انتخاب‌ها
+    private final Set<Contact> selectedContacts = new HashSet<>();
+    // همه‌ی کانتکت‌ها
+    private final List<Contact> allContacts = new ArrayList<>();
 
     @FXML
     public void initialize() {
-        updateMemberCount();
-
-        // Sort + render initially
-        List<Contact> sorted = allContacts.stream()
-                .sorted(Comparator.comparing(Contact::getName))
-                .collect(Collectors.toList());
-        renderContacts(sorted);
-
-        // Search filter
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            String filter = newVal.toLowerCase();
-            List<Contact> filtered = allContacts.stream()
-                    .filter(c -> c.getName().toLowerCase().contains(filter))
-                    .sorted(Comparator.comparing(Contact::getName))
-                    .collect(Collectors.toList());
-            renderContacts(filtered);
-        });
-
-        // Auto-focus
-        Platform.runLater(() -> searchField.requestFocus());
-
-        // Cancel closes overlay
-        cancelButton.setOnAction(e -> MainController.getInstance().closeOverlay(addMembersCard.getParent()));
-
-        // Close when clicking outside
-        overlayBackground.setOnMouseClicked(e -> MainController.getInstance().closeOverlay(addMembersCard.getParent()));
-
-        // Create action
-        createButton.setOnAction(e -> {
-            if (selectedContacts.isEmpty()) {
-                return;
-            }
-            createGroup();
-        });
-
-        // Smooth scroll
-        contactsScroll.getStylesheets().add(getClass().getResource("/org/to/telegramfinalproject/CSS/scrollpane.css").toExternalForm());
+        // اسکرول نرم
+        contactsScroll.getStylesheets().add(
+                getClass().getResource("/org/to/telegramfinalproject/CSS/scrollpane.css").toExternalForm()
+        );
         contactsScroll.setPannable(true);
         contactsScroll.setFitToWidth(true);
         contactsScroll.setFitToHeight(false);
@@ -95,64 +54,78 @@ public class AddMembersController {
             contactsScroll.setVvalue(contactsScroll.getVvalue() - deltaY);
         });
 
-        // Theme icon handling
+        // آیکن سرچ با تم
         Platform.runLater(() -> {
             if (addMembersCard.getScene() != null) {
                 ThemeManager.getInstance().registerScene(addMembersCard.getScene());
             }
         });
-        ThemeManager.getInstance().darkModeProperty().addListener((obs, oldVal, newVal) -> updateSearchIcon(newVal));
+        ThemeManager.getInstance().darkModeProperty().addListener((obs, ov, nv) -> updateSearchIcon(nv));
         updateSearchIcon(ThemeManager.getInstance().isDarkMode());
+
+        // بستن اُورلی
+        cancelButton.setOnAction(e -> MainController.getInstance().closeOverlay(addMembersCard.getParent()));
+        overlayBackground.setOnMouseClicked(e -> MainController.getInstance().closeOverlay(addMembersCard.getParent()));
+
+        // دکمه Add (افزودن اعضا)
+        createButton.setOnAction(e -> onAddMembers());
+
+        // سرچ
+        searchField.textProperty().addListener((obs, ov, nv) -> applyFilter(nv));
+
+        Platform.runLater(() -> searchField.requestFocus());
+
+        // دیتا را از Session بارگذاری کن
+        loadContactsFromSession();
+        updateMemberCount();
+        renderContacts(allContacts);
     }
 
-    private void createGroup() {
-//        String groupName = this.groupName; // set earlier from setGroupInfo()
-//        File groupImage = this.groupImageFile; // also passed earlier
-//
-//        // Collect selected members
-//        List<String> memberIds = selectedContacts.stream()
-//                .map(Contact::getId) // you need some unique identifier for contacts
-//                .collect(Collectors.toList());
-//
-//        // Build JSON payload for server
-//        JSONObject req = new JSONObject();
-//        req.put("action", "create_group");
-//        req.put("name", groupName);
-//        req.put("members", memberIds);
-//
-//        if (groupImage != null) {
-//            req.put("image_path", groupImage.getAbsolutePath());
-//            // or upload the file separately depending on your backend design
-//        }
-//
-//        try {
-//            JSONObject res = NetworkClient.sendWithResponse(req); // your socket wrapper
-//            if ("success".equals(res.getString("status"))) {
-//                // Get new group chat ID from server
-//                String chatId = res.getString("chat_id");
-//
-//                // ✅ Close overlay
-//                MainController.getInstance().closeOverlay(overlayRoot);
-//
-//                // ✅ Open chat immediately
-//                FXMLLoader loader = new FXMLLoader(getClass().getResource(
-//                        "/org/to/telegramfinalproject/Fxml/chat_page.fxml"));
-//                Node chatPage = loader.load();
-//
-//                ChatPageController chatController = loader.getController();
-//                chatController.setChat(groupName,
-//                        groupImage != null ? groupImage.toURI().toString()
-//                                : "/org/to/telegramfinalproject/Avatars/default_group.png");
-//
-//                MainController.getInstance().getChatDisplayArea().getChildren().setAll(chatPage);
-//
-//            } else {
-//                showAlert("Failed to create group: " + res.getString("message"));
-//            }
-//        } catch (Exception ex) {
-//            ex.printStackTrace();
-//            showAlert("Error creating group.");
-//        }
+    // این متد را NewGroupController بعد از ساخت گروه صدا بزند
+    public void setGroupInfo(UUID internalId, String groupName, String displayId, File groupImageFile) {
+        this.groupInternalId = internalId;
+        this.groupName = groupName;
+        this.groupDisplayId = displayId;
+        this.groupImageFile = groupImageFile;
+    }
+
+    // — اگر هنوز امضای قدیمی را صدا می‌زنی، موقتاً این اوِرلود هست (displayId را می‌گیرد اما internal_id لازم است) —
+    public void setGroupInfo(String groupName, String groupId, File groupImageFile) {
+        // ⚠️ فقط برای سازگاری موقت؛ حتماً NewGroupController را طوری به‌روزرسانی کن
+        // که internal_id را بدهد (امضای بالایی).
+        this.groupName = groupName;
+        this.groupDisplayId = groupId;
+        this.groupImageFile = groupImageFile;
+    }
+
+    private void loadContactsFromSession() {
+        allContacts.clear();
+        var u = Session.currentUser;
+        var arr = (u == null) ? null : u.optJSONArray("contact_list");
+        if (arr != null) {
+            for (int i = 0; i < arr.length(); i++) {
+                var c = arr.optJSONObject(i);
+                if (c == null) continue;
+                String name = c.optString("profile_name", "");
+                String id   = c.optString("contact_id", ""); // ← internal_uuid مخاطب
+                if (id.isBlank()) continue;
+                String imageUrl = c.optString("image_url",
+                        "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
+                String status = Optional.ofNullable(c.optString("last_seen", ""))
+                        .filter(s -> !s.isBlank()).map(s -> "last seen " + s).orElse("");
+                allContacts.add(new Contact(id, name, status, imageUrl));
+            }
+        }
+        // اگر خالی بود، چیزی نشون نده (یا می‌تونی دمو بسازی)
+        allContacts.sort(Comparator.comparing(Contact::getName, String.CASE_INSENSITIVE_ORDER));
+    }
+
+    private void applyFilter(String q) {
+        String f = (q == null) ? "" : q.trim().toLowerCase(Locale.ROOT);
+        List<Contact> filtered = allContacts.stream()
+                .filter(c -> c.getName().toLowerCase(Locale.ROOT).contains(f))
+                .collect(Collectors.toList());
+        renderContacts(filtered);
     }
 
     private void renderContacts(List<Contact> contacts) {
@@ -160,12 +133,10 @@ public class AddMembersController {
 
         if (contacts.isEmpty()) {
             StackPane emptyPane = new StackPane();
-            emptyPane.setPrefHeight(300);
+            emptyPane.setPrefHeight(240);
             emptyPane.setAlignment(Pos.CENTER);
-
             Label emptyLabel = new Label("No contacts found");
             emptyLabel.getStyleClass().add("no-contacts-label");
-
             emptyPane.getChildren().add(emptyLabel);
             contactsList.getChildren().add(emptyPane);
             return;
@@ -175,10 +146,8 @@ public class AddMembersController {
             HBox item = new HBox(10);
             item.getStyleClass().add("contact-item");
 
-            // Avatar
-            ImageView avatar = new ImageView(new Image(
-                    Objects.requireNonNull(getClass().getResourceAsStream(c.getImageUrl()))
-            ));
+            // آواتار
+            ImageView avatar = new ImageView(loadAvatar(c.getImageUrl()));
             avatar.setFitWidth(48);
             avatar.setFitHeight(48);
             avatar.setPreserveRatio(true);
@@ -188,32 +157,100 @@ public class AddMembersController {
             nameLabel.getStyleClass().add("contact-name");
             Label statusLabel = new Label(c.getStatus());
             statusLabel.getStyleClass().add("contact-status");
-
             details.getChildren().addAll(nameLabel, statusLabel);
 
-            item.getChildren().addAll(avatar, details);
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
 
-            // Click to toggle selection
-            item.setOnMouseClicked(e -> toggleSelection(c));
+            CheckBox cb = new CheckBox();
+            cb.setSelected(selectedContacts.contains(c));
+            cb.selectedProperty().addListener((obs, ov, nv) -> {
+                if (nv) selectedContacts.add(c); else selectedContacts.remove(c);
+                updateMemberCount();
+                updateSelectedMembersPane();
+                // برای هایلایت
+                if (nv) item.getStyleClass().add("contact-selected");
+                else item.getStyleClass().remove("contact-selected");
+            });
 
-            // Highlight if already selected
-            if (selectedContacts.contains(c)) {
-                item.getStyleClass().add("contact-selected");
-            }
+            item.getChildren().addAll(avatar, details, spacer, cb);
+
+            // کلیک روی ردیف = toggle
+            item.setOnMouseClicked(e -> {
+                boolean newVal = !cb.isSelected();
+                cb.setSelected(newVal);
+            });
+
+            // هایلایت انتخاب‌شده
+            if (selectedContacts.contains(c)) item.getStyleClass().add("contact-selected");
 
             contactsList.getChildren().add(item);
         }
     }
 
-    private void toggleSelection(Contact contact) {
-        if (selectedContacts.contains(contact)) {
-            selectedContacts.remove(contact);
-        } else {
-            selectedContacts.add(contact);
+    private Image loadAvatar(String path) {
+        try {
+            // 1) اگر ریسورس داخلی باشد
+            var in = getClass().getResourceAsStream(path);
+            if (in != null) return new Image(in);
+
+            // 2) اگر URL کامل یا file URI
+            return new Image(path, true);
+        } catch (Exception e) {
+            return new Image(
+                    Objects.requireNonNull(
+                            getClass().getResourceAsStream("/org/to/telegramfinalproject/Avatars/default_user_profile.png")
+                    )
+            );
         }
-        updateMemberCount();
-        updateSelectedMembersPane();
-        renderContacts(allContacts);
+    }
+
+    private void onAddMembers() {
+        if (groupInternalId == null) {
+            showToast("Group internal_id is missing. Make sure setGroupInfo(UUID, ...) was called.");
+            return;
+        }
+        if (selectedContacts.isEmpty()) {
+            MainController.getInstance().closeOverlay(addMembersCard.getParent());
+            return;
+        }
+
+        List<String> ids = selectedContacts.stream().map(Contact::getId).toList();
+
+        // تلاش برای batch
+        JSONObject batchReq = new JSONObject()
+                .put("action", "add_members_to_group")
+                .put("group_id", groupInternalId.toString())
+                .put("user_ids", new JSONArray(ids));
+
+        new Thread(() -> {
+            JSONObject resp = ActionHandler.sendWithResponse(batchReq);
+            if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
+                Platform.runLater(() -> {
+                    showToast("Members added.");
+                    MainController.getInstance().closeOverlay(addMembersCard.getParent());
+                });
+                return;
+            }
+
+            // fallback: تک‌به‌تک
+            boolean allOk = true;
+            for (String uid : ids) {
+                JSONObject single = new JSONObject()
+                        .put("action", "add_member_to_group")
+                        .put("group_id", groupInternalId.toString())
+                        .put("user_id", uid);
+                JSONObject r = ActionHandler.sendWithResponse(single);
+                if (r == null || !"success".equalsIgnoreCase(r.optString("status"))) {
+                    allOk = false;
+                }
+            }
+            boolean finalAllOk = allOk;
+            Platform.runLater(() -> {
+                showToast(finalAllOk ? "Members added." : "Some members failed.");
+                MainController.getInstance().closeOverlay(addMembersCard.getParent());
+            });
+        }).start();
     }
 
     private void updateSelectedMembersPane() {
@@ -233,39 +270,41 @@ public class AddMembersController {
         String iconPath = darkMode
                 ? "/org/to/telegramfinalproject/Icons/search_light.png"
                 : "/org/to/telegramfinalproject/Icons/search_dark.png";
-
         ImageView icon = new ImageView(new Image(getClass().getResourceAsStream(iconPath)));
         icon.setFitWidth(16);
         icon.setFitHeight(16);
         searchIcon.setGraphic(icon);
     }
 
-    public void setGroupInfo(String groupName, String groupId, File groupImageFile) {
-        this.groupName = groupName;
-        this.groupId = groupId;
-        this.groupImageFile = groupImageFile;
-
-        // You can use these later when creating the group
-        System.out.println("Group name passed: " + groupName);
-        if (groupImageFile != null) {
-            System.out.println("Group image: " + groupImageFile.getName());
-        }
+    private void showToast(String msg) {
+        Alert a = new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK);
+        a.initOwner(addMembersCard.getScene().getWindow());
+        a.show();
     }
 
-    // Inner class for contact data
+    // ================== مدل Contact ==================
     public static class Contact {
+        private final String id;      // internal_uuid کاربر
         private final String name;
         private final String status;
         private final String imageUrl;
 
-        public Contact(String name, String status, String imageUrl) {
+        public Contact(String id, String name, String status, String imageUrl) {
+            this.id = id;
             this.name = name;
             this.status = status;
             this.imageUrl = imageUrl;
         }
-
+        public String getId() { return id; }
         public String getName() { return name; }
         public String getStatus() { return status; }
         public String getImageUrl() { return imageUrl; }
+
+        @Override public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Contact c)) return false;
+            return Objects.equals(id, c.id);
+        }
+        @Override public int hashCode() { return Objects.hash(id); }
     }
 }
