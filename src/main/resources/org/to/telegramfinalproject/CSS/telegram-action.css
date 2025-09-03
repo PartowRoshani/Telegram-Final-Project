@@ -1,0 +1,109 @@
+/* رنگ‌ها */
+:root {
+  -tg-bg:        #ffffff;
+  -tg-sheet:     #ffffff;
+  -tg-shadow:    rgba(0,0,0,.25);
+  -tg-sep:       rgba(0,0,0,.06);
+  -tg-text:      #0f141a;
+  -tg-subtext:   #6e7b87;
+  -tg-danger:    #e53935;
+  -tg-primary:   #2481cc;
+  -tg-chip-bg:   #f5f7fa;
+}
+
+/* ACTION SHEET */
+.tg-action-sheet {
+  -fx-background-color: -tg-sheet;
+  -fx-background-radius: 16;
+  -fx-effect: dropshadow(gaussian, -tg-shadow, 24, 0.26, 0, 4);
+  -fx-padding: 0;
+  -fx-border-radius: 16;
+}
+
+.tg-reaction-bar {
+  -fx-background-color: transparent;
+  -fx-spacing: 12;
+}
+.tg-reaction {
+  -fx-font-size: 22px;
+  -fx-cursor: hand;
+  -fx-padding: 2 4 2 4;
+  -fx-background-radius: 12;
+}
+.tg-reaction:hover {
+  -fx-background-color: -tg-chip-bg;
+}
+
+.tg-menu { -fx-background-color: transparent; }
+
+.tg-item {
+  -fx-background-color: transparent;
+  -fx-background-radius: 12;
+}
+.tg-item:hover {
+  -fx-background-color: -tg-chip-bg;
+}
+.tg-item .tg-label {
+  -fx-text-fill: -tg-text;
+  -fx-font-size: 16px;
+}
+.tg-item.danger .tg-label {
+  -fx-text-fill: -tg-danger;
+}
+
+.tg-sep {
+  -fx-background-color: -tg-sep;
+  -fx-min-height: 1px;
+  -fx-pref-height: 1px;
+  -fx-max-height: 1px;
+  -fx-background-insets: 0 14 0 14;
+}
+
+/* DELETE SHEET */
+.tg-delete-sheet {
+  -fx-background-color: -tg-bg;
+  -fx-background-radius: 16;
+  -fx-effect: dropshadow(gaussian, -tg-shadow, 28, 0.28, 0, 4);
+}
+.tg-delete-title {
+  -fx-font-size: 18px;
+  -fx-text-fill: -tg-text;
+}
+.tg-delete-check {
+  -fx-text-fill: -tg-text;
+  -fx-font-size: 14px;
+}
+
+/* Buttons */
+.tg-btn-secondary {
+  -fx-background-color: transparent;
+  -fx-text-fill: -tg-primary;
+  -fx-font-size: 14px;
+  -fx-padding: 8 14 8 14;
+  -fx-background-radius: 10;
+}
+.tg-btn-secondary:hover {
+  -fx-background-color: -tg-chip-bg;
+}
+
+.tg-btn-danger {
+  -fx-background-color: -tg-danger;
+  -fx-text-fill: white;
+  -fx-font-size: 14px;
+  -fx-padding: 8 16 8 16;
+  -fx-background-radius: 10;
+}
+.tg-btn-danger:hover { -fx-opacity: .9; }
+
+/* دارک‌مود (اگر CSS سوییچ داری، این کلس را به Scene اضافه کن) */
+.root.dark .tg-action-sheet,
+.root.dark .tg-delete-sheet { -fx-background-color: #1f2a33; }
+.root.dark {
+  -tg-bg:       #1f2a33;
+  -tg-sheet:    #22303a;
+  -tg-text:     #e8f1f8;
+  -tg-subtext:  #9bb2c3;
+  -tg-sep:      rgba(255,255,255,.08);
+  -tg-chip-bg:  rgba(255,255,255,.06);
+  -tg-shadow:   rgba(0,0,0,.45);
+}

@@ -2474,8 +2474,8 @@ public class ClientHandler implements Runnable {
                                 .put("excerpt", excerpt));
 
                         List<UUID> receivers = Receivers.resolveFor(receiverType, receiverId, senderId);
-                        //RealTimeEventDispatcher.sendNewMessage(message, receivers, "reply", meta);
-                        RealTimeEventDispatcher.sendNewMessageFiltered(message, receivers, senderId, "reply", meta);
+                        receivers = Receivers.resolveFor(receiverType, receiverId, /*exclude*/ null);
+                        RealTimeEventDispatcher.sendNewMessage(message, receivers, "reply", meta);
 
 
                         response = saved ?
@@ -2532,12 +2532,8 @@ public class ClientHandler implements Runnable {
                                     .put("sender_id", original.getSender_id().toString())
                                     .put("sender_name", userDatabase.findByInternalUUID(original.getSender_id()).getProfile_name()));
 
-                            List<UUID> receivers = Receivers.resolveFor(targetChatType, targetChatId, currentUser.getInternal_uuid());
-                            //RealTimeEventDispatcher.sendNewMessage(forwarded, receivers, "forward", meta);
-                            RealTimeEventDispatcher.sendNewMessageFiltered(forwarded, receivers, senderId, "forward", meta);
-
-                        } else {
-                            response = new ResponseModel("error", "Failed to forward message.");
+                            List<UUID> receivers = Receivers.resolveFor(targetChatType, targetChatId, /*exclude*/ null);
+                            RealTimeEventDispatcher.sendNewMessage(forwarded, receivers, "forward", meta);
                         }
                         break;
                     }
