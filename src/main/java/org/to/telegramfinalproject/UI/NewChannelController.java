@@ -30,6 +30,8 @@ public class NewChannelController {
     @FXML private Button createButton;
     @FXML private StackPane overlayRoot;   // the root
     @FXML private Label descCounter;
+    @FXML private Label channelIdLabel;
+    @FXML private TextField channelIdField;
 
     private File channelImageFile;
 
@@ -67,12 +69,20 @@ public class NewChannelController {
         // Create button → validate name + submit
         createButton.setOnAction(e -> {
             String channelName = channelNameField.getText().trim();
+            String channelId = channelIdField.getText().trim();
             String description = channelDescField.getText().trim();
 
             if (channelName.isEmpty()) {
                 // Apply error style
                 channelNameField.getStyleClass().add("error");
                 channelNameLabel.getStyleClass().add("error");
+                return;
+            }
+
+            if (channelId.isEmpty()) {
+                // Apply error style
+                channelIdField.getStyleClass().add("error");
+                channelIdLabel.getStyleClass().add("error");
                 return;
             }
 
@@ -84,7 +94,7 @@ public class NewChannelController {
 
                 // Pass channel info to AddMembersController
                 AddSubscriberController controller = loader.getController();
-                controller.setChannelInfo(channelName, description, channelImageFile);
+                controller.setChannelInfo(channelName, channelId, description, channelImageFile);
 
                 // Close the current "New Channel" overlay
                 MainController.getInstance().closeOverlay(overlayRoot);
@@ -130,6 +140,14 @@ public class NewChannelController {
             if (!newVal.trim().isEmpty()) {
                 channelNameField.getStyleClass().remove("error");
                 channelNameLabel.getStyleClass().remove("error");
+            }
+        });
+
+        // Reset error state when typing
+        channelIdField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal.trim().isEmpty()) {
+                channelIdField.getStyleClass().remove("error");
+                channelIdLabel.getStyleClass().remove("error");
             }
         });
 
