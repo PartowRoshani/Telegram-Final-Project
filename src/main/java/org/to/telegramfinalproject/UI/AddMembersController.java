@@ -29,6 +29,7 @@ public class AddMembersController {
     private final Set<Contact> selectedContacts = new HashSet<>();
 
     private String groupName;
+    private String groupId;
     private File groupImageFile;
 
     // Sample data for testing
@@ -239,8 +240,9 @@ public class AddMembersController {
         searchIcon.setGraphic(icon);
     }
 
-    public void setGroupInfo(String groupName, File groupImageFile) {
+    public void setGroupInfo(String groupName, String groupId, File groupImageFile) {
         this.groupName = groupName;
+        this.groupId = groupId;
         this.groupImageFile = groupImageFile;
 
         // You can use these later when creating the group

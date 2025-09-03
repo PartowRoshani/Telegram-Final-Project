@@ -763,3 +763,141 @@
     -fx-background-color: #fff;
 }
 
+.settings-card {
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 8;
+    -fx-padding: 12;
+}
+
+.settings-avatar {
+    -fx-fit-width: 56px;
+    -fx-fit-height: 56px;
+}
+
+.settings-name {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #000000;
+}
+
+.settings-id {
+    -fx-font-size: 13px;
+    -fx-text-fill: #666666;
+}
+
+.settings-option {
+    -fx-background-color: transparent;
+    -fx-text-fill: #000000;
+    -fx-font-size: 14px;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.settings-option:hover {
+    -fx-background-color: #f1f1f1;
+}
+
+.settings-menu {
+    -fx-background-color: transparent;
+    -fx-font-size: 18px;
+    -fx-text-fill: #333333;
+}
+
+.settings-header {
+    -fx-padding: 8 12;
+    -fx-border-color: -fx-box-border;
+    -fx-border-width: 0 0 1 0; /* bottom border only */
+}
+
+.settings-title {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-base-color;
+}
+
+.icon-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.icon-button:hover {
+    -fx-background-color: rgba(0,0,0,0.05);
+    -fx-background-radius: 50%;
+}
+
+/* Profile header */
+.profile-header {
+    -fx-padding: 12 16;
+}
+
+.profile-avatar {
+    -fx-background-radius: 50%;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 4, 0.3, 0, 1);
+}
+
+.profile-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-base-color;
+}
+
+.profile-id {
+    -fx-font-size: 12px;
+    -fx-text-fill: #888;
+}
+
+/* Hide MenuButton text & arrow */
+.icon-button > .label {
+    -fx-padding: 0;
+    -fx-text-fill: transparent;
+}
+
+.icon-button > .arrow-button,
+.icon-button > .arrow {
+    -fx-padding: 0;
+    -fx-shape: null;  /* removes arrow shape */
+    -fx-background-color: transparent;
+    -fx-opacity: 0;
+}
+
+.icon-image {
+    -fx-smooth: true;       /* keeps scaling smooth */
+    -fx-opacity: 0.8;       /* slightly dim until hover */
+}
+
+.icon-image:hover {
+    -fx-opacity: 1.0;       /* brighten on hover */
+}
+
+/* Container for all settings buttons */
+.settings-options {
+    -fx-background-color: transparent;
+    -fx-spacing: 4;
+    -fx-padding: 8 0 8 0;
+    -fx-border-color: #e6e6e6;
+    -fx-border-width: 0 0 0 0;   /* thin top border */
+}
+
+/* Settings action buttons */
+.settings-option {
+    -fx-background-color: transparent;
+    -fx-text-fill: #222;
+    -fx-font-size: 14px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 10 14;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+
+    /* space between icon and text */
+    -fx-graphic-text-gap: 10px;
+}
+
+/* Hover effect */
+.settings-option:hover {
+    -fx-background-color: #f2f2f2;
+}
+
+/* Pressed effect */
+.settings-option:pressed {
+    -fx-background-color: #e0e0e0;
+}
+

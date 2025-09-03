@@ -29,6 +29,7 @@ public class AddSubscriberController {
     private final Set<Contact> selectedContacts = new HashSet<>();
 
     private String channelName;
+    private String channelId;
     private File channelImageFile;
     private String description;
 
@@ -201,8 +202,9 @@ public class AddSubscriberController {
         searchIcon.setGraphic(icon);
     }
 
-    public void setChannelInfo(String name, String description, File image) {
+    public void setChannelInfo(String name, String id, String description, File image) {
         this.channelName = name;
+        this.channelId = id;
         this.channelImageFile = image;
         this.description = description;
     }

@@ -42,6 +42,15 @@
             </VBox>
         </HBox>
 
+        <!-- Group ID (below the name) -->
+        <VBox spacing="4" alignment="CENTER_LEFT">
+            <Label fx:id="groupIdLabel" text="Group ID" styleClass="group-name-label"/>
+            <TextField fx:id="groupIdField"
+                       promptText="Enter group ID"
+                       styleClass="group-name-field"
+                       HBox.hgrow="ALWAYS"/>
+        </VBox>
+
         <!-- Footer: Cancel + Next -->
         <HBox alignment="CENTER_RIGHT" spacing="16">
             <Button fx:id="cancelButton" text="Cancel" styleClass="footer-button"/>

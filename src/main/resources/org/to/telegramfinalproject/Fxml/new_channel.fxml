@@ -17,7 +17,7 @@
           spacing="16"
           alignment="CENTER"
           prefWidth="400" maxWidth="400"
-          prefHeight="280" maxHeight="280">
+          prefHeight="380" maxHeight="380">
 
         <!-- Header Row: Picture + Name -->
         <HBox alignment="CENTER_LEFT" spacing="12">
@@ -41,6 +41,15 @@
                            HBox.hgrow="ALWAYS"/>
             </VBox>
         </HBox>
+
+        <!-- ID -->
+        <VBox spacing="4" alignment="CENTER_LEFT">
+            <Label fx:id="channelIdLabel" text="Channel ID" styleClass="group-name-label"/>
+            <TextField fx:id="channelIdField"
+                       promptText="Enter channel ID"
+                       styleClass="group-name-field"
+                       HBox.hgrow="ALWAYS"/>
+        </VBox>
 
         <!-- Channel Description -->
         <VBox spacing="4" alignment="CENTER_LEFT">

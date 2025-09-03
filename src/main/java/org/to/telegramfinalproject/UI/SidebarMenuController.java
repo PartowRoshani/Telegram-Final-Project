@@ -239,7 +239,21 @@ public class SidebarMenuController {
     }
 
     private void openSavedMessages() { System.out.println("Opening Saved Messages..."); }
-    private void openSettings() { System.out.println("Opening Settings..."); }
+
+    private void openSettings() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                    "/org/to/telegramfinalproject/Fxml/settings.fxml"));
+            Node settingsOverlay = loader.load();
+
+            // Show overlay on top of everything
+            MainController.getInstance().showOverlay(settingsOverlay);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void openTelegramFeatures() { System.out.println("Opening Telegram Features..."); }
     private void openTelegramQnA() { System.out.println("Opening Telegram Q&A..."); }
 
