@@ -166,11 +166,15 @@
             </items>
         </SplitPane>
 
-        <!-- Overlay (for sidebar) -->
+        <!-- ===== Overlay background for sidebar only ===== -->
         <Pane fx:id="overlay"
               mouseTransparent="true"
               onMouseClicked="#closeSidebar"
               styleClass="overlay"
               visible="false"/>
+
+        <!-- ===== Overlay layer for profile/settings/etc. ===== -->
+        <StackPane fx:id="overlayLayer"
+                   pickOnBounds="false"/>
     </children>
 </StackPane>

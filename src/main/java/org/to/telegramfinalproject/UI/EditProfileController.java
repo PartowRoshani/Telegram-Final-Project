@@ -46,7 +46,10 @@ public class EditProfileController {
         overlayBackground.setOnMouseClicked(e -> closeEdit());
 
         closeButton.setOnAction(e -> closeEdit());
-        backButton.setOnAction(e -> goBackToProfile());
+
+        backButton.setOnAction(e -> {
+            MainController.getInstance().goBack(overlayBackground);
+        });
 
         // Load your camera icon image (white camera icon for visibility)
         cameraIcon.setImage(new Image(
@@ -99,38 +102,6 @@ public class EditProfileController {
 
     private void closeEdit() {
         MainController.getInstance().closeOverlay(editCard.getParent());
-    }
-
-    @FXML
-    private void goBackToProfile() {
-        // Close edit overlay
-        MainController.getInstance().closeOverlay(editCard.getParent());
-
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource(
-                    "/org/to/telegramfinalproject/Fxml/my_profile.fxml"));
-            Node profileOverlay = loader.load();
-
-            // Get the controller for the loaded MyProfile scene
-            MyProfileController controller = loader.getController();
-
-            // Pass updated data from edit fields
-            controller.setProfileData(
-                    nameField.getText(),
-                    "online",
-                    bioField.getText(),
-                    usernameField.getText(),
-                    profileImageView.getImage() != null ?
-                            profileImageView.getImage().getUrl() :
-                            "/org/to/telegramfinalproject/Avatars/default_profile.png"
-            );
-
-            // Show updated MyProfile overlay
-            MainController.getInstance().showOverlay(profileOverlay);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     public void setProfileData(String name, String status, String bio, String userId, Image profileImage) {

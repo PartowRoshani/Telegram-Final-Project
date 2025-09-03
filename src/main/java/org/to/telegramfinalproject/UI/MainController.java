@@ -61,6 +61,9 @@ public class MainController {
     @FXML private ImageView menuIcon;
     private SidebarMenuController sidebarController; //save sidebar controller
 
+    // === Overlay ===
+    @FXML private StackPane overlayLayer;
+
     // === Time formatter for messages ===
     private static final java.time.format.DateTimeFormatter FMT_HHMM =
             java.time.format.DateTimeFormatter.ofPattern("HH:mm");
@@ -83,6 +86,9 @@ public class MainController {
     public static MainController getInstance() {
         return instance;
     }
+
+    // Keep track of the scene user comes from
+    private final Deque<Node> navigationStack = new ArrayDeque<>();
     private final Map<UUID, ChatItemController> itemControllers = new HashMap<>();
 
 
@@ -562,13 +568,30 @@ public class MainController {
 
     // === Overlay Handling ===
     public void showOverlay(Node overlayNode) {
-        mainRoot.getChildren().add(overlayNode);
+        if (!overlayLayer.getChildren().isEmpty()) {
+            Node current = overlayLayer.getChildren().get(overlayLayer.getChildren().size() - 1);
+            navigationStack.push(current);
+            overlayLayer.getChildren().remove(current);
+        }
+        overlayLayer.getChildren().add(overlayNode);
     }
 
     public void closeOverlay(Node overlayNode) {
-        mainRoot.getChildren().remove(overlayNode);
+        overlayLayer.getChildren().remove(overlayNode);
     }
 
+    public void goBack(Pane currentOverlay) {
+        // Remove the current overlay
+        closeOverlay(currentOverlay);
+
+        if (!navigationStack.isEmpty()) {
+            Node previous = navigationStack.pop();
+
+            // Clear existing overlays before showing previous
+            overlayLayer.getChildren().clear();
+            overlayLayer.getChildren().add(previous);
+        }
+    }
 
     // ===== Search UI state =====
     private final java.util.List<SearchResult> searchBacking = new java.util.ArrayList<>();

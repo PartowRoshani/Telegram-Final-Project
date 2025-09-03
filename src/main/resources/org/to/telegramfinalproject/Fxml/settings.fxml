@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.image.Image?>
+
+<StackPane styleClass="overlay-root" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/8" fx:controller="org.to.telegramfinalproject.UI.SettingsController">
+   <children>
+   
+       <!-- Dimmed background -->
+       <Pane fx:id="overlayBackground" styleClass="overlay-background" />
+   
+       <!-- Settings Card -->
+       <VBox fx:id="settingsCard" maxHeight="470" maxWidth="350" prefHeight="470" prefWidth="350" spacing="12" styleClass="settings-card">
+      <children>
+      
+              <!-- ===== Header ===== -->
+              <HBox alignment="CENTER_RIGHT" spacing="10" styleClass="settings-header">
+         <children>
+                     <Label styleClass="settings-title" text="Settings" />
+                     <Region HBox.hgrow="ALWAYS" /> <!-- pushes buttons to the right -->
+         
+                     <!-- 3-dots Menu -->
+                     <MenuButton fx:id="menuButton" styleClass="icon-button">
+                         <graphic>
+                             <ImageView fitHeight="18" fitWidth="18" pickOnBounds="true" preserveRatio="true" styleClass="icon-image">
+                                 <image>
+                                     <Image url="@/org/to/telegramfinalproject/Icons/more_dark.png" />
+                                 </image>
+                             </ImageView>
+                         </graphic>
+                         <items>
+                             <MenuItem fx:id="editProfileItem" text="Edit Profile">
+                                 <graphic>
+                                     <ImageView fitHeight="14" fitWidth="14" preserveRatio="true">
+                                         <image>
+                                             <Image url="@/org/to/telegramfinalproject/Icons/edit_dark.png" />
+                                         </image>
+                                     </ImageView>
+                                 </graphic>
+                             </MenuItem>
+                             <MenuItem fx:id="logoutItem" text="Log Out">
+                                 <graphic>
+                                     <ImageView fitHeight="14" fitWidth="14" preserveRatio="true">
+                                         <image>
+                                             <Image url="@/org/to/telegramfinalproject/Icons/log_out.png" />
+                                         </image>
+                                     </ImageView>
+                                 </graphic>
+                             </MenuItem>
+                         </items>
+                     </MenuButton>
+         
+                     <!-- Close Button -->
+                     <Button fx:id="closeButton" styleClass="icon-button" text="✕" />
+         </children>
+              </HBox>
+      
+              <!-- ===== Profile Info ===== -->
+              <HBox alignment="CENTER_LEFT" spacing="12" styleClass="profile-header">
+         <children>
+                     <!-- Profile Picture -->
+                     <ImageView fx:id="profileImage" fitHeight="92" fitWidth="92" preserveRatio="true" styleClass="profile-avatar" />
+         
+                     <!-- Name + ID -->
+                     <VBox alignment="CENTER_LEFT" spacing="2">
+            <children>
+                            <Label fx:id="profileName" styleClass="profile-name" text="User Name" />
+                            <Label fx:id="profileId" styleClass="profile-id" />
+            </children>
+                     </VBox>
+         </children>
+              </HBox>
+      
+              <Separator />
+      
+              <!-- ===== Options ===== -->
+              <VBox spacing="8" styleClass="settings-options">
+         <children>
+             <!-- My Account -->
+             <Button fx:id="myAccountButton" prefHeight="25.0" prefWidth="361.0" styleClass="settings-option" text="My Account">
+                 <graphic>
+                     <ImageView fitWidth="25" fitHeight="25" preserveRatio="true">
+                         <image>
+                             <Image url="@/org/to/telegramfinalproject/Icons/my_profile_dark.png"/>
+                         </image>
+                     </ImageView>
+                 </graphic>
+             </Button>
+
+             <!-- Privacy and Security -->
+             <Button fx:id="privacyButton" prefHeight="25.0" prefWidth="376.0" styleClass="settings-option" text="Privacy and Security">
+                 <graphic>
+                     <ImageView fitWidth="25" fitHeight="25" preserveRatio="true">
+                         <image>
+                             <Image url="@/org/to/telegramfinalproject/Icons/lock_dark.png"/>
+                         </image>
+                     </ImageView>
+                 </graphic>
+             </Button>
+
+             <!-- Telegram Q&A -->
+             <Button fx:id="faqButton" prefHeight="25.0" prefWidth="390.0" styleClass="settings-option" text="Telegram Q&amp;A">
+                 <graphic>
+                     <ImageView fitWidth="25" fitHeight="25" preserveRatio="true">
+                         <image>
+                             <Image url="@/org/to/telegramfinalproject/Icons/telegram_qna_dark.png"/>
+                         </image>
+                     </ImageView>
+                 </graphic>
+             </Button>
+
+             <!-- Telegram Features -->
+             <Button fx:id="featuresButton" prefHeight="25.0" prefWidth="370.0" styleClass="settings-option" text="Telegram Features">
+                 <graphic>
+                     <ImageView fitWidth="25" fitHeight="25" preserveRatio="true">
+                         <image>
+                             <Image url="@/org/to/telegramfinalproject/Icons/telegram_features_dark.png"/>
+                         </image>
+                     </ImageView>
+                 </graphic>
+             </Button>
+         </children>
+              </VBox>
+      </children>
+       </VBox>
+   </children>
+</StackPane>
