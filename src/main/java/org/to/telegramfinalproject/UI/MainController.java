@@ -40,6 +40,7 @@ public class MainController {
         GLOBAL,
         CHAT
     }
+    private ChatViewMode currentMode = ChatViewMode.NORMAL; // حالت فعلی: NORMAL/NEEDS_JOIN/NEEDS_ADD_CONTACT
     private SearchMode currentSearchMode = SearchMode.GLOBAL;
     private UUID currentChatId; // if in CHAT mode, which chat to search in
 
@@ -429,6 +430,9 @@ public class MainController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_page.fxml"));
             Node chatPage = loader.load();
 
+
+
+
             ChatPageController controller = loader.getController();
             controller.showChat(chat);
 
@@ -444,6 +448,30 @@ public class MainController {
             ex.printStackTrace();
         }
     }
+
+
+    private void openChatWithMode(ChatEntry chat, ChatViewMode mode) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_page.fxml"));
+            Node chatPage = loader.load();
+
+            ChatPageController controller = loader.getController();
+            controller.showChat(chat, mode); // ⬅️ متد جدید در ChatPageController
+
+            this.chatPageController = controller;
+            Session.currentChatId = chat.getId().toString();
+
+            chatDisplayArea.getChildren().setAll(chatPage);
+
+            chat.setUnreadCount(0);
+            ChatItemController item = itemControllers.get(chat.getId());
+            if (item != null) item.setUnread(0);
+
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
 
     @FXML
     private void toggleSidebar() {
@@ -855,39 +883,52 @@ public class MainController {
     private void openSearchResult(SearchResult r) {
         switch (r.type) {
             case USER: {
+                // 1) اگه قبلاً چت پرایوت با این یوزر داری، از همون استفاده کن
+                UUID existingChatId = findExistingPrivateChatId(r.uuid);
 
-                java.util.UUID chatId = findExistingPrivateChatId(r.uuid);
-                if (chatId == null) {
-                    chatId = fetchOrCreatePrivateChat(r.uuid);
-                    if (chatId == null) {
-                        System.out.println("❌ Failed to create/find private chat.");
-                        return;
-                    }
+                ChatEntry ce = new ChatEntry();
+                ce.setType("private");
+                ce.setName(r.title);
+                ce.setDisplayId(r.displayId);
+                try { ce.setOtherUserId(r.uuid); } catch (Exception ignore) {}
+
+                ChatViewMode mode;
+                if (existingChatId != null) {
+                    ce.setId(existingChatId.toString());
+                    mode = ChatViewMode.NORMAL;
+                } else {
+                    // هنوز چتی وجود ندارد → Preview (بدون ساخت چت)
+                    // برای Preview از uuid خودِ طرف مقابل به‌عنوان id موقت استفاده می‌کنیم
+                    ce.setId(r.uuid.toString());
+                    mode = isContact(r.uuid) ? ChatViewMode.NORMAL : ChatViewMode.NEEDS_ADD_CONTACT;
                 }
 
-                org.to.telegramfinalproject.Models.ChatEntry ce = new org.to.telegramfinalproject.Models.ChatEntry();
-                ce.setId(chatId.toString());                  // ⬅️ internal chat_id
-                ce.setDisplayId(r.displayId);                 // username
-                ce.setName(r.title);                          // profile_name
-                ce.setType("private");
-
-                openChat(ce);
+                openChatWithMode(ce, mode);
                 break;
             }
+
 
             case GROUP:
             case CHANNEL: {
                 org.to.telegramfinalproject.Models.ChatEntry existing =
                         findExistingChat(r.uuid, r.receiverType);
                 if (existing != null) {
-                    openChat(existing);
+                    openChatWithMode(existing, ChatViewMode.NORMAL);
                 } else {
                     org.to.telegramfinalproject.Models.ChatEntry ce = new org.to.telegramfinalproject.Models.ChatEntry();
                     ce.setId(r.uuid.toString());          // internal_uuid group/channel
                     ce.setDisplayId(r.displayId);         // group_id/channel_id
                     ce.setName(r.title);
                     ce.setType(r.receiverType);
-                    openChat(ce);
+                    //openChat(ce);
+                    ChatViewMode mode;
+                    try {
+                        mode = isInAnyChatList(r.uuid) ? ChatViewMode.NORMAL : ChatViewMode.NEEDS_JOIN;
+                    } catch (Exception e) {
+                        mode = ChatViewMode.NEEDS_JOIN;
+                    }
+                    openChatWithMode(ce, mode);
+
                 }
                 break;
             }
@@ -991,4 +1032,87 @@ public class MainController {
 
         return false;
     }
+
+
+    //Search
+    private boolean isInAnyChatList(UUID chatId) {
+        var lists = List.of(
+                Session.chatList != null ? Session.chatList : List.<ChatEntry>of(),
+                Session.activeChats != null ? Session.activeChats : List.<ChatEntry>of(),
+                Session.archivedChats != null ? Session.archivedChats : List.<ChatEntry>of()
+        );
+        for (var lst : lists) {
+            for (var c : lst) {
+                try {
+                    if (chatId.equals(UUID.fromString(c.getId().toString()))) return true;
+                } catch (Exception ignore) {}
+            }
+        }
+        return false;
+    }
+
+
+    private boolean isContact(UUID userUuid) {
+        if (Session.contactEntries == null) return false;
+        try {
+            for (var c : Session.contactEntries) {
+                UUID id = c.getContactId();
+                if (userUuid.equals(id)) return true;
+            }
+        } catch (Exception ignore) {}
+        return false;
+    }
+
+
+
+    private ChatViewMode computeMode(ChatEntry ce) {
+        try {
+            UUID id = UUID.fromString(ce.getId().toString());
+            if (isInAnyChatList(id)) return ChatViewMode.NORMAL;
+        } catch (Exception ignore) {}
+
+        String t = ce.getType();
+        if ("group".equalsIgnoreCase(t) || "channel".equalsIgnoreCase(t)) {
+            return ChatViewMode.NEEDS_JOIN;
+        }
+        if ("private".equalsIgnoreCase(t)) {
+            UUID other = null;
+            try { other = ce.getOtherUserId(); } catch (Exception ignore) {}
+            return (other != null && isContact(other))
+                    ? ChatViewMode.NORMAL
+                    : ChatViewMode.NEEDS_ADD_CONTACT;
+        }
+        return ChatViewMode.NORMAL;
+    }
+
+    public void onJoinedOrAdded(ChatEntry ce) {
+        try {
+            UUID id = UUID.fromString(ce.getId().toString());
+            if (!isInAnyChatList(id)) {
+                if (Session.chatList == null) Session.chatList = new ArrayList<>();
+                Session.chatList.add(ce);
+            }
+            // اگر activeChats استفاده می‌کنی:
+            if (Session.activeChats != null && Session.activeChats.stream().noneMatch(c -> id.equals(c.getId()))) {
+                Session.activeChats.add(ce);
+            }
+        } catch (Exception ignore) {}
+
+        // (اختیاری) مرتب‌سازی بر اساس زمان آخرین پیام
+        Comparator<ChatEntry> byTimeDesc = (a,b) -> {
+            LocalDateTime t1 = a.getLastMessageTime(), t2 = b.getLastMessageTime();
+            if (t1 == null && t2 == null) return 0;
+            if (t1 == null) return 1;
+            if (t2 == null) return -1;
+            return t2.compareTo(t1);
+        };
+        if (Session.chatList != null) Session.chatList.sort(byTimeDesc);
+        if (Session.activeChats != null) Session.activeChats.sort(byTimeDesc);
+
+        refreshChatListUI();
+    }
+
+
+
+
 }

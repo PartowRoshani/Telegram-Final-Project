@@ -43,7 +43,7 @@ public class IncomingMessageListener implements Runnable {
                 JSONObject response = new JSONObject(line);
                 System.out.println("📥 Received raw line: " + line);
 
-               //if it has reqID answer
+                //if it has reqID answer
                 if (response.has("request_id")) {
                     String requestId = response.getString("request_id");
                     System.out.println("📬 Response with request_id: " + requestId);
@@ -89,15 +89,23 @@ public class IncomingMessageListener implements Runnable {
 
     private boolean isRealTimeEvent(String action) {
         return switch (action) {
-            case "new_message", "message_edited", "message_deleted_global",
-                 "user_status_changed", "added_to_group", "added_to_channel",
+            case "new_message",
+                 "message_edited",
+                 "message_deleted_global", "message_deleted_one_sided", "message_deleted",
+                 "message_reacted", "message_unreacted",
+                 "user_status_changed",
+                 "added_to_group", "added_to_channel",
                  "update_group_or_channel", "chat_deleted",
                  "blocked_by_user", "unblocked_by_user", "message_seen",
                  "removed_from_group", "removed_from_channel",
-                 "became_admin", "removed_admin", "ownership_transferred","admin_permissions_updated","created_private_chat" , "message_reacted" , "message_unreacted","chat_updated" -> true;
+                 "became_admin", "removed_admin", "ownership_transferred",
+                 "admin_permissions_updated",
+                 "created_private_chat",
+                 "chat_updated" -> true;
             default -> false;
         };
     }
+
 
     void handleRealTimeEvent(JSONObject response) throws IOException {
         String action = response.getString("action");
@@ -166,6 +174,35 @@ public class IncomingMessageListener implements Runnable {
                 });
             }
 
+            case "message_edited" -> {
+                JSONObject ui = normalizeMessageId(msg);
+                // (اختیاری) اگر ایونت زمان و چت را هم می‌دهد، می‌توانی چت‌لیست را آپدیت کنی
+                Platform.runLater(() -> {
+                    var mc = MainController.getInstance();
+                    var chatCtl = (mc != null) ? mc.getChatPageController() : null;
+                    if (chatCtl != null) chatCtl.onRealTimeMessageEdited(ui);
+                });
+            }
+
+            case "message_deleted_global", "message_deleted_one_sided", "message_deleted" -> {
+                JSONObject ui = normalizeMessageId(msg);
+                Platform.runLater(() -> {
+                    var mc = MainController.getInstance();
+                    var chatCtl = (mc != null) ? mc.getChatPageController() : null;
+                    if (chatCtl != null) chatCtl.onRealTimeMessageDeleted(ui);
+                });
+            }
+
+            case "message_reacted", "message_unreacted" -> {
+                JSONObject ui = normalizeMessageId(msg);
+                Platform.runLater(() -> {
+                    var mc = MainController.getInstance();
+                    var chatCtl = (mc != null) ? mc.getChatPageController() : null;
+                    if (chatCtl != null) chatCtl.onRealTimeReaction(ui);
+                });
+            }
+
+
 
             case "chat_updated" -> {
                 var data = response.getJSONObject("data");
@@ -189,8 +226,7 @@ public class IncomingMessageListener implements Runnable {
 
 
 
-            case "message_edited", "message_deleted_global", "message_reacted", "message_unreacted"
-               , "blocked_by_user", "unblocked_by_user", "message_seen" -> {
+            case "blocked_by_user", "unblocked_by_user", "message_seen" -> {
                 displayRealTimeMessage(action, msg);
             }
 
@@ -477,5 +513,17 @@ public class IncomingMessageListener implements Runnable {
             });
         } catch (Exception e) { System.err.println("[RT] bumpChatListFromMessage: " + e.getMessage()); }
     }
+
+    // --- add this helper ---
+    private static JSONObject normalizeMessageId(JSONObject j) {
+        if (j == null) return new JSONObject();
+        if (!j.has("message_id") && j.has("id")) {
+            JSONObject copy = new JSONObject(j.toString());
+            copy.put("message_id", copy.optString("id", ""));
+            return copy;
+        }
+        return j;
+    }
+
 
 }

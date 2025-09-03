@@ -146,7 +146,7 @@ public class ClientHandler implements Runnable {
 
                                 LocalDateTime lastMessageTime = MessageDatabase.getLastMessageTime(chat.getChat_id(), "private");
 
-                                  ChatEntry entry = new ChatEntry(
+                                ChatEntry entry = new ChatEntry(
                                         chat.getChat_id(),                               // internal_id = chat_id
                                         isSelf ? "Saved Messages" : otherUser.getUser_id(),      // id/display
                                         isSelf ? "Saved Messages" : otherUser.getProfile_name(), // name
@@ -1654,7 +1654,7 @@ public class ClientHandler implements Runnable {
                         }
                         String chatType = requestJson.getString("chat_type");
                         UUID chatId = UUID.fromString(requestJson.getString("chat_id"));
-                         userId = UUID.fromString(requestJson.getString("user_id"));
+                        userId = UUID.fromString(requestJson.getString("user_id"));
 
                         boolean success = false;
 
@@ -1723,7 +1723,7 @@ public class ClientHandler implements Runnable {
                         }
                         try {
                             UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
-                             userId = currentUser.getInternal_uuid();
+                            userId = currentUser.getInternal_uuid();
 
                             JSONObject permissions = ChannelDatabase.getChannelPermissions(channelId, userId);
 
@@ -2157,7 +2157,7 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "send_message" : {
-                         response = handleSendMessage(requestJson);
+                        response = handleSendMessage(requestJson);
                     }
                     break;
 
@@ -2474,8 +2474,8 @@ public class ClientHandler implements Runnable {
                                 .put("excerpt", excerpt));
 
                         List<UUID> receivers = Receivers.resolveFor(receiverType, receiverId, senderId);
-                        //RealTimeEventDispatcher.sendNewMessage(message, receivers, "reply", meta);
-                        RealTimeEventDispatcher.sendNewMessageFiltered(message, receivers, senderId, "reply", meta);
+                        receivers = Receivers.resolveFor(receiverType, receiverId, /*exclude*/ null);
+                        RealTimeEventDispatcher.sendNewMessage(message, receivers, "reply", meta);
 
 
                         response = saved ?
@@ -2532,12 +2532,8 @@ public class ClientHandler implements Runnable {
                                     .put("sender_id", original.getSender_id().toString())
                                     .put("sender_name", userDatabase.findByInternalUUID(original.getSender_id()).getProfile_name()));
 
-                            List<UUID> receivers = Receivers.resolveFor(targetChatType, targetChatId, currentUser.getInternal_uuid());
-                            //RealTimeEventDispatcher.sendNewMessage(forwarded, receivers, "forward", meta);
-                            RealTimeEventDispatcher.sendNewMessageFiltered(forwarded, receivers, senderId, "forward", meta);
-
-                        } else {
-                            response = new ResponseModel("error", "Failed to forward message.");
+                            List<UUID> receivers = Receivers.resolveFor(targetChatType, targetChatId, /*exclude*/ null);
+                            RealTimeEventDispatcher.sendNewMessage(forwarded, receivers, "forward", meta);
                         }
                         break;
                     }
@@ -2676,7 +2672,7 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "get_blocked_users": {
-                         userId = currentUser.getInternal_uuid();
+                        userId = currentUser.getInternal_uuid();
                         var list = ContactDatabase.getBlockedUsers(userId);
                         org.json.JSONObject data = new org.json.JSONObject();
                         data.put("blocked_users", list);
@@ -2685,7 +2681,7 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "verify_password": {
-                         userId = currentUser.getInternal_uuid();
+                        userId = currentUser.getInternal_uuid();
                         String cur = requestJson.getString("current_password");
                         User user = userDatabase.findByInternalUUID(userId);
                         boolean ok = PasswordHashing.verify(cur, user.getPassword());
@@ -2696,7 +2692,7 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "update_username": {
-                         userId = currentUser.getInternal_uuid();
+                        userId = currentUser.getInternal_uuid();
                         String cur = requestJson.getString("current_password");
                         String newUsername = requestJson.getString("new_username");
                         boolean useBCrypt = true;
@@ -2717,7 +2713,7 @@ public class ClientHandler implements Runnable {
                     }
 
                     case "update_password": {
-                         userId = currentUser.getInternal_uuid();
+                        userId = currentUser.getInternal_uuid();
                         String cur = requestJson.getString("current_password");
                         String newPass = requestJson.getString("new_password");
 

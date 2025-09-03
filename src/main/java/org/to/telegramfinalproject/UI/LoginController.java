@@ -40,7 +40,7 @@ public class LoginController {
         visiblePasswordField.textProperty().bindBidirectional(passwordField.textProperty());
 
         try {
-            connection = new ClientConnection("localhost", 8000);
+            connection = new ClientConnection("localhost", 8080);
         } catch (Exception e) {
             System.out.println("Could not connect to server: " + e.getMessage());
         }

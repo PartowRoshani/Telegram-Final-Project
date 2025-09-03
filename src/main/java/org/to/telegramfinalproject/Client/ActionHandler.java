@@ -446,7 +446,31 @@ public class ActionHandler {
         send(req);
     }
 
+    public void createGroupUI(String id, String name, String url, String user ){
+        JSONObject req = new JSONObject();
+        req.put("action", "create_group");
+        req.put("user_id", user);
+        req.put("group_id", id);
+        req.put("group_name", name);
+        req.put("image_url", url.isBlank() ? JSONObject.NULL : url);
 
+        send(req);
+
+    }
+
+
+    public void createChannelUI(String id, String name, String url , String user){
+
+        JSONObject req = new JSONObject();
+        req.put("action", "create_channel");
+        req.put("user_id", user);
+        req.put("channel_id", id);
+        req.put("channel_name", name);
+        req.put("image_url", url.isBlank() ? JSONObject.NULL : url);
+
+        send(req);
+
+    }
 
     public void createChannel() {
         String channelId = null;
@@ -749,7 +773,7 @@ public class ActionHandler {
 
                                 if (existing != null) {
                                     openChat(existing);
-                               } else {
+                                } else {
                                     ChatEntry preview = new ChatEntry();
                                     preview.setId(String.valueOf(uuid));
                                     preview.setDisplayId(selected.getString("id"));
@@ -858,13 +882,13 @@ public class ActionHandler {
 
 
 
-                break;
+                    break;
 
 
                 case "create_group":
                 case "create_channel":
                     if (response.has("data")) {
-                    JSONObject chatJson = response.getJSONObject("data");
+                        JSONObject chatJson = response.getJSONObject("data");
 
                         ChatEntry chat = new ChatEntry(
                                 UUID.fromString(chatJson.getString("internal_id")),
@@ -879,12 +903,12 @@ public class ActionHandler {
 
 
                         refreshChatList();
-                    System.out.println("✅ Created and opening chat...");
-                    refreshChatList();
-                    openChat(chat);
-                }
+                        System.out.println("✅ Created and opening chat...");
+                        refreshChatList();
+                        openChat(chat);
+                    }
 
-                break;
+                    break;
 
                 case "get_messages":
                     JSONArray messages = response.getJSONObject("data").getJSONArray("messages");
@@ -4192,5 +4216,3 @@ public class ActionHandler {
 
 
 }
-
-

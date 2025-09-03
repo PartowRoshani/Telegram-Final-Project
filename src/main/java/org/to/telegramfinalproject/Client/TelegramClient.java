@@ -143,7 +143,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class TelegramClient {
     private static final String SERVER_HOST = "localhost";
-    private static final int SERVER_PORT = 8000;
+    private static final int SERVER_PORT = 8080;
 
     private static TelegramClient instance;
 
@@ -311,4 +311,3 @@ public class TelegramClient {
     }
 
 }
-

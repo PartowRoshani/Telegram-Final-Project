@@ -6,17 +6,19 @@
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.*?>
 
+<?import java.net.URL?>
 <VBox xmlns="http://javafx.com/javafx/17"
       xmlns:fx="http://javafx.com/fxml"
       fx:controller="org.to.telegramfinalproject.UI.ChatPageController"
       spacing="0"
       styleClass="chat-root">
+    <stylesheets>
+        <URL value="@/org/to/telegramfinalproject/CSS/chat.css"/>
+    </stylesheets>
 
     <!-- HEADER: avatar + name/status (left) | search + more (right) -->
     <HBox fx:id="chatHeader" spacing="10" styleClass="chat-header">
-        <padding>
-            <Insets top="8" right="12" bottom="8" left="12"/>
-        </padding>
+        <padding><Insets top="8" right="12" bottom="8" left="12"/></padding>
 
         <!-- Avatar -->
         <ImageView fx:id="userAvatar" fitWidth="36" fitHeight="36" preserveRatio="true"/>
@@ -33,9 +35,7 @@
         <Button fx:id="searchInChatButton" styleClass="icon-btn" onAction="#openSearchPanel">
             <graphic>
                 <ImageView fx:id="searchIcon" fitWidth="20" fitHeight="20" preserveRatio="true">
-                    <image>
-                        <Image url="@/org/to/telegramfinalproject/Icons/search_light.png"/>
-                    </image>
+                    <image><Image url="@/org/to/telegramfinalproject/Icons/search_light.png"/></image>
                 </ImageView>
             </graphic>
         </Button>
@@ -44,9 +44,7 @@
         <Button fx:id="moreButton" styleClass="icon-btn">
             <graphic>
                 <ImageView fx:id="moreIcon" fitWidth="18" fitHeight="18" preserveRatio="true">
-                    <image>
-                        <Image url="@/org/to/telegramfinalproject/Icons/more_light.png"/>
-                    </image>
+                    <image><Image url="@/org/to/telegramfinalproject/Icons/more_light.png"/></image>
                 </ImageView>
             </graphic>
             <contextMenu>
@@ -55,18 +53,14 @@
                         <MenuItem fx:id="viewProfileItem" text="View profile">
                             <graphic>
                                 <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
-                                    <image>
-                                        <Image url="@/org/to/telegramfinalproject/Icons/view_profile_light.png"/>
-                                    </image>
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/view_profile_light.png"/></image>
                                 </ImageView>
                             </graphic>
                         </MenuItem>
                         <MenuItem fx:id="deleteChatItem" text="Delete chat" style="-fx-text-fill: red;">
                             <graphic>
                                 <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
-                                    <image>
-                                        <Image url="@/org/to/telegramfinalproject/Icons/delete_red.png"/>
-                                    </image>
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/delete_red.png"/></image>
                                 </ImageView>
                             </graphic>
                         </MenuItem>
@@ -85,50 +79,80 @@
                 styleClass="chat-scroll">
         <content>
             <VBox fx:id="messageContainer" spacing="10">
-                <padding>
-                    <Insets top="10" right="10" bottom="10" left="10"/>
-                </padding>
+                <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
             </VBox>
         </content>
     </ScrollPane>
 
-    <!-- INPUT BAR -->
-    <HBox fx:id="inputBar" spacing="8" styleClass="chat-input-bar">
-        <padding>
-            <Insets top="8" right="12" bottom="8" left="12"/>
-        </padding>
+    <!-- ===== FOOTER: فقط یکی از این پنل‌ها نمایش داده می‌شود ===== -->
 
-        <!-- Attachment -->
-        <Button fx:id="attachmentButton" styleClass="icon-btn">
-            <graphic>
-                <ImageView fx:id="attachmentIcon" fitWidth="20" fitHeight="20" preserveRatio="true">
-                    <image>
-                        <Image url="@/org/to/telegramfinalproject/Icons/attachment_light.png"/>
-                    </image>
-                </ImageView>
-            </graphic>
-        </Button>
+    <!-- حالت عادی: کامپوزر پیام -->
+    <VBox fx:id="composerPane" spacing="0" visible="true" managed="true">
+        <HBox spacing="8" styleClass="chat-input-bar">
+            <padding><Insets top="8" right="12" bottom="8" left="12"/></padding>
 
-        <!-- Expanding input -->
-        <TextArea fx:id="messageInput"
-                  HBox.hgrow="ALWAYS"
-                  promptText="Write a message..."
-                  styleClass="msg-input"
-                  wrapText="true"
-                  prefRowCount="1"
-                  minHeight="40"
-                  maxHeight="120"
-                  VBox.vgrow="NEVER" />
+            <!-- Attachment -->
+            <Button fx:id="attachmentButton" styleClass="icon-btn">
+                <graphic>
+                    <ImageView fx:id="attachmentIcon" fitWidth="20" fitHeight="20" preserveRatio="true">
+                        <image><Image url="@/org/to/telegramfinalproject/Icons/attachment_light.png"/></image>
+                    </ImageView>
+                </graphic>
+            </Button>
 
-        <!-- Send -->
-        <Button fx:id="sendButton" styleClass="send-btn">
-            <graphic>
-                <ImageView fx:id="sendIcon" fitWidth="20" fitHeight="20" preserveRatio="true">
-                    <image>
-                        <Image url="@/org/to/telegramfinalproject/Icons/send_cyan2.png"/>
-                    </image>
-                </ImageView>
-            </graphic>
-        </Button>
-    </HBox>
+            <!-- Expanding input -->
+            <TextArea fx:id="messageInput"
+                      HBox.hgrow="ALWAYS"
+                      promptText="Write a message..."
+                      styleClass="msg-input"
+                      wrapText="true"
+                      prefRowCount="1"
+                      minHeight="40"
+                      maxHeight="120"
+                      VBox.vgrow="NEVER"/>
+
+            <!-- Send -->
+            <Button fx:id="sendButton" styleClass="send-btn">
+                <graphic>
+                    <ImageView fx:id="sendIcon" fitWidth="20" fitHeight="20" preserveRatio="true">
+                        <image><Image url="@/org/to/telegramfinalproject/Icons/send_cyan2.png"/></image>
+                    </ImageView>
+                </graphic>
+            </Button>
+        </HBox>
+    </VBox>
+
+    <VBox fx:id="joinPane" alignment="CENTER" visible="false" managed="false" styleClass="chat-input-bar">
+        <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
+        <Button fx:id="joinButton" id="joinAction"
+                text="JOIN CHANNEL" onAction="#onJoinClicked"/>
+    </VBox>
+
+    <VBox fx:id="addContactPane" alignment="CENTER" visible="false" managed="false" styleClass="chat-input-bar">
+        <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
+        <Button fx:id="addContactButton" id="addContactAction"
+                text="ADD CONTACT" onAction="#onAddContactClicked"/>
+    </VBox>
+
+    <VBox fx:id="readOnlyPane" spacing="0" alignment="CENTER"
+          visible="false" managed="false" styleClass="chat-footer-banner" >
+        <padding><Insets top="10" right="12" bottom="10" left="12"/></padding>
+        <Label fx:id="readOnlyLabel"
+               text="You are not allowed to send messages."
+               styleClass="footer-link-btn"/>
+
+    </VBox>
+
+    <VBox fx:id="blockedPane" spacing="0" alignment="CENTER"
+          visible="false" managed="false" styleClass="chat-footer-banner">
+        <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
+
+        <Button fx:id="unblockBtn"
+                text="UNBLOCK"
+                onAction="#onUnblockClicked"
+                styleClass="footer-link-btn danger"/>
+    </VBox>
+
+
+
 </VBox>
