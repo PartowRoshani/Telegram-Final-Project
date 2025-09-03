@@ -22,12 +22,14 @@ public class User {
     private List<Message> unreadMessages;
     private List<ChatEntry> chatList;
 
-    public User(String user_id, UUID internal_uuid, String username, String password, String profile_name) {
+    public User(String user_id, UUID internal_uuid, String username, String password, String profile_name, String bio, String image_url) {
         this.user_id = user_id;
         this.internal_uuid = internal_uuid;
         this.username = username;
         this.password = password;
         this.profile_name = profile_name;
+        this.bio = bio;
+        this.image_url = image_url;
     }
 
     public void setUser_id(String user_id) {
@@ -53,6 +55,8 @@ public class User {
     public void setImage_url(String image_url) {
         this.image_url = image_url;
     }
+
+    public void updateProfilePicture(String newImageUrl) {this.image_url = newImageUrl;}
 
     public void setStatus(String status) {
         this.status = status;
@@ -118,8 +122,4 @@ public class User {
 
     public List<ChatEntry> getChatList(){return  this.chatList;}
 
-
-
-
 }
-

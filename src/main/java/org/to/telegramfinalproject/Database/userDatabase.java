@@ -9,19 +9,64 @@ import java.util.List;
 import java.util.UUID;
 
 public class userDatabase {
+    
+    
     public userDatabase() {
     }
 
-    private Connection getConnection() throws SQLException {
+    public static boolean isUserOnline(UUID userId) {
+        String sql = "SELECT status FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String status = rs.getString("status");
+                return "online".equalsIgnoreCase(status);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+
+
+
+    private static Connection getConnection() throws SQLException {
         return ConnectionDb.connect();
     }
+
+    public static String getLastSeen(UUID userId) {
+        String sql = "SELECT last_seen FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                Timestamp lastSeen = rs.getTimestamp("last_seen");
+                if (lastSeen != null) {
+                    return lastSeen.toLocalDateTime().toString();
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Unknown";
+    }
+
 
     public User findByUserId(String userId) {
         String query = "SELECT * FROM users WHERE user_id = ?";
 
         try {
             User var6;
-            try (Connection conn = this.getConnection()) {
+            try (Connection conn = ConnectionDb.connect()) {
                 try (PreparedStatement stmt = conn.prepareStatement(query)) {
                     stmt.setString(1, userId);
                     ResultSet rs = stmt.executeQuery();
@@ -107,7 +152,7 @@ public class userDatabase {
     }
 
     public boolean save(User user) {
-        String query = "INSERT INTO users (user_id, internal_uuid, username, password, profile_name) VALUES (?, ?, ?, ?, ?)";
+        String query = "INSERT INTO users (user_id, internal_uuid, username, password, profile_name, bio, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try {
             boolean var5;
@@ -120,6 +165,8 @@ public class userDatabase {
                 stmt.setString(3, user.getUsername());
                 stmt.setString(4, user.getPassword());
                 stmt.setString(5, user.getProfile_name());
+                stmt.setString(6, user.getBio());
+                stmt.setString(7, user.getImage_url());
                 var5 = stmt.executeUpdate() > 0;
             }
 
@@ -178,7 +225,7 @@ public class userDatabase {
     }
 
     private User extractUser(ResultSet rs) throws SQLException {
-        return new User(rs.getString("user_id"), UUID.fromString(rs.getString("internal_uuid")), rs.getString("username"), rs.getString("password"), rs.getString("profile_name"));
+        return new User(rs.getString("user_id"), UUID.fromString(rs.getString("internal_uuid")), rs.getString("username"), rs.getString("password"), rs.getString("profile_name"), rs.getString("bio"), rs.getString("image_url"));
     }
 
     public boolean deleteByUUID(UUID uuid) {
@@ -208,11 +255,13 @@ public class userDatabase {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, status);
             stmt.setObject(2, uuid);
-            stmt.executeUpdate();
+            int rows = stmt.executeUpdate();
+            System.out.println("🔁 updateUserStatus: set '" + status + "' for " + uuid + " → affected rows = " + rows);
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+
 
     public static void updateLastSeen(UUID uuid) {
         String sql = "UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE internal_uuid = ?";
@@ -224,7 +273,6 @@ public class userDatabase {
             e.printStackTrace();
         }
     }
-
 
 
     public static User findByInternalUUID(UUID internalUuid) {
@@ -242,7 +290,9 @@ public class userDatabase {
                         UUID.fromString(rs.getString("internal_uuid")),
                         rs.getString("username"),
                         rs.getString("password"),
-                        rs.getString("profile_name")
+                        rs.getString("profile_name"),
+                        rs.getString("bio"),
+                        rs.getString("image_url")
                 );
 
                 user.setBio(rs.getString("bio"));
@@ -264,13 +314,22 @@ public class userDatabase {
         return null;
     }
 
-    public List<User> searchUsers(String keyword) {
-        String query = "SELECT * FROM users WHERE user_id ILIKE ? OR profile_name ILIKE ?";  //(ILIKE) case_insensitive
+
+    public List<User> searchUsers(String keyword, UUID currentUserId) {
+        String query = """
+        SELECT * FROM users 
+        WHERE (user_id ILIKE ? OR profile_name ILIKE ?)
+        AND internal_uuid <> ?
+    """;
+
         List<User> result = new ArrayList<>();
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
+
             stmt.setString(1, "%" + keyword + "%");
             stmt.setString(2, "%" + keyword + "%");
+            stmt.setObject(3, currentUserId);
+
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 result.add(extractUser(rs));
@@ -281,6 +340,152 @@ public class userDatabase {
         return result;
     }
 
+
+
+    public static void setAllUsersOffline() {
+        String sql = "UPDATE users SET status = 'offline'";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            int affected = stmt.executeUpdate();
+            System.out.println("🔁 All users set to offline. Rows affected: " + affected);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static String getProfileName(UUID userId) {
+        String sql = "SELECT profile_name FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String profileName = rs.getString("profile_name");
+                return profileName;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Unknown";
+    }
+
+    public static String getProfilePicture(UUID userId) {
+        String sql = "SELECT image_url FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String imageUrl = rs.getString("image_url");
+                return imageUrl;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Unknown";
+    }
+
+    public static void updateUserProfilePicture(String internalUuid, String imageUrl) {
+        String query = "UPDATE users SET image_url = ? WHERE internal_uuid = ?";
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setString(1, imageUrl);
+            stmt.setString(2, internalUuid);
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static String getUserId(UUID userId) {
+        String sql = "SELECT user_id FROM users WHERE internal_uuid = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String user_id = rs.getString("user_id");
+                return user_id;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Unknown";
+    }
+
+    public static String getPasswordHash(UUID userId) {
+        String sql = "SELECT password FROM users WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString("password");
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return null;
+    }
+
+    public static boolean updateUsername(UUID userId, String newUsername) throws SQLException {
+        String sql = "UPDATE users SET username = ? WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newUsername);
+            ps.setObject(2, userId);
+            ps.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            // 23505 = unique_violation در PostgreSQL
+            if ("23505".equals(e.getSQLState())) throw e;
+            throw e;
+        }
+    }
+
+    public static void updateUserProfilePicture(UUID internalUuid, String imageUrl) {
+        String sql = "UPDATE users SET image_url = ? WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, imageUrl);
+            stmt.setObject(2, internalUuid);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static boolean updatePasswordHash(UUID userId, String newHash) {
+        String sql = "UPDATE users SET password = ? WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newHash);
+            ps.setObject(2, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    public static boolean updateProfilePicture(UUID internalUuid, String imageUrl) {
+        String sql = "UPDATE users SET image_url = ? WHERE internal_uuid = ?";
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, imageUrl);
+            stmt.setObject(2, internalUuid);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
 }
 

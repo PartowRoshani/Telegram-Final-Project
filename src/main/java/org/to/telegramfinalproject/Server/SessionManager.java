@@ -32,4 +32,12 @@ public class SessionManager {
         }
         return null;
     }
+
+    public static boolean contains(UUID userId) {
+        return onlineUsers.containsKey(userId);
+    }
+
+
+
+
 }

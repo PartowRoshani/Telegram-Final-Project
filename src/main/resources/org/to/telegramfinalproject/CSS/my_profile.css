@@ -1,0 +1,26 @@
+.my-profile-root {
+    -fx-background-color: white;
+}
+
+.profile-image {
+    -fx-clip-radius: 40; /* Rounded image */
+}
+
+.profile-name {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+}
+
+.profile-status {
+    -fx-text-fill: green;
+    -fx-font-size: 14px;
+}
+
+.field-label {
+    -fx-font-weight: bold;
+    -fx-text-fill: #333;
+}
+
+.field-value {
+    -fx-text-fill: #555;
+}

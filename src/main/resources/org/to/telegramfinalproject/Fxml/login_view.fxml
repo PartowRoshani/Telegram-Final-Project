@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Pos?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane prefHeight="600.0" prefWidth="800.0"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="org.to.telegramfinalproject.UI.LoginController">
+
+    <children>
+        <VBox alignment="CENTER" spacing="20"
+              AnchorPane.topAnchor="0.0"
+              AnchorPane.bottomAnchor="0.0"
+              AnchorPane.leftAnchor="0.0"
+              AnchorPane.rightAnchor="0.0">
+
+            <!-- Title -->
+            <Label text="Welcome Back"
+                   style="-fx-font-size: 24px; -fx-font-weight: bold;" />
+
+            <!-- Username Field -->
+            <TextField fx:id="usernameField"
+                       promptText="Username"
+                       maxWidth="320"
+                       prefHeight="30"/>
+
+            <!-- Password Field with toggle -->
+            <HBox alignment="CENTER" spacing="5" maxWidth="320">
+                <children>
+                    <StackPane>
+                        <children>
+                            <PasswordField fx:id="passwordField"
+                                           promptText="Password"
+                                           prefWidth="290"
+                                           prefHeight="30"/>
+                            <TextField fx:id="visiblePasswordField"
+                                       promptText="Password"
+                                       prefWidth="290"
+                                       prefHeight="30"
+                                       visible="false"
+                                       managed="false"/>
+                        </children>
+                    </StackPane>
+                    <Button fx:id="toggleVisibilityBtn"
+                            text="👁"
+                            prefWidth="30"
+                            prefHeight="30"
+                            style="-fx-background-color: transparent;"
+                            onAction="#togglePasswordVisibility"/>
+                </children>
+            </HBox>
+
+            <!-- Login Button -->
+            <Button text="Login"
+                    maxWidth="150"
+                    onAction="#handleLogin"
+                    style="-fx-background-color: #2AABEE; -fx-text-fill: white; -fx-font-weight: bold;" />
+
+            <!-- Error Label -->
+            <Label fx:id="errorLabel"
+                   textFill="red"
+                   visible="false"/>
+
+            <!-- Hyperlink to Register -->
+            <Hyperlink text="Don't have an account? Create one"
+                       onAction="#switchToRegister"
+                       style="-fx-font-size: 12px;" />
+        </VBox>
+    </children>
+</AnchorPane>

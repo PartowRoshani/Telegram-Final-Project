@@ -5,16 +5,18 @@ import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-import org.to.telegramfinalproject.HelloApplication;
 
 import java.io.IOException;
 
 public class TelegramApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("login_view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 320, 240);
-        stage.setTitle("Hello!");
+        FXMLLoader fxmlLoader = new FXMLLoader(TelegramApplication.class.getResource("/org/to/telegramfinalproject/Fxml/sidebar_menu.fxml"));
+        Scene scene = new Scene(fxmlLoader.load(), 1480, 820);
+
+        scene.getStylesheets().add(getClass().getResource("/org/to/telegramfinalproject/CSS/light_theme.css").toExternalForm());
+
+        stage.setTitle("Telegram");
         stage.setScene(scene);
         stage.show();
     }
@@ -23,4 +25,3 @@ public class TelegramApplication extends Application {
     }
 
 }
-

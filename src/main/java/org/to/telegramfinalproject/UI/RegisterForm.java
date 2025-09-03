@@ -35,7 +35,7 @@ public class RegisterForm {
     public void initialize() {
 
         try {
-            connection = new ClientConnection("localhost", 12345);
+            connection = new ClientConnection("localhost", 8000);
         } catch (Exception e) {
             System.out.println("Could not connect to server: " + e.getMessage());
         }
@@ -81,20 +81,14 @@ public class RegisterForm {
                 alert.show();
             }
             else {
-                Alert alert = new Alert(Alert.AlertType.ERROR, "Password doesn't Strong enough");
+                Alert alert = new Alert(Alert.AlertType.ERROR, "Password isn't Strong enough");
                 alert.show();
             }
-
-
-
-
         });
 
         backButton.setOnAction(e -> {
             switchScene("login_view.fxml");
         });
-
-
     }
 
     private void switchScene(String fxmlFile) {

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<AnchorPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="org.to.telegramfinalproject.UI.RegisterController"
+            prefWidth="800" prefHeight="600">
+
+    <VBox spacing="15" alignment="CENTER"
+          AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0"
+          AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">
+
+        <Label text="Create Your Account"
+               style="-fx-font-size: 24px; -fx-font-weight: bold;" />
+
+        <TextField fx:id="userIdField"
+                   promptText="User ID"
+                   prefWidth="320" prefHeight="30"
+                   maxWidth="320"/>
+
+        <TextField fx:id="usernameField"
+                   promptText="Username"
+                   prefWidth="320" prefHeight="30"
+                   maxWidth="320"/>
+
+        <TextField fx:id="profileNameField"
+                   promptText="Profile Name"
+                   prefWidth="320" prefHeight="30"
+                   maxWidth="320"/>
+
+        <!-- Password -->
+        <HBox alignment="CENTER" spacing="5" maxWidth="320">
+            <children>
+                <StackPane>
+                    <children>
+                        <PasswordField fx:id="passwordField"
+                                       promptText="Password"
+                                       prefWidth="300" prefHeight="30"/>
+                        <TextField fx:id="visiblePasswordField"
+                                   promptText="Password"
+                                   prefWidth="300" prefHeight="30"
+                                   visible="false" managed="false"/>
+                    </children>
+                </StackPane>
+                <Button fx:id="togglePasswordBtn"
+                        text="👁"
+                        prefWidth="20" prefHeight="30"
+                        style="-fx-background-color: transparent; -fx-padding: 0;"
+                        onAction="#togglePasswordVisibility"/>
+            </children>
+        </HBox>
+
+        <!-- Confirm Password -->
+        <HBox alignment="CENTER" spacing="5" maxWidth="320">
+            <children>
+                <StackPane>
+                    <children>
+                        <PasswordField fx:id="confirmPasswordField"
+                                       promptText="Confirm Password"
+                                       prefWidth="300" prefHeight="30"/>
+                        <TextField fx:id="visibleConfirmPasswordField"
+                                   promptText="Confirm Password"
+                                   prefWidth="300" prefHeight="30"
+                                   visible="false" managed="false"/>
+                    </children>
+                </StackPane>
+                <Button fx:id="toggleConfirmBtn"
+                        text="👁"
+                        prefWidth="20" prefHeight="30"
+                        style="-fx-background-color: transparent; -fx-padding: 0;"
+                        onAction="#toggleConfirmPasswordVisibility"/>
+            </children>
+        </HBox>
+
+        <Button text="Register"
+                onAction="#handleRegister"
+                style="-fx-background-color: #2AABEE; -fx-text-fill: white; -fx-font-weight: bold;"
+                prefWidth="150" prefHeight="35"/>
+
+        <Label fx:id="errorLabel"
+               textFill="red"
+               visible="false"/>
+
+        <Hyperlink text="Already have an account? Login"
+                   onAction="#switchToLogin"
+                   style="-fx-font-size: 12px;"/>
+
+    </VBox>
+</AnchorPane>
