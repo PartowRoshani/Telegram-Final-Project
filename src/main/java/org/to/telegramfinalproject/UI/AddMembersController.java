@@ -109,8 +109,10 @@ public class AddMembersController {
                 String name = c.optString("profile_name", "");
                 String id   = c.optString("contact_id", ""); // ← internal_uuid مخاطب
                 if (id.isBlank()) continue;
-                String imageUrl = c.optString("image_url",
-                        "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
+                String imageUrl = c.optString("image_url", "").trim();
+                if (imageUrl.isEmpty() || imageUrl.equals("null")) {
+                    imageUrl = "/org/to/telegramfinalproject/Avatars/default_user_profile.png";
+                }
                 String status = Optional.ofNullable(c.optString("last_seen", ""))
                         .filter(s -> !s.isBlank()).map(s -> "last seen " + s).orElse("");
                 allContacts.add(new Contact(id, name, status, imageUrl));
@@ -146,12 +148,13 @@ public class AddMembersController {
             HBox item = new HBox(10);
             item.getStyleClass().add("contact-item");
 
-            // آواتار
+            // Avatar
             ImageView avatar = new ImageView(loadAvatar(c.getImageUrl()));
             avatar.setFitWidth(48);
             avatar.setFitHeight(48);
             avatar.setPreserveRatio(true);
 
+            // Details (name + status)
             VBox details = new VBox(2);
             Label nameLabel = new Label(c.getName());
             nameLabel.getStyleClass().add("contact-name");
@@ -162,27 +165,26 @@ public class AddMembersController {
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
 
-            CheckBox cb = new CheckBox();
-            cb.setSelected(selectedContacts.contains(c));
-            cb.selectedProperty().addListener((obs, ov, nv) -> {
-                if (nv) selectedContacts.add(c); else selectedContacts.remove(c);
+            // Add elements (no checkbox here)
+            item.getChildren().addAll(avatar, details, spacer);
+
+            // Highlight if already selected
+            if (selectedContacts.contains(c)) {
+                item.getStyleClass().add("contact-selected");
+            }
+
+            // Toggle selection by clicking the whole row
+            item.setOnMouseClicked(e -> {
+                if (selectedContacts.contains(c)) {
+                    selectedContacts.remove(c);
+                    item.getStyleClass().remove("contact-selected");
+                } else {
+                    selectedContacts.add(c);
+                    item.getStyleClass().add("contact-selected");
+                }
                 updateMemberCount();
                 updateSelectedMembersPane();
-                // برای هایلایت
-                if (nv) item.getStyleClass().add("contact-selected");
-                else item.getStyleClass().remove("contact-selected");
             });
-
-            item.getChildren().addAll(avatar, details, spacer, cb);
-
-            // کلیک روی ردیف = toggle
-            item.setOnMouseClicked(e -> {
-                boolean newVal = !cb.isSelected();
-                cb.setSelected(newVal);
-            });
-
-            // هایلایت انتخاب‌شده
-            if (selectedContacts.contains(c)) item.getStyleClass().add("contact-selected");
 
             contactsList.getChildren().add(item);
         }
