@@ -2045,23 +2045,20 @@ private void addBubble(
         UUID other = currentChat.getOtherUserId();
         if (other == null && currentChat.getDisplayId() == null) return;
 
-        // ⚠️ با API خودت هماهنگ کن:
-        // این یک الگوی معمول است: user_id (کاربر فعلی) + contact_id (کسی که بلاک شده)
+
         org.json.JSONObject req = new org.json.JSONObject()
-                .put("action", "unblock_user")  // یا "unblock_contact" طبق سرور
+                .put("action", "toggle_block")
                 .put("user_id", org.to.telegramfinalproject.Client.Session.currentUser.getString("user_id"))
-                .put("contact_id", (other != null) ? other.toString() : currentChat.getDisplayId());
+                .put("target_id", (other != null) ? other.toString() : currentChat.getDisplayId());
 
         org.json.JSONObject res = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
         boolean ok = (res != null) && ("ok".equalsIgnoreCase(res.optString("status"))
                 || "success".equalsIgnoreCase(res.optString("status")));
 
         if (ok) {
-            // برگرد به حالت نرمال: کامپوزر باز شود
             applyMode(ChatViewMode.NORMAL);
             Platform.runLater(() -> messageInput.requestFocus());
         } else {
-            // می‌تونی یک نوتیف کوچک بزنی
             addSystemMessage("Unblock failed.");
         }
     }

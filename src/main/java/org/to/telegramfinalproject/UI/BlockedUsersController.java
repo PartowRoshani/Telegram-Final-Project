@@ -10,6 +10,13 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.to.telegramfinalproject.Client.ActionHandler;
+import org.to.telegramfinalproject.Client.Session;
+
+import java.util.*;
+import java.util.stream.IntStream;
 
 public class BlockedUsersController {
 
@@ -20,78 +27,148 @@ public class BlockedUsersController {
     @FXML private ListView<HBox> blockedList;
     @FXML private VBox blockedCard;
 
+    // نگاشت برای حذف سریع ردیف بعد از Unblock
+    private final Map<UUID, HBox> rowByUserId = new HashMap<>();
+
     @FXML
     public void initialize() {
-        // Back button icon
         backButton.setGraphic(makeIcon("/org/to/telegramfinalproject/Icons/back_button_dark.png"));
 
-        // Example blocked users (replace with server data)
-        addBlockedUser("Asal", "@Whales_suicide", "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
-        addBlockedUser("Replies", "@replies", "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
-        addBlockedUser("Asal", "@Whales_suicide", "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
-        addBlockedUser("Replies", "@replies", "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
-        addBlockedUser("Asal", "@Whales_suicide", "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
-        addBlockedUser("Replies", "@replies", "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
-        addBlockedUser("Asal", "@Whales_suicide", "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
-        addBlockedUser("Replies", "@replies", "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
-        addBlockedUser("Asal", "@Whales_suicide", "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
-        addBlockedUser("Replies", "@replies", "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
-
-        updateCount();
+        // بارگذاری واقعی از سرور
+        loadBlockedUsers();
 
         closeButton.setOnAction(e -> MainController.getInstance().closeOverlay(overlayBackground.getParent()));
         backButton.setOnAction(e -> MainController.getInstance().goBack((StackPane) overlayBackground.getParent()));
 
         overlayBackground.setOnMouseClicked(e -> MainController.getInstance().closeOverlay(blockedCard.getParent()));
 
-        // Register scene for ThemeManager → stylesheet swap will handle colors/icons
+        // Theme
         Platform.runLater(() -> {
             if (blockedCard.getScene() != null) {
                 ThemeManager.getInstance().registerScene(blockedCard.getScene());
             }
         });
-
-        // Listener for theme change
-        ThemeManager.getInstance().darkModeProperty().addListener((obs, oldVal, newVal) -> {
-            updateBackIcon(newVal);
-        });
-
-        // Set initial state
+        ThemeManager.getInstance().darkModeProperty().addListener((obs, oldVal, newVal) -> updateBackIcon(newVal));
         updateBackIcon(ThemeManager.getInstance().isDarkMode());
 
-        // Add CSS
+        // اسکرول نرم
         blockedList.getStylesheets().add(
                 getClass().getResource("/org/to/telegramfinalproject/CSS/scrollpane.css").toExternalForm()
         );
-
-        // Wait until skin is ready
         blockedList.skinProperty().addListener((obs, oldSkin, newSkin) -> {
             if (newSkin != null) {
-                // Look up vertical scrollbar inside the ListView
                 ScrollBar vBar = (ScrollBar) blockedList.lookup(".scroll-bar:vertical");
                 if (vBar != null) {
                     blockedList.setOnScroll(event -> {
-                        double deltaY = event.getDeltaY() * 0.003; // smaller = smoother
+                        double deltaY = event.getDeltaY() * 0.003;
                         double newValue = vBar.getValue() - deltaY;
-                        vBar.setValue(Math.max(0, Math.min(newValue, 1))); // clamp between 0–1
+                        vBar.setValue(Math.max(0, Math.min(newValue, 1)));
                     });
                 }
             }
         });
     }
 
-    private void addBlockedUser(String name, String id, String avatarPath) {
+    /* ===================== Networking ===================== */
+
+    private void loadBlockedUsers() {
+        // درخواست به سرور
+        new Thread(() -> {
+            JSONObject req = new JSONObject().put("action", "get_blocked_users");
+            JSONObject resp = ActionHandler.sendWithResponse(req);
+
+            if (resp == null || !"success".equalsIgnoreCase(resp.optString("status"))) {
+                System.err.println("get_blocked_users failed: " + (resp != null ? resp.optString("message") : "no response"));
+                Platform.runLater(() -> {
+                    blockedList.getItems().clear();
+                    updateCount();
+                });
+                return;
+            }
+
+            JSONObject data = resp.optJSONObject("data");
+            JSONArray arr = data != null ? data.optJSONArray("blocked_users") : null;
+            if (arr == null) arr = new JSONArray();
+
+            final JSONArray finalArr = arr;
+            Platform.runLater(() -> renderBlockedUsers(finalArr));
+        }).start();
+    }
+
+    private void unblockUser(UUID targetId) {
+        String me = Session.currentUser != null ? Session.currentUser.optString("internal_uuid", "") : "";
+        if (me.isBlank() || targetId == null) return;
+
+        new Thread(() -> {
+            JSONObject req = new JSONObject()
+                    .put("action", "toggle_block")
+                    .put("user_id", me)              // UUID من
+                    .put("target_id", targetId.toString()); // UUID طرف
+
+            JSONObject resp = ActionHandler.sendWithResponse(req);
+            boolean ok = resp != null && "success".equalsIgnoreCase(resp.optString("status"));
+
+            Platform.runLater(() -> {
+                if (ok) {
+                    HBox row = rowByUserId.remove(targetId);
+                    if (row != null) blockedList.getItems().remove(row);
+                    updateCount();
+                } else {
+                    String msg = (resp != null ? resp.optString("message", "Failed to unblock.") : "Failed to unblock.");
+                    showToast(msg);
+                }
+            });
+        }).start();
+    }
+
+    /* ===================== UI build ===================== */
+
+    private void renderBlockedUsers(JSONArray list) {
+        blockedList.getItems().clear();
+        rowByUserId.clear();
+
+        // انتظار میره هر آبجکت حداقل: internal_uuid, profile_name, user_id/username/display_id, image_url داشته باشه
+        IntStream.range(0, list.length()).forEach(i -> {
+            JSONObject o = list.optJSONObject(i);
+            if (o == null) return;
+
+            UUID uid = parseUUID(optS(o, "internal_uuid"));
+            if (uid == null) return;
+
+            String name = nz(optS(o, "profile_name", optS(o, "name", "User")));
+            String handle = firstNonEmpty(
+                    optS(o, "username"),
+                    optS(o, "display_id"),
+                    optS(o, "user_name"),
+                    ""
+            );
+            String avatarUrl = optS(o, "image_url");
+
+            HBox row = buildRow(uid, name, handle, avatarUrl);
+            rowByUserId.put(uid, row);
+            blockedList.getItems().add(row);
+        });
+
+        updateCount();
+    }
+
+    private HBox buildRow(UUID uid, String name, String id, String avatarUrl) {
         // Avatar
-        ImageView avatar = new ImageView(new Image(getClass().getResourceAsStream(avatarPath)));
+        Image img = null;
+        if (hasVal(avatarUrl)) {
+            try { img = org.to.telegramfinalproject.Client.AvatarLocalResolver.load(avatarUrl); } catch (Exception ignore) {}
+        }
+        if (img == null) {
+            img = new Image(getClass().getResourceAsStream("/org/to/telegramfinalproject/Avatars/default_user_profile.png"));
+        }
+
+        ImageView avatar = new ImageView(img);
         avatar.setFitWidth(60);
         avatar.setFitHeight(60);
         avatar.setPreserveRatio(true);
         avatar.setSmooth(true);
         avatar.setCache(true);
-
-        // round mask
-        Circle clip = new Circle(20, 20, 40); // x, y, radius (same as half of fit size)
-        avatar.setClip(clip);
+        avatar.setClip(new Circle(20, 20, 40));
 
         // Name + ID
         VBox info = new VBox(2);
@@ -101,26 +178,22 @@ public class BlockedUsersController {
         idLabel.getStyleClass().add("blocked-id");
         info.getChildren().addAll(nameLabel, idLabel);
 
-        // Unblock button
+        // Unblock btn
         Button unblockBtn = new Button("Unblock");
         unblockBtn.getStyleClass().add("unblock-button");
-        unblockBtn.setOnAction(e -> {
-            blockedList.getItems().removeIf(h -> h.getChildren().contains(avatar));
-            updateCount();
-        });
+        unblockBtn.setOnAction(e -> unblockUser(uid));
 
-        // Row
-        HBox row = new HBox(10, avatar, info, unblockBtn);
-        row.setSpacing(12);
+        HBox row = new HBox(12, avatar, info, unblockBtn);
         row.getStyleClass().add("blocked-row");
         HBox.setHgrow(info, javafx.scene.layout.Priority.ALWAYS);
-
-        blockedList.getItems().add(row);
+        return row;
     }
 
     private void updateCount() {
         countLabel.setText(blockedList.getItems().size() + " blocked users");
     }
+
+    /* ===================== Helpers ===================== */
 
     private void updateBackIcon(boolean darkMode) {
         String iconPath = darkMode
@@ -138,5 +211,29 @@ public class BlockedUsersController {
         iv.setFitWidth(20);
         iv.setFitHeight(20);
         return iv;
+    }
+
+    private static String nz(String s){ return s==null? "": s.trim(); }
+    private static boolean hasVal(String s){ return s!=null && !s.trim().isEmpty() && !"null".equalsIgnoreCase(s); }
+    private static String optS(JSONObject j, String k){ return j!=null ? nz(j.optString(k,"")) : ""; }
+    private static String optS(JSONObject j, String k, String fallback){
+        String v = optS(j,k);
+        return hasVal(v) ? v : fallback;
+    }
+    private static String firstNonEmpty(String... vals){
+        for (String v : vals) if (hasVal(v)) return v;
+        return "";
+    }
+    private static UUID parseUUID(String s){
+        try { return UUID.fromString(nz(s)); } catch (Exception e) { return null; }
+    }
+
+    private void showToast(String msg) {
+        // ساده: از Alert استفاده کن؛ اگر Toast اختصاصی داری جایگزینش کن
+        Alert a = new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK);
+        if (a.getDialogPane().getScene() != null) {
+            ThemeManager.getInstance().registerScene(a.getDialogPane().getScene());
+        }
+        a.showAndWait();
     }
 }
