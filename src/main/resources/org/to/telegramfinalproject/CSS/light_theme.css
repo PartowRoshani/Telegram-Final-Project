@@ -1060,3 +1060,13 @@
     -fx-background-radius: 4;        /* soft rounded edges */
 }
 
+/* Error label */
+.label.error-label {
+    -fx-text-fill: red;
+}
+
+/* Error input */
+.error-input {
+    -fx-border-color: red;
+    -fx-border-radius: 6;
+}

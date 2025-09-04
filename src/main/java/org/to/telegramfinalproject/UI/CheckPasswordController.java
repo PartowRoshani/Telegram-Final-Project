@@ -2,11 +2,15 @@ package org.to.telegramfinalproject.UI;
 
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
+
+import java.io.IOException;
 
 public class CheckPasswordController {
 
@@ -103,9 +107,8 @@ public class CheckPasswordController {
             visiblePasswordField.getStyleClass().remove("error");
             passwordLabel.getStyleClass().remove("error");
 
-            // TODO: go to change credentials scene
-            System.out.println("Password OK → go to next scene");
-            // MainController.getInstance().showOverlay("/org/to/telegramfinalproject/Fxml/change_credentials.fxml");
+            // Go to the next scene
+            openChangeCredentials();
 
         } else {
             // Error → add error styles
@@ -141,5 +144,19 @@ public class CheckPasswordController {
         icon.setFitWidth(16);
         icon.setFitHeight(16);
         backButton.setGraphic(icon);
+    }
+
+    private void openChangeCredentials() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                    "/org/to/telegramfinalproject/Fxml/change_credentials.fxml"));
+            Node overlay = loader.load();
+
+            // Show new overlay
+            MainController.getInstance().showOverlay(overlay);
+
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 }
