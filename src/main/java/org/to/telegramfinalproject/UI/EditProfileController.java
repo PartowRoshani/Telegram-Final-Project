@@ -23,8 +23,15 @@ import org.to.telegramfinalproject.Client.Session;
 import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
+import org.to.telegramfinalproject.Client.ActionHandler;
+import org.to.telegramfinalproject.Client.Session;
+import org.json.JSONObject;
+
+import java.io.File;
 
 public class EditProfileController {
+
+    private File pickedAvatarFile;
 
     @FXML private Pane overlayBackground;
     @FXML private VBox editCard;
@@ -108,13 +115,15 @@ public class EditProfileController {
         File file = fileChooser.showOpenDialog(profileImageView.getScene().getWindow());
 
         if (file != null) {
-            profileImageView.setImage(new Image(file.toURI().toString()));
-            // TODO: save this new image to DB or server
+            pickedAvatarFile = file; // ← ذخیره کن برای ارسال هنگام خروج
+            profileImageView.setImage(new Image(file.toURI().toString())); // پیش‌نمایش
         }
     }
 
     private void closeEdit() {
-        MainController.getInstance().closeOverlay(editCard.getParent());
+        //MainController.getInstance().closeOverlay(editCard.getParent());
+        MainController.getInstance().goBack(overlayBackground);
+
     }
 
     public void setProfileData(String name, String status, String bio, String userId, Image profileImage) {
@@ -134,6 +143,55 @@ public class EditProfileController {
         String newUserId = usernameField.getText().trim();
 
         boolean anyError = false;
+
+//        if (pickedAvatarFile != null) {
+//            ActionHandler.instance.uploadAvatarFor("user", null, pickedAvatarFile);
+//
+//            if (ActionHandler.instance.wasSuccess()) {
+//                String url = ActionHandler.instance.getLastMessage();
+//                if (url != null && !url.isBlank()) {
+//                    currentUser.put("image_url", url);
+//                }
+//            } else {
+//                anyError = true;
+//                showAlert(
+//                        "Avatar upload failed",
+//                        ActionHandler.instance.getLastMessage() == null ? "Unknown error" : ActionHandler.instance.getLastMessage(),
+//                        Alert.AlertType.ERROR
+//                );
+//            }
+//        }
+
+
+        if (pickedAvatarFile != null) {
+            ActionHandler.instance.uploadAvatarFor("user", null, pickedAvatarFile);
+
+            if (ActionHandler.instance.wasSuccess()) {
+                String url = ActionHandler.instance.getLastMessage();
+                if (url != null && !url.isBlank()) {
+                    // قبلاً اینجا مستقیم bust می‌زدیم → مشکل ایجاد می‌کرد
+                    // currentUser.put("image_url", url);
+
+                    // ✔️ نسخه‌ی امن:
+                    String extracted = extractImageUrl(url); // از helper پایین
+                    if (isLikelyImageUrl(extracted)) {
+                        String finalUrl = addCacheBusterIfHttp(extracted); // فقط برای http/https
+                        Session.currentUser.put("image_url", finalUrl);
+                    } else {
+                        // اگر سرور چیز عجیبی مثل "Welcome Farid" برگردوند، نادیده بگیر
+                        System.out.println("Upload avatar returned a non-image value: " + url);
+                    }
+                }
+            } else {
+                anyError = true;
+                showAlert(
+                        "Avatar upload failed",
+                        ActionHandler.instance.getLastMessage() == null ? "Unknown error" : ActionHandler.instance.getLastMessage(),
+                        Alert.AlertType.ERROR
+                );
+            }
+        }
+
 
         // --- Update bio ---
         String oldBio = currentUser.optString("bio", "");
@@ -181,8 +239,14 @@ public class EditProfileController {
                     currentUser.optString("bio"),
                     currentUser.optString("user_id"),
                     currentUser.optString("image_url", "/org/to/telegramfinalproject/Avatars/default_user_profile.png")
+
+
             );
-            MainController.getInstance().closeOverlay(bioField.getParent().getParent());
+//            MainController mc = MainController.getInstance();
+            MainController.getInstance().refreshSidebarUserFromSession();
+            MainController.getInstance().goBack(overlayBackground);
+
+//            MainController.getInstance().closeOverlay(bioField.getParent().getParent());
         }
     }
 
@@ -199,4 +263,48 @@ public class EditProfileController {
 
         alert.showAndWait();
     }
+
+
+
+    private boolean isLikelyImageUrl(String s) {
+        if (s == null || s.isBlank()) return false;
+        // URL کامل، مسیر نسبی سرور، یا file: و پسوند تصویر
+        return s.startsWith("http://") || s.startsWith("https://")
+                || s.startsWith("file:")
+                || s.startsWith("/")
+                || s.matches("(?i).+\\.(png|jpe?g|gif|webp)$");
+    }
+
+    private String addCacheBusterIfHttp(String url) {
+        if (url == null) return null;
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url + (url.contains("?") ? "&" : "?") + "v=" + System.currentTimeMillis();
+        }
+        // برای مسیر لوکال/نسبی اصلاً ?v اضافه نکن (روی ویندوز مشکل می‌دهد)
+        return url;
+    }
+
+    /** اگر سرور به‌جای URL، JSON یا متن دیگری داد، اینجا URL را دربیار. */
+    private String extractImageUrl(String raw) {
+        if (raw == null) return null;
+        String s = raw.trim();
+        // اگر برگشتی JSON است (بعضی سرویس‌ها data.display_url برمی‌گردانند)
+        if (s.startsWith("{") && s.endsWith("}")) {
+            try {
+                org.json.JSONObject j = new org.json.JSONObject(s);
+                // هر کلیدی که سرویس‌ات استفاده می‌کند را امتحان کن
+                if (j.has("display_url")) return j.optString("display_url", null);
+                if (j.has("url"))         return j.optString("url", null);
+                if (j.has("data")) {
+                    var d = j.optJSONObject("data");
+                    if (d != null) {
+                        if (d.has("display_url")) return d.optString("display_url", null);
+                        if (d.has("url"))         return d.optString("url", null);
+                    }
+                }
+            } catch (Exception ignore) {}
+        }
+        return s; // در غیر این صورت همان raw
+    }
+
 }

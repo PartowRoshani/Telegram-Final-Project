@@ -1141,4 +1141,12 @@ public class MainController {
             getChatPageController().showChat(entry);
         }
     }
+
+
+    public void refreshSidebarUserFromSession() {
+        if (sidebarController != null && Session.currentUser != null) {
+            Platform.runLater(() -> sidebarController.setUserFromSession(Session.currentUser));
+        }
+    }
+
 }

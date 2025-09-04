@@ -1811,7 +1811,7 @@ private void addBubble(
         if (days > 30) {
             return "Last seen long time ago";
         }
-        return "recently";
+        return "Last seen recently";
     }
 
     private void setDefaultHeaderAvatarByType(String type){

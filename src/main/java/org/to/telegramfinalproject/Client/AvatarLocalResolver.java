@@ -13,20 +13,47 @@ public final class AvatarLocalResolver {
     }
 
     public static String resolve(String serverValue) {
-        if (serverValue == null || serverValue.isBlank()) return null;
-        if (isHttp(serverValue) || serverValue.startsWith("file:")) return serverValue;
+        if (serverValue == null) return null;
+        serverValue = serverValue.trim();
+        if (serverValue.isEmpty()) return null;
 
-        String rel = serverValue.startsWith("/") ? serverValue.substring(1) : serverValue; // "avatars/..."
+        // URL کامل یا file: → همون رو برگردون
+        if (isHttp(serverValue) || serverValue.startsWith("file:")) {
+            return serverValue;
+        }
+
+        // ⬅️ مهم: برای مسیرهای لوکال، هر چیزی بعد از ? یا # را حذف کن
+        serverValue = stripQueryAndHash(serverValue);
+
+        // حذف اسلش ابتدایی (اگر بود)
+        String rel = serverValue.startsWith("/") ? serverValue.substring(1) : serverValue;
+
+        // ساخت مسیر امن داخل uploads
         Path p = UPLOADS_ROOT.resolve(rel).normalize();
-        if (!p.startsWith(UPLOADS_ROOT)) return null;        // امنیت مسیر
-        if (!Files.exists(p)) {                               // مهم: واقعاً وجود دارد؟
+
+        // جلوگیری از خروج از دایرکتوری uploads (path traversal)
+        if (!p.startsWith(UPLOADS_ROOT)) return null;
+
+        // وجود واقعی فایل
+        if (!Files.exists(p)) {
             System.err.println("Avatar resolve: NOT FOUND -> " + p);
             return null;
         }
-        String url = p.toUri().toString();                   // file:///.../uploads/avatars/....
+
+        // خروجی به صورت file:// URI که JavaFX Image می‌فهمد
+        String url = p.toUri().toString();
         System.out.println("Avatar resolve: " + serverValue + " -> " + url);
         return url;
     }
+
+    private static String stripQueryAndHash(String s) {
+        int q = s.indexOf('?');
+        if (q >= 0) s = s.substring(0, q);
+        int h = s.indexOf('#');
+        if (h >= 0) s = s.substring(0, h);
+        return s;
+    }
+
 
     public static Image load(String serverValue) {
         String url = resolve(serverValue);

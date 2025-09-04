@@ -14,6 +14,12 @@ import javafx.scene.shape.Circle;
 
 import java.io.IOException;
 import java.util.Objects;
+import org.json.JSONObject;
+import org.to.telegramfinalproject.Client.ActionHandler;
+import org.to.telegramfinalproject.Client.AvatarLocalResolver;
+import org.to.telegramfinalproject.Client.Session;
+
+import java.io.File;
 
 public class MyProfileController {
 
@@ -68,6 +74,7 @@ public class MyProfileController {
 
         // === Open edit profile ===
         editButton.setOnAction(e -> openEditProfile());
+
     }
 
     private void closeProfile() {
@@ -91,9 +98,18 @@ public class MyProfileController {
         this.userId.setText("@" + userId);
         userID = userId;
 
-        if (imageUrl != null && !imageUrl.isEmpty()) {
-            profileImage.setImage(new Image(imageUrl));
+        if (imageUrl != null && !imageUrl.isBlank()) {
+            Image img = AvatarLocalResolver.load(imageUrl);
+            if (img != null) {
+                profileImage.setImage(img);
+            } else {
+                profileImage.setImage(new Image(
+                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                "/org/to/telegramfinalproject/Avatars/default_user_profile.png"))
+                ));
+            }
         }
+
     }
 
     // === Theme-specific updates ===
@@ -133,4 +149,5 @@ public class MyProfileController {
             ex.printStackTrace();
         }
     }
+
 }
