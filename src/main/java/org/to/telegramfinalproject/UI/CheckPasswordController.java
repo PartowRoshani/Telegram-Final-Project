@@ -98,26 +98,38 @@ public class CheckPasswordController {
     }
 
     private void validatePassword() {
-        String entered = passwordField.getText().trim();
-        String correct = "12345"; // demo only
+        String entered = (passwordVisible ? visiblePasswordField.getText() : passwordField.getText()).trim();
+        if (entered.isEmpty()) {
+            // استایل خطا مثل قبل
+            if (!passwordField.getStyleClass().contains("error"))
+                passwordField.getStyleClass().add("error");
+            if (!visiblePasswordField.getStyleClass().contains("error"))
+                visiblePasswordField.getStyleClass().add("error");
+            if (!passwordLabel.getStyleClass().contains("error"))
+                passwordLabel.getStyleClass().add("error");
+            return;
+        }
 
-        if (entered.equals(correct)) {
-            // Success → reset error styles
+        // تماس با سرور
+        org.json.JSONObject req = new org.json.JSONObject()
+                .put("action", "verify_password")
+                .put("current_password", entered);
+
+        org.json.JSONObject resp = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
+        boolean ok = (resp != null && "success".equalsIgnoreCase(resp.optString("status")));
+
+        if (ok) {
+            // پاک کردن خطاها
             passwordField.getStyleClass().remove("error");
             visiblePasswordField.getStyleClass().remove("error");
             passwordLabel.getStyleClass().remove("error");
 
-            // Go to the next scene
-            openChangeCredentials();
-
+            openChangeCredentials(entered); // ← پسورد فعلی را پاس بده
         } else {
-            // Error → add error styles
             if (!passwordField.getStyleClass().contains("error"))
                 passwordField.getStyleClass().add("error");
-
             if (!visiblePasswordField.getStyleClass().contains("error"))
                 visiblePasswordField.getStyleClass().add("error");
-
             if (!passwordLabel.getStyleClass().contains("error"))
                 passwordLabel.getStyleClass().add("error");
         }
@@ -146,15 +158,17 @@ public class CheckPasswordController {
         backButton.setGraphic(icon);
     }
 
-    private void openChangeCredentials() {
+    private void openChangeCredentials(String currentPassword) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(
                     "/org/to/telegramfinalproject/Fxml/change_credentials.fxml"));
             Node overlay = loader.load();
 
-            // Show new overlay
-            MainController.getInstance().showOverlay(overlay);
+            ChangeCredentialsController c = loader.getController();
+            c.setCurrentPassword(currentPassword);                 // ← مهم
+            c.prefillFromSession();                                // ← پیش‌پر کردن
 
+            MainController.getInstance().showOverlay(overlay);
         } catch (IOException ex) {
             ex.printStackTrace();
         }

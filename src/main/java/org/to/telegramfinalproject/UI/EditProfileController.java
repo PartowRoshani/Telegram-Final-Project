@@ -49,6 +49,13 @@ public class EditProfileController {
     @FXML private TextField bioField;
     @FXML private TextField usernameField;
 
+    // EditProfileController.java
+    private SettingsController parentSettings;
+    public void setParentSettings(SettingsController sc) {
+        this.parentSettings = sc;
+    }
+
+
     @FXML
     private void initialize() {
         backButton.setGraphic(new ImageView(
@@ -56,19 +63,34 @@ public class EditProfileController {
         ));
 
         // close on background click
+//        overlayBackground.setOnMouseClicked(e -> {
+//            saveChangesAndClose();
+//            closeEdit();
+//        });
+//
+//        closeButton.setOnAction(e -> {
+//            saveChangesAndClose();
+//            closeEdit();
+//        });
+//
+//        backButton.setOnAction(e -> {
+//            saveChangesAndClose();
+//            MainController.getInstance().goBack(overlayBackground);
+//        });
+
         overlayBackground.setOnMouseClicked(e -> {
             saveChangesAndClose();
-            closeEdit();
+            closeEdit(); // ← همینه
         });
 
         closeButton.setOnAction(e -> {
             saveChangesAndClose();
-            closeEdit();
+            closeEdit(); // ← همینه
         });
 
         backButton.setOnAction(e -> {
             saveChangesAndClose();
-            MainController.getInstance().goBack(overlayBackground);
+            closeEdit(); // ← قبلاً goBack بود
         });
 
         // Load your camera icon image (white camera icon for visibility)
@@ -122,7 +144,9 @@ public class EditProfileController {
 
     private void closeEdit() {
         //MainController.getInstance().closeOverlay(editCard.getParent());
-        MainController.getInstance().goBack(overlayBackground);
+//        MainController.getInstance().goBack(overlayBackground);
+        MainController.getInstance().closeOverlay(editCard.getParent());
+
 
     }
 
@@ -233,21 +257,33 @@ public class EditProfileController {
         }
 
         if (!anyError) {
-            MyProfileController.getInstance().setProfileData(
-                    currentUser.optString("profile_name"),
-                    "online",
-                    currentUser.optString("bio"),
-                    currentUser.optString("user_id"),
-                    currentUser.optString("image_url", "/org/to/telegramfinalproject/Avatars/default_user_profile.png")
+            // 1) اگر صفحه‌ی MyProfile باز است
+            var mp = MyProfileController.getInstance();
+            if (mp != null) {
+                mp.setProfileData(
+                        currentUser.optString("profile_name"),
+                        "online",
+                        currentUser.optString("bio"),
+                        currentUser.optString("user_id"),
+                        currentUser.optString("image_url", "/org/to/telegramfinalproject/Avatars/default_user_profile.png")
+                );
+            }
 
+            // 2) خودِ کارت Settings را فوراً از Session ریفرش کن
+            if (parentSettings != null) {
+                parentSettings.populateFromSession();
+            }
 
-            );
-//            MainController mc = MainController.getInstance();
+            // 3) سایدبار بالایی (اسم/آواتار خود کاربر) اگر داری
             MainController.getInstance().refreshSidebarUserFromSession();
-            MainController.getInstance().goBack(overlayBackground);
 
-//            MainController.getInstance().closeOverlay(bioField.getParent().getParent());
+            // 4) بستن اورلی ادیت
+//            MainController.getInstance().goBack(overlayBackground);
+            MainController.getInstance().closeOverlay(editCard.getParent());
+
         }
+
+
     }
 
     private void showAlert(String title, String message, Alert.AlertType type) {

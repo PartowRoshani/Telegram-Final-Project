@@ -8,7 +8,6 @@ import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
 
@@ -33,17 +32,25 @@ public class SettingsController {
 
     private static final String ICON_PATH = "/org/to/telegramfinalproject/Icons/";
 
+    private Image cachedAvatar;
+    private String cachedName = "";
+    private String cachedUsername = "";
+    private String cachedStatus = "";
+    private String cachedBio = "";
+
+    private static String nz(String s){ return s==null? "": s.trim(); }
+    private static boolean hasVal(String s){ return s!=null && !s.trim().isEmpty() && !"null".equalsIgnoreCase(s); }
+
+    private static SettingsController instance;
+    public static SettingsController getInstance() { return instance; }
     @FXML
     public void initialize() {
+        instance = this;
+
         editProfileItem.setOnAction(e -> openEditProfile());
         logoutItem.setOnAction(e -> System.out.println("Log Out clicked"));
 
-        // Example data – load from DB or user session later
-        profileName.setText("Asal");
-        profileId.setText("@Whales_suicide");
-        profileImage.setImage(new Image(
-                getClass().getResourceAsStream("/org/to/telegramfinalproject/Avatars/default_user_profile.png")
-        ));
+        populateFromSession();
 
         // Make it circular
         Circle clip = new Circle(48, 28, 38); // centerX, centerY, radius
@@ -104,18 +111,19 @@ public class SettingsController {
 
             EditProfileController controller = loader.getController();
             controller.setProfileData(
-                    profileName.getText(),
-                    "online",
-                    "Pass me that lovely little gun♡.",
-                    "@Whales_suicide",
-                    profileImage.getImage()
+                    cachedName,
+                    cachedStatus,
+                    cachedBio,
+                    cachedUsername,
+                    cachedAvatar
             );
-
+            controller.setParentSettings(this);
             MainController.getInstance().showOverlay(editOverlay);
         } catch (IOException ex) {
             ex.printStackTrace();
         }
     }
+
 
     private void updateEditIcon(boolean darkMode) {
         String editPath = darkMode
@@ -168,5 +176,58 @@ public class SettingsController {
             return null;
         }
         return new Image(res.toExternalForm());
+    }
+
+
+
+
+    void populateFromSession() {
+        var u = org.to.telegramfinalproject.Client.Session.currentUser;
+        if (u == null) return;
+
+        // نام
+        String name = nz(u.optString("profile_name",
+                u.optString("name",
+                        u.optString("first_name",""))));
+
+        // یوزرنیم/آی‌دی نمایشی
+        String handle = nz(u.optString("username",
+                u.optString("display_id",
+                        u.optString("user_name",""))));
+        // وضعیت
+        String status = u.optBoolean("online", false) ? "online" : "online";
+        String lastSeen = nz(u.optString("last_seen", ""));
+        if (!u.optBoolean("online", false) && hasVal(lastSeen)) status = "online"; // ساده
+
+        // بیو (اگر داری)
+        String bio = nz(u.optString("bio",""));
+
+        // آواتار
+        Image avatar = null;
+        String imageUrl = nz(u.optString("image_url",""));
+        if (hasVal(imageUrl)) {
+            try { avatar = org.to.telegramfinalproject.Client.AvatarLocalResolver.load(imageUrl); }
+            catch (Exception ignore) {}
+        }
+        if (avatar == null) {
+            avatar = new Image(getClass().getResourceAsStream(
+                    "/org/to/telegramfinalproject/Avatars/default_user_profile.png"));
+        }
+
+        // کش محلی برای استفاده در صفحه‌ی ویرایش
+        cachedName = hasVal(name) ? name : "User";
+        cachedUsername = hasVal(handle) ? handle : "";
+        cachedStatus = status;
+        cachedBio = bio;
+        cachedAvatar = avatar;
+
+        // ست کردن در UI
+        profileName.setText(cachedName);
+        profileId.setText(cachedUsername);
+        profileImage.setImage(cachedAvatar);
+
+        // گرد کردن تصویر (با توجه به اندازه‌ی واقعی)
+        Circle clip = new Circle(38, 38, 38); // centerX, centerY, radius
+        profileImage.setClip(clip);
     }
 }
