@@ -970,8 +970,8 @@ public class ClientHandler implements Runnable {
                             UUID creatorUUID = UUID.fromString(userIdStr);
 
                             // اگر سرویس‌ات ورودی توضیح را می‌پذیرد، از متد اورلودشده استفاده کن:
-                            // boolean created = ChannelService.createChannel(channelId, channelName, creatorUUID, imageUrl, description);
-                            boolean created = ChannelService.createChannel(channelId, channelName, creatorUUID, imageUrl);
+                             boolean created = ChannelService.createChannel(channelId, channelName, creatorUUID, imageUrl, description);
+                             //boolean created = ChannelService.createChannel(channelId, channelName, creatorUUID, imageUrl);
 
                             if (created) {
                                 Channel createdChannel = ChannelDatabase.findByChannelId(channelId);
@@ -3319,6 +3319,10 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    private boolean hasManagePermission(UUID currentUserId, String targetType, UUID targetId) {
+        return  true;
+    }
+
     private static String err(String m) { return new JSONObject().put("status","error").put("message",m).toString(); }
 
     private static boolean isAllowedImageMime(String mime) {
@@ -3344,8 +3348,8 @@ public class ClientHandler implements Runnable {
     private boolean updateProfileImageUrl(String targetType, UUID targetId, String url) {
         String sql = switch (targetType) {
             case "user"    -> "UPDATE users SET image_url=? WHERE internal_uuid=?";
-            case "channel" -> "UPDATE channels SET image_url=? WHERE id=?";
-            case "group"   -> "UPDATE groups SET image_url=? WHERE id=?";
+            case "channel" -> "UPDATE channels SET image_url=? WHERE internal_uuid=?";
+            case "group"   -> "UPDATE groups SET image_url=? WHERE internal_uuid=?";
             default        -> null;
         };
         if (sql == null) return false;

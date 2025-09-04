@@ -14,12 +14,16 @@ import javafx.scene.layout.Pane;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Client.ActionHandler;
 import org.to.telegramfinalproject.Client.Session;
+import org.to.telegramfinalproject.Client.TelegramClient;
 import org.to.telegramfinalproject.Models.ChatEntry;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
+import static org.to.telegramfinalproject.Client.ActionHandler.detectMime;
 
 public class NewGroupController {
 
@@ -83,34 +87,25 @@ public class NewGroupController {
         String groupId   = groupIdField.getText()   == null ? "" : groupIdField.getText().trim();
 
         boolean ok = true;
-        if (groupName.isEmpty()) {
-            groupNameField.getStyleClass().add("error");
-            groupNameLabel.getStyleClass().add("error");
-            ok = false;
-        }
-        if (groupId.isEmpty()) {
-            groupIdField.getStyleClass().add("error");
-            groupIdLabel.getStyleClass().add("error");
-            ok = false;
-        }
+        if (groupName.isEmpty()) { groupNameField.getStyleClass().add("error"); groupNameLabel.getStyleClass().add("error"); ok = false; }
+        if (groupId.isEmpty())   { groupIdField.getStyleClass().add("error"); groupIdLabel.getStyleClass().add("error"); ok = false; }
         if (!ok) return;
 
-        // ساخت گروه روی سرور
-        final String me = Session.getUserUUID(); // internal_uuid
+        final String me = Session.getUserUUID();
         if (me == null || me.isBlank()) {
             showToast("Cannot create group: current user UUID missing.");
             return;
         }
 
-        // اگر آپلود تصویر داری، اینجا عکس رو آپلود کن و imageUrl واقعی بفرست (TODO)
+        // در مرحلهٔ ساخت، image_url را خالی بفرست (بعداً آپلود می‌کنیم)
         final String imageUrl = null;
 
         JSONObject req = new JSONObject()
                 .put("action", "create_group")
                 .put("group_id", groupId)
                 .put("group_name", groupName)
-                .put("user_id", me)          // ← internal_uuid سازنده
-                .put("image_url", imageUrl); // ← اختیاری
+                .put("user_id", me)
+                .put("image_url", imageUrl);
 
         new Thread(() -> {
             JSONObject resp = ActionHandler.sendWithResponse(req);
@@ -131,21 +126,37 @@ public class NewGroupController {
             String returnedDisp = data.optString("id", groupId);
             String returnedImg  = data.optString("image_url", "");
 
-            // 1) به‌صورت لوکال یک ChatEntry بساز و به سایدبار اضافه و سِلکت کن
+            // اگر عکس انتخاب شده، حالا آپلود کن (target_type=group, target_id=internalId)
+            String finalImageUrl = returnedImg;
+            if (groupImageFile != null) {
+                ActionHandler.instance.uploadAvatarFor("group", internalId, groupImageFile);
+                if (ActionHandler.instance.wasSuccess()) {
+                    String url = ActionHandler.instance.getLastMessage(); // display_url
+                    if (url != null && !url.isBlank()) {
+                        finalImageUrl = url;
+                    }
+                }
+            }
+
+            // 1) به سایدبار اضافه و انتخاب کن
+            String imageUrlToUse = finalImageUrl; // برای استفاده داخل lambda
             Platform.runLater(() -> {
                 ChatEntry entry = ChatEntry.fromServer(
                         internalId,
                         "group",
                         returnedName,
                         returnedDisp,
-                        returnedImg,
+                        imageUrlToUse,
                         /*isOwner*/ true,
                         /*isAdmin*/ true
                 );
                 MainController.getInstance().addChatAndSelect(entry);
+
+                // اگر URL جدید داریم، می‌تونی یک bust-cache بزنی:
+                // MainController.getInstance().refreshChatAvatar(internalId, imageUrlToUse + "?v=" + System.currentTimeMillis());
             });
 
-            // 2) پنجره‌ی Add Members را باز کن و internal_id گروه را پاس بده
+            // 2) پنجره Add Members
             Platform.runLater(() -> {
                 try {
                     FXMLLoader loader = new FXMLLoader(getClass().getResource(
@@ -154,10 +165,7 @@ public class NewGroupController {
                     AddMembersController controller = loader.getController();
                     controller.setGroupInfo(internalId, returnedName, returnedDisp, groupImageFile);
 
-                    // این اُورلی را روی UI نشان بده
                     MainController.getInstance().showOverlay(addMembersOverlay);
-
-                    // این اُورلی NewGroup را ببند
                     MainController.getInstance().closeOverlay(overlayRoot);
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -167,10 +175,14 @@ public class NewGroupController {
         }).start();
     }
 
+
     private void showToast(String msg) {
         // جایگزینش کن با سیستم نوتی شما
         Alert a = new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK);
         a.initOwner(overlayRoot.getScene().getWindow());
         a.show();
     }
+
+
+
 }

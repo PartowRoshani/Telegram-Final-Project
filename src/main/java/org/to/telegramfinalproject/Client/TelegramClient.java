@@ -222,9 +222,6 @@ public class TelegramClient {
         if (socket != null && socket.isConnected() && !socket.isClosed()) return;
 
         socket = new Socket(SERVER_HOST, SERVER_PORT);
-        in  = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-        out = new PrintWriter(socket.getOutputStream(), true);
-
         InputStream   rawIn  = socket.getInputStream();
         OutputStream  rawOut = socket.getOutputStream();
 
@@ -256,14 +253,24 @@ public class TelegramClient {
 //    }
 
 
+//    private void startListenerOnce(IncomingMessageListener.UIMode mode) {
+//        if (listenerStarted) return;
+//        listenerStarted = true;
+//
+//        Thread listenerThread = new Thread(
+//                new IncomingMessageListener(in, mode),
+//                "socket-listener"
+//        );
+//        listenerThread.setDaemon(true);
+//        listenerThread.start();
+//    }
+
     private void startListenerOnce(IncomingMessageListener.UIMode mode) {
         if (listenerStarted) return;
         listenerStarted = true;
 
-        Thread listenerThread = new Thread(
-                new IncomingMessageListener(in, mode),
-                "socket-listener"
-        );
+        listener = new IncomingMessageListener(in, mode);
+        Thread listenerThread = new Thread(listener, "socket-listener");
         listenerThread.setDaemon(true);
         listenerThread.start();
     }

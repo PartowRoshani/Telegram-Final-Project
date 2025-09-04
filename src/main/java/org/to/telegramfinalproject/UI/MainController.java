@@ -437,6 +437,9 @@ public class MainController {
 
 
 
+
+
+
             ChatPageController controller = loader.getController();
             controller.showChat(chat);
 

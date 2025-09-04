@@ -223,16 +223,58 @@ public class ChannelDatabase {
     }
 
 
-    public static boolean insertChannel(UUID internalUUID, String channelId, String channelName, UUID creatorId, String imageUrl, LocalDateTime createdAt) {
-        String sql = "INSERT INTO channels (internal_uuid, channel_id, channel_name, creator_id, image_url, created_at) VALUES (?, ?, ?, ?, ?, ?)";
+//    public static boolean insertChannel(UUID internalUUID, String channelId, String channelName, UUID creatorId, String imageUrl, LocalDateTime createdAt) {
+//        String sql = "INSERT INTO channels (internal_uuid, channel_id, channel_name, creator_id, image_url, created_at) VALUES (?, ?, ?, ?, ?, ?)";
+//
+//        try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+//            stmt.setObject(1, internalUUID);
+//            stmt.setString(2, channelId);
+//            stmt.setString(3, channelName);
+//            stmt.setObject(4, creatorId);
+//            stmt.setString(5, imageUrl);
+//            stmt.setObject(6, createdAt);
+//            stmt.executeUpdate();
+//            return true;
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//            return false;
+//        }
+//    }
 
-        try (Connection conn = ConnectionDb.connect(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+    public static boolean insertChannel(UUID internalUUID,
+                                        String channelId,
+                                        String channelName,
+                                        UUID creatorId,
+                                        String imageUrl,
+                                        String description,
+                                        LocalDateTime createdAt) {
+        String sql = "INSERT INTO channels " +
+                "(internal_uuid, channel_id, channel_name, creator_id, image_url, description, created_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
             stmt.setObject(1, internalUUID);
             stmt.setString(2, channelId);
             stmt.setString(3, channelName);
             stmt.setObject(4, creatorId);
-            stmt.setString(5, imageUrl);
-            stmt.setObject(6, createdAt);
+
+            if (imageUrl != null && !imageUrl.isBlank()) {
+                stmt.setString(5, imageUrl);
+            } else {
+                stmt.setNull(5, java.sql.Types.VARCHAR);
+            }
+
+            if (description != null && !description.isBlank()) {
+                // اگر می‌خوای مطمئن بشی 255 نشکنه:
+                stmt.setString(6, description.length() > 255 ? description.substring(0, 255) : description);
+            } else {
+                stmt.setNull(6, java.sql.Types.VARCHAR);
+            }
+
+            stmt.setObject(7, createdAt);
+
             stmt.executeUpdate();
             return true;
         } catch (SQLException e) {

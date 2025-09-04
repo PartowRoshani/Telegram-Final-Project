@@ -30,6 +30,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
+import static org.to.telegramfinalproject.Client.Session.currentChatId;
+
 public class ChatPageController {
 
     // ===== messages area =====
@@ -2352,6 +2354,39 @@ private void addBubble(
             String deleteType = (alsoDelete.isSelected() && canGlobal) ? "global" : "one-sided";
             deleteMessage(messageId, deleteType);
         }
+    }
+
+    // ChatPageController.java
+
+    public void onChatAvatarUpdated(UUID chatId, String newUrl) {
+        // اگه چت فعلی چیز دیگریه، کاری نکن
+        if (currentChat == null || chatId == null || newUrl == null || newUrl.isBlank()) return;
+        if (!currentChat.getId().equals(chatId)) return;
+
+        // اگر از نخ غیر JavaFX صدا زده شد، امنش کنیم
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(() -> onChatAvatarUpdated(chatId, newUrl));
+            return;
+        }
+
+        // State داخلی entry را هم آپدیت کن
+        currentChat.setImageUrl(newUrl);
+
+        // آواتار هدر را ست کن (با resolver خودت)
+        try {
+            Image im = org.to.telegramfinalproject.Client.AvatarLocalResolver.load(newUrl);
+            if (im != null) {
+                userAvatar.setImage(im);
+            } else {
+                // fallback اگر لود نشد
+                setDefaultHeaderAvatarByType(currentChat.getType());
+            }
+        } catch (Exception ignore) {
+            setDefaultHeaderAvatarByType(currentChat.getType());
+        }
+
+        // مطمئن شو همچنان دایره‌ایه
+        try { AvatarFX.circleClip(userAvatar, 36); } catch (Throwable ignored) {}
     }
 
 

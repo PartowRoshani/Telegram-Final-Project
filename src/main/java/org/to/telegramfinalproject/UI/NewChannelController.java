@@ -103,12 +103,12 @@ public class NewChannelController {
     }
 
     private void onCreateChannel() {
-        String name = nz(channelNameField.getText()).trim();
-        String dispId = nz(channelIdField.getText()).trim();
+        String name        = nz(channelNameField.getText()).trim();
+        String dispId      = nz(channelIdField.getText()).trim();
         String description = nz(channelDescField.getText()).trim();
 
         boolean ok = true;
-        if (name.isEmpty()) { channelNameField.getStyleClass().add("error"); channelNameLabel.getStyleClass().add("error"); ok = false; }
+        if (name.isEmpty())   { channelNameField.getStyleClass().add("error"); channelNameLabel.getStyleClass().add("error"); ok = false; }
         if (dispId.isEmpty()) { channelIdField.getStyleClass().add("error"); channelIdLabel.getStyleClass().add("error"); ok = false; }
         if (!ok) return;
 
@@ -118,69 +118,92 @@ public class NewChannelController {
             return;
         }
 
-        // TODO: اگر آپلود تصویر داری، فایل را آپلود کن و URL نهایی را اینجا بفرست
-        final String imageUrl = null;
-
+        // در مرحله ساخت، image_url را خالی بفرست؛ بعداً آپلود می‌کنیم
         JSONObject req = new JSONObject()
                 .put("action", "create_channel")
-                .put("channel_id", dispId)     // آیدی نمایشی/عمومی
+                .put("channel_id", dispId)
                 .put("channel_name", name)
-                .put("user_id", me)            // internal_uuid سازنده
-                .put("image_url", imageUrl)    // اختیاری
-                .put("description", description); // اختیاری (سرور اگر ساپورت نکند نادیده می‌گیرد)
+                .put("user_id", me)
+                .put("image_url", (Object) null)
+                .put("description", description);
+
+        createButton.setDisable(true);
 
         new Thread(() -> {
-            JSONObject resp = ActionHandler.sendWithResponse(req);
-            if (resp == null || !"success".equalsIgnoreCase(resp.optString("status"))) {
-                Platform.runLater(() -> showToast("Create failed: " +
-                        (resp == null ? "no response" : resp.optString("message",""))));
-                return;
-            }
-
-            JSONObject data = resp.optJSONObject("data");
-            if (data == null) {
-                Platform.runLater(() -> showToast("Create failed: empty data."));
-                return;
-            }
-
-            UUID internalId = UUID.fromString(data.optString("internal_id"));
-            String returnedName = data.optString("name", name);
-            String returnedDisp = data.optString("id", dispId);
-            String returnedImg  = data.optString("image_url", "");
-
-            // 1) چت کانال تازه‌ساخته را به سایدبار اضافه کن و انتخاب کن
-            Platform.runLater(() -> {
-                ChatEntry entry = ChatEntry.fromServer(
-                        internalId,
-                        "channel",
-                        returnedName,
-                        returnedDisp,
-                        returnedImg,
-                        /*isOwner*/ true,
-                        /*isAdmin*/ true
-                );
-                MainController.getInstance().addChatAndSelect(entry);
-            });
-
-            // 2) اُورلی افزودن سابسکرایبر را باز کن و internal_id را پاس بده
-            Platform.runLater(() -> {
-                try {
-                    FXMLLoader loader = new FXMLLoader(getClass().getResource(
-                            "/org/to/telegramfinalproject/Fxml/add_subscriber.fxml"));
-                    StackPane addSubsOverlay = loader.load();
-
-                    AddSubscriberController controller = loader.getController();
-                    controller.setChannelInfo(internalId, returnedName, returnedDisp, channelImageFile, description);
-
-                    MainController.getInstance().showOverlay(addSubsOverlay);
-                    MainController.getInstance().closeOverlay(overlayRoot);
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                    showToast("Failed to open Add Subscribers.");
+            try {
+                JSONObject resp = ActionHandler.sendWithResponse(req);
+                if (resp == null || !"success".equalsIgnoreCase(resp.optString("status"))) {
+                    Platform.runLater(() -> {
+                        createButton.setDisable(false);
+                        showToast("Create failed: " + (resp == null ? "no response" : resp.optString("message","")));
+                    });
+                    return;
                 }
-            });
+
+                JSONObject data = resp.optJSONObject("data");
+                if (data == null) {
+                    Platform.runLater(() -> {
+                        createButton.setDisable(false);
+                        showToast("Create failed: empty data.");
+                    });
+                    return;
+                }
+
+                UUID internalId     = UUID.fromString(data.optString("internal_id"));
+                String returnedName = data.optString("name", name);
+                String returnedDisp = data.optString("id", dispId);
+                String returnedImg  = data.optString("image_url", "");
+
+                // ✅ اگر کاربر عکس انتخاب کرده بود: الان آپلود کن (target_type=channel)
+                if (channelImageFile != null) {
+                    ActionHandler.instance.uploadAvatarFor("channel", internalId, channelImageFile);
+                    if (ActionHandler.instance.wasSuccess()) {
+                        String url = ActionHandler.instance.getLastMessage(); // display_url
+                        if (url != null && !url.isBlank()) {
+                            returnedImg = url;
+                        }
+                    } else {
+                        // اختیاری: پیام خطا را نشان بده
+                        System.out.println("Channel avatar upload failed: " + ActionHandler.instance.getLastMessage());
+                    }
+                }
+
+                String finalImg = returnedImg;
+                Platform.runLater(() -> {
+                    // 1) کانال را به سایدبار اضافه و انتخاب کن
+                    ChatEntry entry = ChatEntry.fromServer(
+                            internalId, "channel", returnedName, returnedDisp, finalImg,
+                            /*isOwner*/ true, /*isAdmin*/ true
+                    );
+                    MainController.getInstance().addChatAndSelect(entry);
+
+                    // 2) باز کردن Overlay افزودن سابسکرایبر و بستن این Overlay
+                    try {
+                        FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                                "/org/to/telegramfinalproject/Fxml/add_subscriber.fxml"));
+                        StackPane addSubsOverlay = loader.load();
+                        AddSubscriberController controller = loader.getController();
+                        controller.setChannelInfo(internalId, returnedName, returnedDisp, channelImageFile, description);
+
+                        MainController.getInstance().showOverlay(addSubsOverlay);
+                        MainController.getInstance().closeOverlay(overlayRoot);
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                        showToast("Failed to open Add Subscribers.");
+                    }
+
+                    createButton.setDisable(false);
+                });
+
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    createButton.setDisable(false);
+                    showToast("Create failed: " + ex.getMessage());
+                });
+            }
         }).start();
     }
+
 
     private void showToast(String msg) {
         Alert a = new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK);

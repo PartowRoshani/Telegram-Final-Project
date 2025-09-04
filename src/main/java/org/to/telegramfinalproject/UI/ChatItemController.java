@@ -117,4 +117,28 @@ public class ChatItemController {
         unreadCount.setManaged(show);
         if (show) unreadCount.setText(String.valueOf(unread));
     }
+
+    // ChatItemController.java
+    @FXML private ImageView avatarImage;
+    // اگر نوع چت نیاز داری برای دیفالت‌ها (private|group|channel)
+    private String chatType; // اگر داری از setChatData بگیرش و نگه دار
+
+    public void updateAvatar(String url) {
+        try {
+            if (url == null || url.isBlank()) {
+                String def = switch (chatType == null ? "" : chatType.toLowerCase()) {
+                    case "group"   -> "/org/to/telegramfinalproject/Avatars/default_group_profile.png";
+                    case "channel" -> "/org/to/telegramfinalproject/Avatars/default_channel_profile.png";
+                    default        -> "/org/to/telegramfinalproject/Avatars/default_user_profile.png";
+                };
+                avatarImage.setImage(new Image(Objects.requireNonNull(
+                        getClass().getResourceAsStream(def))));
+            } else {
+                avatarImage.setImage(new Image(url, true)); // true = لود غیرهمزمان
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 }

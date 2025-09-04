@@ -1,5 +1,6 @@
 package org.to.telegramfinalproject.Client;
 
+import javafx.application.Platform;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.PrivateChatDatabase;
@@ -9,10 +10,12 @@ import org.to.telegramfinalproject.Models.ContactEntry;
 import org.to.telegramfinalproject.Models.SearchRequestModel;
 import org.to.telegramfinalproject.Models.SearchResultModel;
 
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -4225,6 +4228,403 @@ public class ActionHandler {
             default -> System.out.println("Invalid action.");
         }
     }
+
+
+    public void sendMessageInteractive(UUID receiverId, String receiverType) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Type (TEXT / IMAGE / AUDIO): ");
+        String type = sc.nextLine().trim().toUpperCase();
+        while (!Set.of("TEXT","IMAGE","AUDIO").contains(type)) {
+            System.out.print("❌ Invalid. Try (TEXT / IMAGE / AUDIO): ");
+            type = sc.nextLine().trim().toUpperCase();
+        }
+
+        System.out.print("Text (optional for media; empty = no caption): ");
+        String text = sc.nextLine();
+
+        if ("TEXT".equals(type)) {
+            sendTextMessage(receiverId, receiverType, text);
+        } else {
+            System.out.print("File path: ");
+            String path = sc.nextLine().trim();
+            File f = new File(path);
+            if (!f.isFile()) {
+                System.out.println("❌ File not found");
+                return;
+            }
+            try {
+                sendMediaMessage(receiverId, receiverType, type, f, text);
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.out.println("❌ Media send failed: " + e.getMessage());
+            }
+        }
+    }
+
+    private void sendTextMessage(UUID receiverId, String receiverType, String content) {
+        JSONObject req = new JSONObject()
+                .put("action", "send_message")
+                .put("receiver_type", receiverType)
+                .put("receiver_id", receiverId.toString())
+                .put("message_type", "TEXT")
+                .put("content", content == null ? "" : content);
+
+        JSONObject resp = sendWithResponse(req);
+        if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
+            System.out.println("✅ Sent. id=" + resp.optJSONObject("data").optString("message_id",""));
+        } else {
+            System.out.println("❌ Failed: " + (resp != null ? resp.optString("message") : "no response"));
+        }
+    }
+
+
+    public void sendMediaMessage(UUID receiverId, String receiverType, String type /* IMAGE/AUDIO */, File file, String caption) {
+        if (file == null) {
+            System.out.println("❌ File is null");
+            return;
+        }
+        if (!file.exists()) {
+            System.out.println("❌ File not found: " + file.getAbsolutePath());
+            return;
+        }
+        if (file.isDirectory()) {
+            System.out.println("❌ Path is a directory, expected a file: " + file.getAbsolutePath());
+            return;
+        }
+
+        final UUID messageId = UUID.randomUUID();
+
+        try {
+            String mime = detectMime(file, type.toUpperCase());
+            if (mime == null) mime = type.equalsIgnoreCase("IMAGE") ? "image/*" : "audio/*";
+
+            JSONObject header = new JSONObject()
+                    .put("message_id", messageId.toString())
+                    .put("sender_id", TelegramClient.loggedInUserId.toString())
+                    .put("receiver_type", receiverType)      // private|group|channel
+                    .put("receiver_id", receiverId.toString())
+                    .put("message_type", type.toUpperCase()) // IMAGE | AUDIO
+                    .put("file_name", file.getName())
+                    .put("mime_type", mime)
+                    .put("text", caption == null ? "" : caption);
+
+            byte[] headerBytes = header.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            long contentLen = file.length();
+
+            BlockingQueue<JSONObject> q = new LinkedBlockingQueue<>(1);
+            TelegramClient.pendingResponses.put(messageId.toString(), q);
+
+            try {
+
+                outBin.write("MEDIA\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                outBin.flush();
+
+                // 2) binary frame: magic + headerLen + header + contentLen + content
+                outBin.writeInt(0x4D444D31);                 // "MDM1"
+                outBin.writeInt(headerBytes.length);         // headerLen (int)
+                outBin.write(headerBytes);                   // header
+                outBin.writeLong(contentLen);                // contentLen (long)
+
+                try (InputStream fis = new BufferedInputStream(new FileInputStream(file))) {
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = fis.read(buf)) != -1) {
+                        outBin.write(buf, 0, n);
+                    }
+                }
+                outBin.flush();
+
+                JSONObject ack = q.poll(20, java.util.concurrent.TimeUnit.SECONDS);
+                if (ack == null) {
+                    System.out.println("❌ Media ACK timeout for " + messageId);
+                    return;
+                }
+
+                String status = ack.optString("status", "error");
+                if ("success".equalsIgnoreCase(status)) {
+                    System.out.println("✅ Media sent. id=" + ack.optString("message_id") +
+                            " url=" + ack.optString("file_url"));
+                } else {
+                    System.out.println("❌ Media failed: " + ack.optString("message"));
+                }
+
+            } finally {
+                TelegramClient.pendingResponses.remove(messageId.toString());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("❌ sendMediaMessage error: " + e.getMessage());
+        }
+    }
+
+
+    public static String detectMime(File f, String typeUpper /* IMAGE or AUDIO */) {
+        try {
+            String m = java.nio.file.Files.probeContentType(f.toPath());
+            if (m != null) return m;
+        } catch (Exception ignored) {}
+        String name = f.getName().toLowerCase();
+        if (name.endsWith(".png"))  return "image/png";
+        if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+        if (name.endsWith(".gif"))  return "image/gif";
+        if (name.endsWith(".mp3"))  return "audio/mpeg";
+        if (name.endsWith(".wav"))  return "audio/wav";
+        if (name.endsWith(".ogg"))  return "audio/ogg";
+        return typeUpper.equals("IMAGE") ? "image/*" : "audio/*";
+    }
+
+
+
+    private static String safeName(String s) {
+        if (s == null) return "unknown";
+        s = s.replace("\\", "/");
+        if (s.contains("/")) s = s.substring(s.lastIndexOf('/') + 1);
+        s = s.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+        if (s.isEmpty() || s.equals(".") || s.equals("..")) s = "unknown";
+        return s;
+    }
+
+    private static String accountFolderName() {
+        JSONObject me = Session.currentUser;
+        String acc = me.optString("username",
+                me.optString("user_id",
+                        me.optString("profile_name",
+                                me.optString("internal_uuid", "me"))));
+        return safeName(acc);
+    }
+
+    private static String chatFolderName(ChatEntry chat) {
+        String name = chat.getName();
+        if (name == null || name.isBlank()) {
+            name = chat.getDisplayId() != null && !chat.getDisplayId().isBlank()
+                    ? chat.getDisplayId()
+                    : String.valueOf(chat.getId());
+        }
+        return safeName(name);
+    }
+
+
+    public void uploadAvatar(File file) {
+        if (file == null || !file.exists() || !file.isFile()) {
+            System.out.println("❌ Invalid file");
+            return;
+        }
+
+        final UUID requestId = UUID.randomUUID();
+
+        try {
+            String mime = detectMime(file, "IMAGE");
+            if (mime == null) mime = "image/*";
+
+            // header مثل مدیا، ولی برای آواتار
+            JSONObject header = new JSONObject()
+                    .put("message_id", requestId.toString()) // برای مچ ACK
+                    .put("target_type", "user")              // یا channel/group
+                    // .put("target_id", "…")                // اگر channel/group بود
+                    .put("file_name", file.getName())
+                    .put("mime_type", mime);
+
+            byte[] headerBytes = header.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            long contentLen = file.length();
+
+            // صف پاسخ (مثل sendMediaMessage)
+            BlockingQueue<JSONObject> q = new LinkedBlockingQueue<>(1);
+            TelegramClient.pendingResponses.put(requestId.toString(), q);
+
+            try {
+                // 🔹 سوئیچ به حالت آواتار (مثل "MEDIA\n")
+                outBin.write("AVATAR\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                outBin.flush();
+
+                // 🔹 فریم باینری: مجیک + headerLen + header + contentLen + content
+                outBin.writeInt(0x41565431);              // "AVT1"
+                outBin.writeInt(headerBytes.length);
+                outBin.write(headerBytes);
+                outBin.writeLong(contentLen);
+
+                try (InputStream fis = new BufferedInputStream(new FileInputStream(file))) {
+                    byte[] buf = new byte[8192]; int n;
+                    while ((n = fis.read(buf)) != -1) outBin.write(buf, 0, n);
+                }
+                outBin.flush();
+
+                // 🔹 انتظار ACK (مثل مدیا)
+                JSONObject ack = q.poll(20, java.util.concurrent.TimeUnit.SECONDS);
+                if (ack == null) {
+                    System.out.println("❌ Avatar ACK timeout for " + requestId);
+                    return;
+                }
+
+                if ("success".equalsIgnoreCase(ack.optString("status"))) {
+                    String url = ack.optString("display_url", null);
+                    System.out.println("✅ Avatar uploaded. url=" + url);
+                    // (اختیاری) رفرش UI + شکستن کش:
+                    // MainController.getInstance().refreshMyAvatar(url + "?v=" + System.currentTimeMillis());
+                } else {
+                    System.out.println("❌ Avatar failed: " + ack.optString("message"));
+                }
+            } finally {
+                TelegramClient.pendingResponses.remove(requestId.toString());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("❌ uploadAvatar error: " + e.getMessage());
+        }
+    }
+
+
+    private static final Path UPLOADS_ROOT =
+            Paths.get(System.getProperty("app.uploads.root", "uploads"))
+                    .toAbsolutePath().normalize();
+
+    private String prepareAvatar(String input) {
+        if (input == null || input.isBlank()) return null;
+
+        // اگر URL کامل است، دست نزن
+        if (input.startsWith("http://") || input.startsWith("https://") || input.startsWith("file:")) {
+            return input;
+        }
+
+        try {
+            Path src = Paths.get(input).toAbsolutePath().normalize();
+            if (!Files.exists(src)) {
+                System.out.println("⚠️ Image file not found: " + src);
+                return null;
+            }
+
+            String ext = getExt(src.getFileName().toString());
+            String day = LocalDate.now().toString();
+            String fileName = java.util.UUID.randomUUID() + (ext.isEmpty() ? ".jpg" : ext);
+
+            Path destDir = UPLOADS_ROOT.resolve("avatars").resolve(day);
+            Files.createDirectories(destDir);
+            Path dest = destDir.resolve(fileName);
+            Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
+
+            // مقدار نسبی که سرور/کلاینت‌های دیگر هم می‌فهمند
+            return "/avatars/" + day + "/" + fileName;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public void uploadAvatarFor(String targetType, UUID targetId, File file) {
+        if (file == null || !file.exists() || !file.isFile()) {
+            System.out.println("❌ Invalid file");
+            return;
+        }
+
+        final UUID reqId = UUID.randomUUID();
+
+        String lastStatus;
+        String lastMessage;
+        try {
+            String mime = detectMime(file, "IMAGE");
+            if (mime == null) mime = "image/*";
+
+            JSONObject header = new JSONObject()
+                    .put("request_id", reqId.toString()) // ← هماهنگ با pendingResponses
+                    .put("target_type", targetType.toLowerCase()); // user | group | channel
+            if (targetId != null) header.put("target_id", targetId.toString());
+            header.put("file_name", file.getName())
+                    .put("mime_type", mime);
+
+            byte[] headerBytes = header.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            long contentLen = file.length();
+
+            BlockingQueue<JSONObject> q = new LinkedBlockingQueue<>(1);
+            // رجیستر با هر دو کلید تا هر نوع ACK روت شود
+            TelegramClient.pendingResponses.put(reqId.toString(), q);
+            TelegramClient.pendingResponses.put(header.optString("message_id", reqId.toString()), q);
+
+            try {
+                TelegramClient.mediaBusy.set(true); // ← حین باینری JSON نخونیم
+
+                // سوئیچ پروتکل
+                TelegramClient.getInstance().getOutBin()
+                        .write("AVATAR\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+
+                DataOutputStream outBin = TelegramClient.getInstance().getOutBin();
+                outBin.flush();
+
+                // فریم: MAGIC + headerLen + header + contentLen + content
+                outBin.writeInt(0x41565431); // "AVT1"
+                outBin.writeInt(headerBytes.length);
+                outBin.write(headerBytes);
+                outBin.writeLong(contentLen);
+
+                try (InputStream fis = new BufferedInputStream(new FileInputStream(file))) {
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = fis.read(buf)) != -1) outBin.write(buf, 0, n);
+                }
+                outBin.flush();
+            } finally {
+                TelegramClient.mediaBusy.set(false);
+            }
+
+            // انتظار ACK (هر کدوم از کلیدها بیاد، Listener می‌فرسته به صف q)
+            JSONObject ack = q.poll(20, java.util.concurrent.TimeUnit.SECONDS);
+            if (ack == null) {
+                System.out.println("❌ Avatar ACK timeout for " + reqId);
+                return;
+            }
+
+
+            if ("success".equalsIgnoreCase(ack.optString("status"))) {
+                String url = ack.optString("display_url", null);
+                lastStatus = "success";
+                lastMessage = url != null ? url : "";
+
+                if (url != null && targetId != null) {
+                    String busted = url + (url.contains("?") ? "&" : "?") + "v=" + System.currentTimeMillis();
+
+                    // به‌روزرسانی State و UI: چت‌لیست + هدر
+                    Platform.runLater(() -> {
+                        var mc = org.to.telegramfinalproject.UI.MainController.getInstance();
+                    });
+                }
+            }  else {
+                System.out.println("❌ Avatar failed: " + ack.optString("message"));
+                lastStatus = "error";
+                lastMessage = ack.optString("message", "failed");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("❌ uploadAvatarFor error: " + e.getMessage());
+            lastStatus = "error";
+            lastMessage = e.getMessage();
+        } finally {
+            TelegramClient.pendingResponses.remove(reqId.toString());
+        }
+    }
+
+    private static String getExt(String name) {
+        int i = name.lastIndexOf('.');
+        return (i >= 0) ? name.substring(i) : "";
+    }
+
+    private void updateChatAvatarLocally(String targetType, UUID chatId, String newUrl) {
+        try {
+
+            java.util.function.Consumer<java.util.List<org.to.telegramfinalproject.Models.ChatEntry>> upd =
+                    list -> list.stream()
+                            .filter(c -> c.getId().equals(chatId))
+                            .findFirst()
+                            .ifPresent(c -> c.setImageUrl(newUrl));
+
+            upd.accept(Session.chatList);
+            upd.accept(Session.activeChats);
+            upd.accept(Session.archivedChats);
+
+        } catch (Exception ignore) {}
+    }
+
 
 
 }

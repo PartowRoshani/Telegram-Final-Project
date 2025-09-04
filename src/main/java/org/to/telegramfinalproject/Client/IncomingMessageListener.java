@@ -36,33 +36,42 @@ public class IncomingMessageListener implements Runnable {
         try {
             System.out.println("👂 Real-Time Listener started.");
 
-            String line;
-            while ((line = in.readLine()) != null) {
+            while (true) {
 
                 if (TelegramClient.mediaBusy.get()) {
                     try { Thread.sleep(15); } catch (InterruptedException ignored) {}
                     continue;
                 }
 
+                String line = in.readLine();
+                if (line == null) break;
+                if (line.isBlank()) continue;
 
-                JSONObject response = new JSONObject(line);
+                final JSONObject response;
+                try {
+                    response = new JSONObject(line);
+                } catch (Exception badJson) {
+                    System.out.println("⚠️ [Listener] Non-JSON line ignored: " + line);
+                    continue;
+                }
+
                 System.out.println("📥 Received raw line: " + line);
 
-                //if it has reqID answer
+                // 1) اول message_id را روت کن (برای ACK نهایی مدیا)
                 String mid = response.optString("message_id", "");
                 if (!mid.isEmpty()) {
                     BlockingQueue<JSONObject> q = TelegramClient.pendingResponses.get(mid);
                     if (q != null) {
                         q.put(response);
-                        continue; // این پیام مصرف شد
+                        continue; // مصرف شد
                     }
                 }
 
+                // 2) بعد request_id را روت کن (برای INIT و بقیه درخواست‌ها)
                 if (response.has("request_id")) {
                     String requestId = response.getString("request_id");
                     System.out.println("📬 Response with request_id: " + requestId);
                     System.out.println("📬 Full response: " + response.toString(2));
-
 
                     BlockingQueue<JSONObject> queue = TelegramClient.pendingResponses.get(requestId);
                     if (queue != null) {
@@ -71,13 +80,10 @@ public class IncomingMessageListener implements Runnable {
                         System.out.println("⚠️ No pending queue for request_id = " + requestId + ". Putting in responseQueue...");
                         TelegramClient.responseQueue.put(response);
                     }
-
                     continue;
                 }
 
-
-
-                //if it has action check it
+                // 3) رویدادهای real-time
                 if (response.has("action")) {
                     String action = response.getString("action");
                     System.out.println("🎯 [Listener] Action received: " + response.toString(2));
@@ -88,9 +94,12 @@ public class IncomingMessageListener implements Runnable {
                     } else {
                         TelegramClient.responseQueue.put(response);
                     }
+                    continue;
+                }
 
-                } else if (response.has("status") && response.has("message")) {
-                    TelegramClient.responseQueue.put(response); // general answer
+                // 4) سایر پاسخ‌های عمومی
+                if (response.has("status") && response.has("message")) {
+                    TelegramClient.responseQueue.put(response);
                 } else {
                     TelegramClient.responseQueue.put(response); // fallback
                 }
