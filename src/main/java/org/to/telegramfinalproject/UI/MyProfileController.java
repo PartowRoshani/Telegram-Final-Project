@@ -28,7 +28,14 @@ public class MyProfileController {
     @FXML private VBox profileCard;
     @FXML private VBox bioBlock;
 
-    private final ThemeManager themeManager = ThemeManager.getInstance();
+    private String userID;
+    private static MyProfileController instance;
+
+    public MyProfileController() {
+        instance = this;
+    }
+
+    public static MyProfileController getInstance() { return instance;}
 
     @FXML
     private void initialize() {
@@ -77,11 +84,12 @@ public class MyProfileController {
             bioBlock.setManaged(false);
         } else {
             userBio.setText(bio);
-            userBio.setVisible(true);
-            userBio.setManaged(true);
+            bioBlock.setVisible(true);
+            bioBlock.setManaged(true);
         }
 
-        this.userId.setText(userId);
+        this.userId.setText("@" + userId);
+        userID = userId;
 
         if (imageUrl != null && !imageUrl.isEmpty()) {
             profileImage.setImage(new Image(imageUrl));
@@ -111,8 +119,8 @@ public class MyProfileController {
             controller.setProfileData(
                     profileName.getText(),
                     profileStatus.getText(),
-                    userBio.isVisible() ? userBio.getText() : null,
-                    userId.getText(),
+                    bioBlock.isVisible() ? userBio.getText() : null,
+                    userID,
                     profileImage.getImage()
             );
 

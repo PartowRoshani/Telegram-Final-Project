@@ -1,5 +1,6 @@
 package org.to.telegramfinalproject.UI;
 
+import javafx.animation.PauseTransition;
 import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -605,6 +606,9 @@ public class MainController {
             overlayLayer.getChildren().remove(current);
         }
         overlayLayer.getChildren().add(overlayNode);
+
+        // Automatically close sidebar
+        closeSidebar();
     }
 
     public void closeOverlay(Node overlayNode) {
@@ -640,6 +644,7 @@ public class MainController {
 
     private enum SRType { USER, GROUP, CHANNEL, MESSAGE }
 
+    // Inner class
     private static class SearchResult {
         final SRType type;
         final String title;         // name / sender_name / ...
@@ -1133,8 +1138,4 @@ public class MainController {
             getChatPageController().showChat(entry);
         }
     }
-
-
-
-
 }

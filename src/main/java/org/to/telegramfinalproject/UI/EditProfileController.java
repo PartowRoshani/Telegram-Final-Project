@@ -1,9 +1,11 @@
 package org.to.telegramfinalproject.UI;
 
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -13,6 +15,10 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.util.Duration;
+import org.json.JSONObject;
+import org.to.telegramfinalproject.Client.ActionHandler;
+import org.to.telegramfinalproject.Client.Session;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,11 +49,18 @@ public class EditProfileController {
         ));
 
         // close on background click
-        overlayBackground.setOnMouseClicked(e -> closeEdit());
+        overlayBackground.setOnMouseClicked(e -> {
+            saveChangesAndClose();
+            closeEdit();
+        });
 
-        closeButton.setOnAction(e -> closeEdit());
+        closeButton.setOnAction(e -> {
+            saveChangesAndClose();
+            closeEdit();
+        });
 
         backButton.setOnAction(e -> {
+            saveChangesAndClose();
             MainController.getInstance().goBack(overlayBackground);
         });
 
@@ -111,5 +124,79 @@ public class EditProfileController {
         bioField.setText(bio != null ? bio : "");
         usernameField.setText(userId);
         profileImageView.setImage(profileImage);
+    }
+
+    private void saveChangesAndClose() {
+        JSONObject currentUser = Session.currentUser;
+
+        String newBio = bioField.getText().trim();
+        String newName = nameField.getText().trim();
+        String newUserId = usernameField.getText().trim();
+
+        boolean anyError = false;
+
+        // --- Update bio ---
+        String oldBio = currentUser.optString("bio", "");
+        if (!newBio.equals(oldBio)) {
+            JSONObject req = new JSONObject().put("action", "edit_bio").put("new_bio", newBio);
+            JSONObject resp = ActionHandler.sendWithResponse(req);
+            if (resp == null || !"success".equals(resp.optString("status"))) {
+                anyError = true;
+                showAlert("Error", resp != null ? resp.optString("message", "Unknown error") : "Unknown error", Alert.AlertType.ERROR);
+            } else {
+                currentUser.put("bio", newBio);
+            }
+        }
+
+        // --- Update profile name ---
+        String oldName = currentUser.optString("profile_name", "");
+        if (!newName.equals(oldName)) {
+            JSONObject req = new JSONObject().put("action", "edit_profile_name").put("new_profile_name", newName);
+            JSONObject resp = ActionHandler.sendWithResponse(req);
+            if (resp == null || !"success".equals(resp.optString("status"))) {
+                anyError = true;
+                showAlert("Error", resp != null ? resp.optString("message", "Unknown error") : "Unknown error", Alert.AlertType.ERROR);
+            } else {
+                currentUser.put("profile_name", newName);
+            }
+        }
+
+        // --- Update user ID (username) ---
+        String oldUserId = currentUser.optString("user_id", "");
+        if (!newUserId.equals(oldUserId)) {
+            JSONObject req = new JSONObject().put("action", "edit_user_id").put("new_user_id", newUserId);
+            JSONObject resp = ActionHandler.sendWithResponse(req);
+            if (resp == null || !"success".equals(resp.optString("status"))) {
+                anyError = true;
+                showAlert("Error", resp != null ? resp.optString("message", "Unknown error") : "Unknown error", Alert.AlertType.ERROR);
+            } else {
+                currentUser.put("user_id", newUserId);
+            }
+        }
+
+        if (!anyError) {
+            MyProfileController.getInstance().setProfileData(
+                    currentUser.optString("profile_name"),
+                    "online",
+                    currentUser.optString("bio"),
+                    currentUser.optString("user_id"),
+                    currentUser.optString("image_url", "/org/to/telegramfinalproject/Avatars/default_user_profile.png")
+            );
+            MainController.getInstance().closeOverlay(bioField.getParent().getParent());
+        }
+    }
+
+    private void showAlert(String title, String message, Alert.AlertType type) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null); // no big header, just the message
+        alert.setContentText(message);
+
+        // optional: style it to fit your dark/light theme
+        if (alert.getDialogPane().getScene() != null) {
+            ThemeManager.getInstance().registerScene(alert.getDialogPane().getScene());
+        }
+
+        alert.showAndWait();
     }
 }

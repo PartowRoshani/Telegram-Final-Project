@@ -1,11 +1,13 @@
 package org.to.telegramfinalproject.UI;
 
+import javafx.animation.PauseTransition;
 import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
@@ -15,6 +17,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 import org.json.JSONObject;
+import org.to.telegramfinalproject.Client.ActionHandler;
 import org.to.telegramfinalproject.Client.AvatarLocalResolver;
 
 
@@ -182,17 +185,42 @@ public class SidebarMenuController {
     // Sidebar actions
     private void openMyProfile() {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/my_profile.fxml"));
+            // 1. Ask server for profile info
+            JSONObject request = new JSONObject().put("action", "get_user_profile");
+            JSONObject response = ActionHandler.sendWithResponse(request);
+
+            if (response == null || !"success".equals(response.optString("status"))) {
+                showAlert("Error", "Failed to load profile", Alert.AlertType.ERROR);
+                return;
+            }
+
+            JSONObject profile = response.optJSONObject("data");
+            if (profile == null) {
+                showAlert("Error", "Malformed profile data", Alert.AlertType.ERROR);
+                return;
+            }
+
+            // Extract fields
+            String profileName = profile.optString("profile_name", "Unknown");
+            String bio = profile.optString("bio", "");
+            String userId = profile.optString("user_id", "");
+            String imageUrl = profile.optString("profile_picture_url", null);
+
+            // 2. Load overlay FXML
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                    "/org/to/telegramfinalproject/Fxml/my_profile.fxml"));
             Node profileOverlay = loader.load();
 
+            // 3. Pass real data to controller
             MyProfileController controller = loader.getController();
-            controller.setProfileData("Asal", "online", "Pass me that lovely little gun♡.", "@Whales_suicide", null);
+            controller.setProfileData(profileName, "online", bio, userId, imageUrl);
 
-            // Show the overlay on top of mainRoot
+            // 4. Show overlay
             MainController.getInstance().showOverlay(profileOverlay);
 
         } catch (IOException e) {
             e.printStackTrace();
+            showAlert("Error",  "Error opening profile", Alert.AlertType.ERROR);
         }
     }
 
@@ -309,5 +337,17 @@ public class SidebarMenuController {
         }
     }
 
+    private void showAlert(String title, String message, Alert.AlertType type) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null); // no big header, just the message
+        alert.setContentText(message);
 
+        // optional: style it to fit your dark/light theme
+        if (alert.getDialogPane().getScene() != null) {
+            ThemeManager.getInstance().registerScene(alert.getDialogPane().getScene());
+        }
+
+        alert.showAndWait();
+    }
 }

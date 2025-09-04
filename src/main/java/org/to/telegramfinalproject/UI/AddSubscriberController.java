@@ -106,8 +106,10 @@ public class AddSubscriberController {
                 String name = c.optString("profile_name", "");
                 String id   = c.optString("contact_id", ""); // internal_uuid
                 if (id.isBlank()) continue;
-                String imageUrl = c.optString("image_url",
-                        "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
+                String imageUrl = c.optString("image_url", "").trim();
+                if (imageUrl.isEmpty() || imageUrl.equals("null")) {
+                    imageUrl = "/org/to/telegramfinalproject/Avatars/default_user_profile.png";
+                }
                 String status = Optional.ofNullable(c.optString("last_seen", ""))
                         .filter(s -> !s.isBlank()).map(s -> "last seen " + s).orElse("");
                 allContacts.add(new Contact(id, name, status, imageUrl));
@@ -142,11 +144,13 @@ public class AddSubscriberController {
             HBox item = new HBox(10);
             item.getStyleClass().add("contact-item");
 
+            // Avatar
             ImageView avatar = new ImageView(loadAvatar(c.getImageUrl()));
             avatar.setFitWidth(48);
             avatar.setFitHeight(48);
             avatar.setPreserveRatio(true);
 
+            // Details
             VBox details = new VBox(2);
             Label nameLabel = new Label(c.getName());
             nameLabel.getStyleClass().add("contact-name");
@@ -157,21 +161,26 @@ public class AddSubscriberController {
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
 
-            CheckBox cb = new CheckBox();
-            cb.setSelected(selected.contains(c));
-            cb.selectedProperty().addListener((obs, ov, nv) -> {
-                if (nv) selected.add(c); else selected.remove(c);
+            // Add elements (no checkbox)
+            item.getChildren().addAll(avatar, details, spacer);
+
+            // Highlight if already selected
+            if (selected.contains(c)) {
+                item.getStyleClass().add("contact-selected");
+            }
+
+            // Toggle selection by clicking the row
+            item.setOnMouseClicked(e -> {
+                if (selected.contains(c)) {
+                    selected.remove(c);
+                    item.getStyleClass().remove("contact-selected");
+                } else {
+                    selected.add(c);
+                    item.getStyleClass().add("contact-selected");
+                }
                 updateCount();
                 updateSelectedPane();
-                if (nv) item.getStyleClass().add("contact-selected");
-                else item.getStyleClass().remove("contact-selected");
             });
-
-            item.getChildren().addAll(avatar, details, spacer, cb);
-
-            item.setOnMouseClicked(e -> cb.setSelected(!cb.isSelected()));
-
-            if (selected.contains(c)) item.getStyleClass().add("contact-selected");
 
             contactsList.getChildren().add(item);
         }

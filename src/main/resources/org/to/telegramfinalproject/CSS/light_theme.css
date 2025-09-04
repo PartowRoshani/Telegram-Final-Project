@@ -989,3 +989,84 @@
     -fx-padding: 0 6 0 6;
     -fx-font-size: 14px;
 }
+
+/* Blocked Users card */
+.blocked-card {
+    -fx-background-color: white;
+    -fx-background-radius: 10;
+    -fx-padding: 12;
+}
+
+/* Header */
+.blocked-header {
+    -fx-padding: 8;
+}
+.blocked-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: black;
+}
+
+/* Count */
+.blocked-count {
+    -fx-font-size: 13px;
+    -fx-text-fill: #888;
+    -fx-padding: 4 0;
+}
+
+/* List */
+.blocked-list {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+/* Row */
+.blocked-row {
+    -fx-padding: 8;
+    -fx-background-color: transparent;
+}
+.blocked-row:hover {
+    -fx-background-color: #f5f5f5;
+}
+
+/* Labels */
+.blocked-name {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: black;
+}
+.blocked-id {
+    -fx-font-size: 12px;
+    -fx-text-fill: #666;
+}
+
+/* Button */
+.unblock-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #2196f3;
+    -fx-cursor: hand;
+}
+
+.unblock-button:hover {
+    -fx-text-fill: #66aaff;
+}
+
+.blocked-info-label {
+    -fx-background-color: #f5f5f5;   /* light gray background */
+    -fx-text-fill: #555;             /* muted text */
+    -fx-font-size: 12px;
+    -fx-wrap-text: true;
+    -fx-padding: 5;                 /* space inside like a banner */
+    -fx-background-radius: 4;        /* soft rounded edges */
+}
+
+/* Error label */
+.label.error-label {
+    -fx-text-fill: red;
+}
+
+/* Error input */
+.error-input {
+    -fx-border-color: red;
+    -fx-border-radius: 6;
+}

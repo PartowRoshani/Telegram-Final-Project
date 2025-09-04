@@ -41,8 +41,17 @@ public class PrivacySecurityController {
 
         // Blocked users management
         blockedUsersButton.setOnAction(e -> {
-            // TODO: open Blocked Users scene
-            System.out.println("Open blocked users management");
+            try {
+                FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                        "/org/to/telegramfinalproject/Fxml/blocked_users.fxml"));
+                Node overlay = loader.load();
+
+                // Show new overlay
+                MainController.getInstance().showOverlay(overlay);
+
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         });
 
         // Close

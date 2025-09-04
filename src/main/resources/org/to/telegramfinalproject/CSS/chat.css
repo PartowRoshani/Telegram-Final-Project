@@ -1,4 +1,3 @@
-/* دقیقاً فقط روی این دو دکمه اعمال می‌شود */
 #joinAction, #addContactAction {
     -fx-background-color: transparent, transparent, transparent, transparent;
     -fx-background-insets: 0,0,0,0;

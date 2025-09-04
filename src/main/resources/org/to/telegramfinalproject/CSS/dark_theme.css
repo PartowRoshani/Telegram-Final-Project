@@ -989,3 +989,93 @@
     -fx-padding: 0 6 0 6;
     -fx-font-size: 14px;
 }
+
+.blocked-card {
+    -fx-background-color: #1f2a36;
+    -fx-background-radius: 10;
+    -fx-padding: 12;
+}
+
+.blocked-header {
+    -fx-padding: 8;
+}
+.blocked-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+.blocked-count {
+    -fx-font-size: 13px;
+    -fx-text-fill: #999;
+    -fx-padding: 4 0;
+}
+
+.blocked-list {
+    -fx-background-color: #253544;
+}
+
+.blocked-row {
+    -fx-padding: 8;
+    -fx-background-color: transparent;
+}
+.blocked-row:hover {
+    -fx-background-color: #253544;
+}
+
+.blocked-name {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+.blocked-id {
+    -fx-font-size: 12px;
+    -fx-text-fill: #aaa;
+}
+
+.unblock-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #3a86ff;
+    -fx-cursor: hand;
+}
+
+.unblock-button:hover {
+    -fx-text-fill: #66aaff;
+}
+
+.blocked-info-label {
+    -fx-background-color: #2c3e50;   /* darker banner background */
+    -fx-text-fill: #bbb;             /* lighter muted text */
+    -fx-font-size: 12px;
+    -fx-wrap-text: true;
+    -fx-padding: 5;
+    -fx-background-radius: 4;
+}
+
+.blocked-list .thumb {
+    -fx-background-color: rgba(200, 200, 200, 0.5); /* lighter for dark bg */
+}
+
+/* Each list cell */
+.blocked-list .list-cell {
+    -fx-background-color: #1f2a36;
+    -fx-text-fill: #eeeeee;
+    -fx-padding: 8 12;
+    -fx-border-color: #2f2f2f;
+    -fx-border-width: 0 0 1 0;
+}
+
+.blocked-list .list-cell:hover {
+    -fx-background-color: #2a3a4a;
+}
+
+/* Error label */
+.label.error-label {
+    -fx-text-fill: red;
+}
+
+/* Error input */
+.error-input {
+    -fx-border-color: red;
+    -fx-border-radius: 6;
+}
