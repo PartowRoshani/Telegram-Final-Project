@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.BlockedUsersController"
+           styleClass="overlay-root">
+
+    <!-- Dimmed background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Card -->
+    <VBox fx:id="blockedCard" styleClass="blocked-card" spacing="8"
+          prefWidth="380" maxWidth="380"
+          prefHeight="500" maxHeight="500">
+
+        <!-- ===== Header ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="10" styleClass="blocked-header">
+            <Button fx:id="backButton" styleClass="icon-button"/>
+            <Label text="Blocked users" styleClass="blocked-title"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Button fx:id="closeButton" styleClass="icon-button" text="✕"/>
+        </HBox>
+
+        <Separator/>
+
+        <Label text="Blocked users can't send you messages or add you to groups.
+They will not see your profile photos, online and last seen status."
+               wrapText="true"
+               prefHeight="160"
+               maxHeight="160"
+               styleClass="blocked-info-label"/>
+
+        <!-- ===== List of blocked users ===== -->
+        <Label fx:id="countLabel" text="0 blocked users" styleClass="blocked-count"/>
+
+        <ListView fx:id="blockedList" styleClass="blocked-list" VBox.vgrow="ALWAYS"/>
+    </VBox>
+</StackPane>

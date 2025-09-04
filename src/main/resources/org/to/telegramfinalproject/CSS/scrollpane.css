@@ -20,3 +20,20 @@
     -fx-background-color: rgba(100, 100, 100, 0.5); /* Semi-transparent thumb */
     -fx-background-radius: 3px;
 }
+
+
+.blocked-list .scroll-bar {
+    -fx-background-color: transparent;
+    -fx-opacity: 0;
+    -fx-pref-width: 6px;
+    -fx-background-radius: 3px;
+}
+
+.blocked-list:hover .scroll-bar {
+    -fx-opacity: 0.6;
+}
+
+.blocked-list .thumb {
+    -fx-background-color: rgba(100, 100, 100, 0.5);
+    -fx-background-radius: 3px;
+}
