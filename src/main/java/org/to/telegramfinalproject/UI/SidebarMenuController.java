@@ -19,10 +19,12 @@ import javafx.util.Duration;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Client.ActionHandler;
 import org.to.telegramfinalproject.Client.AvatarLocalResolver;
+import org.to.telegramfinalproject.Models.ChatEntry;
 
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.UUID;
 
 public class SidebarMenuController {
 
@@ -266,7 +268,86 @@ public class SidebarMenuController {
         }
     }
 
-    private void openSavedMessages() { System.out.println("Opening Saved Messages..."); }
+
+
+    private void openSavedMessages() {
+        try {
+            // 1) درخواست به سرور
+            JSONObject req = new JSONObject().put("action", "get_or_create_saved_messages");
+            JSONObject res = ActionHandler.sendWithResponse(req);
+
+            if (res == null || !"success".equals(res.optString("status"))) {
+                String msg = (res != null) ? res.optString("message", "Unknown error") : "No response";
+                showAlert("Saved Messages", "Failed: " + msg, Alert.AlertType.ERROR);
+                return;
+            }
+
+            JSONObject data = res.optJSONObject("data");
+            if (data == null) {
+                showAlert("Saved Messages", "Malformed response.", Alert.AlertType.ERROR);
+                return;
+            }
+
+            // 2) داده‌ها
+            String chatIdStr = data.optString("chat_id", null);
+            if (chatIdStr == null || chatIdStr.isBlank()) {
+                showAlert("Saved Messages", "Missing chat_id.", Alert.AlertType.ERROR);
+                return;
+            }
+            UUID chatId = UUID.fromString(chatIdStr);
+            String name = data.optString("name", "Saved Messages");
+            String chatType = data.optString("chat_type", "private");
+            boolean isSaved = data.optBoolean("is_saved_messages", true);
+
+            // اگر آیکن اختصاصی برای Saved داری، این مسیر رو بده؛ وگرنه null بذار:
+            String savedIcon = ICON_PATH + (themeManager.isDarkMode() ? "saved_messages_light.png" : "saved_messages_dark.png");
+            // اگر چنین آیکنی نداری، می‌تونی null بدی تا همان image_url خالی بماند:
+            // String savedIcon = null;
+
+            // 3) درج/به‌روزرسانی در Session و بیاور اول لیست
+            ChatEntry entry = org.to.telegramfinalproject.Client.Session
+                    .upsertSavedMessages(chatId, name, chatType, savedIcon);
+
+            // 4) وضعیت‌های فعلی سشن برای ناوبری
+            org.to.telegramfinalproject.Client.Session.currentChatId = chatId.toString();
+            org.to.telegramfinalproject.Client.Session.currentChatType = chatType;
+            org.to.telegramfinalproject.Client.Session.currentChatEntry = entry;
+            org.to.telegramfinalproject.Client.Session.backToChatList = false;
+
+            // 5) ریفِرش ظاهری لیست چت‌ها (اگر متدی برای این داری، صدا بزن)
+            try {
+                MainController.getInstance().refreshChatListUI(); // اگر متد دیگری داری عوضش کن
+            } catch (Throwable ignore) { }
+
+            // 6) باز کردن چت
+            // --- مسیر اول: اگر متدی داری که با ChatEntry باز می‌کند:
+            boolean opened = false;
+            try {
+                MainController.getInstance().openChat(entry);
+                opened = true;
+            } catch (Throwable t) {
+                // مسیر دوم: اگر با id/type باز می‌کنی، یا اول info می‌گیری:
+                try {
+                    ActionHandler.requestChatInfo(String.valueOf(chatId), chatType);
+                    // اگر متد آشکار برای باز کردن با id داری، اینجا صدا بزن:
+                    // MainController.getInstance().openChatById(chatId, chatType);
+                    opened = true;
+                } catch (Throwable t2) {
+                    t2.printStackTrace();
+                }
+            }
+
+            if (!opened) {
+                // اگر هیچ‌کدام نداشت، حداقل پیغام بده که چت ساخته و آماده است:
+                System.out.println("Saved Messages ready. Open manually with currentChatId/currentChatType.");
+            }
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            showAlert("Saved Messages", "Error: " + ex.getMessage(), Alert.AlertType.ERROR);
+        }
+    }
+
 
     private void openSettings() {
         try {
@@ -304,19 +385,7 @@ public class SidebarMenuController {
         if (pic != null) profileImage.setImage(pic);
     }
 
-    // کمک‌کننده: هم URL و هم ریسورس کلاس‌پث را امتحان می‌کند
-//    private Image tryLoadImage(String src) {
-//        if (src == null || src.isBlank()) return null;
-//        try {
-//            // اگر ریسورس داخل پروژه است (با / شروع شود یا در resources موجود باشد)
-//            var res = getClass().getResource(src);
-//            if (res != null) return new Image(res.toExternalForm(), true);
-//            // در غیر این صورت فرض کن URL است (http/https/file)
-//            return new Image(src, true);
-//        } catch (Exception ignored) {
-//            return null;
-//        }
-//    }
+
 
 
     private Image tryLoadImage(String src) {

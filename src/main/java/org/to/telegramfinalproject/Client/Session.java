@@ -113,4 +113,64 @@ public class Session {
 
     public void setDownloadIndex(DownloadsIndex idx){ this.downloadsIndex = idx; }
 
+
+    // ==== ADD to Session class ====
+
+    /** پیدا کردن چت با internal_id */
+    public static ChatEntry findChatByInternalId(UUID internalId) {
+        for (ChatEntry c : chatList) {
+            if (c.getId().equals(internalId)) return c;
+        }
+        return null;
+    }
+
+    /** درج در ابتدای لیست (با جلوگیری از دوبل) و سپس resort + refresh */
+    public static void prependChat(ChatEntry entry) {
+        // اگر قبلاً تو لیست هست، اول پاکش کن
+        chatList.removeIf(c -> c.getId().equals(entry.getId()));
+        // اول لیست بذار
+        chatList.add(0, entry);
+        resortAndRefresh();
+    }
+
+    /** سورت بر اساس lastMessageTime (نزولی) و آپدیت active/archived */
+    public static void resortAndRefresh() {
+        chatList.sort((c1, c2) -> {
+            if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;
+            if (c1.getLastMessageTime() == null) return 1;
+            if (c2.getLastMessageTime() == null) return -1;
+            return c2.getLastMessageTime().compareTo(c1.getLastMessageTime());
+        });
+        refreshChatLists();
+    }
+
+
+    public static ChatEntry upsertSavedMessages(UUID chatId, String name, String chatType, String imageUrlIfAny) {
+        ChatEntry existing = findChatByInternalId(chatId);
+        if (existing != null) {
+            // برای اینکه بیاد بالا، می‌تونی زمان آخرین پیام رو الان بذاری (اختیاری)
+            if (existing.getLastMessageTime() == null) {
+                existing.setLastMessageTime(LocalDateTime.now());
+                resortAndRefresh();
+            }
+            return existing;
+        }
+
+        ChatEntry entry = new ChatEntry(
+                chatId,
+                "",                         // displayId برای Saved لازم نیست
+                (name == null || name.isBlank()) ? "Saved Messages" : name,
+                imageUrlIfAny == null ? "" : imageUrlIfAny,
+                (chatType == null || chatType.isBlank()) ? "private" : chatType,
+                LocalDateTime.now(),        // بذار بالا بیاد
+                true,                       // owner? برای self-chat می‌تونه true باشه (اثری روی permission نداره)
+                true                        // admin? اختیاری—تأثیر خاصی نداره؛ می‌تونی false بذاری
+        );
+        // اگر توی UI برای Saved Messages آیکن خاص داری، اینجا ست کن:
+        // entry.setImageUrl("/org/to/telegramfinalproject/Icons/saved_messages_dark.png");
+
+        prependChat(entry);
+        return entry;
+    }
+
 }

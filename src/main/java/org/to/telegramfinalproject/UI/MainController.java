@@ -156,7 +156,7 @@ public class MainController {
     }
 
 
-    private void refreshChatListUI() {
+    void refreshChatListUI() {
         Platform.runLater(() -> {
             chatListContainer.getChildren().clear();
             itemControllers.clear();
