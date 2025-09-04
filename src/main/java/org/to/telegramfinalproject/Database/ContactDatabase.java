@@ -127,6 +127,37 @@ public class ContactDatabase {
         return out;
     }
 
+    public static UUID findOtherUserInPrivateChat(UUID chatId, UUID viewerId) {
+        if (chatId == null || viewerId == null) return null;
+
+        final String sql = """
+            SELECT user1_id, user2_id
+            FROM private_chat
+            WHERE chat_id = ?
+            """;
+
+        try (Connection cn = getConnection();
+             PreparedStatement ps = cn.prepareStatement(sql)) {
+
+            ps.setObject(1, chatId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+
+                UUID u1 = (UUID) rs.getObject("user1_id");
+                UUID u2 = (UUID) rs.getObject("user2_id");
+
+                if (viewerId.equals(u1)) return u2;
+                if (viewerId.equals(u2)) return u1;
+
+                // اگر viewer عضو این چت نیست
+                return null;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public boolean unblockContact(UUID user_id, UUID contact_id) {
         String sql = "UPDATE contacts SET is_blocked = FALSE WHERE user_id = ? AND contact_id = ?";
         try (Connection connection = getConnection()) {

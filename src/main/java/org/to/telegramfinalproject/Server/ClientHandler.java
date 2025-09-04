@@ -2972,6 +2972,33 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "check_block_status_by_chat": {
+                        try {
+                            UUID viewerId = UUID.fromString(requestJson.getString("viewer_id"));
+                            UUID chatId   = UUID.fromString(requestJson.getString("chat_id"));
+
+                            UUID otherId = ContactDatabase.findOtherUserInPrivateChat(chatId, viewerId);
+                            if (otherId == null) {
+                                response = new ResponseModel("error", "Chat not found or not private.");
+                                break;
+                            }
+                            boolean blockedByMe = ContactDatabase.isBlocked(viewerId, otherId);
+                            boolean blockedMe   = ContactDatabase.isBlocked(otherId, viewerId);
+
+                            org.json.JSONObject data = new org.json.JSONObject()
+                                    .put("other_id", otherId.toString())
+                                    .put("blocked_by_me", blockedByMe)
+                                    .put("blocked_me", blockedMe);
+
+                            response = new ResponseModel("success", "ok", data);
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Invalid parameters.");
+                        }
+                        break;
+                    }
+
+
+
 
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);

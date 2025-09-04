@@ -38,6 +38,9 @@ public class MainController {
     @FXML private ScrollPane globalSearchScroll;
     @FXML private VBox globalSearchResultsContainer;
 
+    private boolean blockedByMeFlag = false;
+    private boolean blockedMeFlag   = false;
+
 
 
 
@@ -1149,6 +1152,7 @@ public class MainController {
             Platform.runLater(() -> sidebarController.setUserFromSession(Session.currentUser));
         }
     }
+
 
 
 

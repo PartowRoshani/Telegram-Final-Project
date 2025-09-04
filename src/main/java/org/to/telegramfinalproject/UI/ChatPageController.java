@@ -112,6 +112,10 @@ public class ChatPageController {
     private static final DateTimeFormatter FMT_DATE_TIME  = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
     private static final String YESTERDAY_LABEL           = "Yesterday";
 
+    private boolean blockedByMeFlag = false;
+    private boolean blockedMeFlag   = false;
+
+
     // ===== state =====
     private String chatName;
     private final ThemeManager themeManager = ThemeManager.getInstance();
@@ -809,6 +813,7 @@ public void showChat(ChatEntry entry) {
     }
     AvatarFX.circleClip(userAvatar, 36);
 
+
     // حالت اولیه (بدون انتظار هدر)
     if ("channel".equalsIgnoreCase(entry.getType())) {
         boolean canPostLocal = entry.isOwner() || entry.isAdmin()
@@ -824,9 +829,55 @@ public void showChat(ChatEntry entry) {
 
     // حالا هدر بیاد، دوباره نهایی‌اش می‌کنیم
     fetchAndRenderHeader(entry);
+
 }
 
 
+
+    private void requestBlockStatusByChat(ChatEntry entry) {
+        if (entry == null || !"private".equalsIgnoreCase(entry.getType())) return;
+
+        String viewerId = Session.getUserUUID(); // internal_uuid کاربر فعلی
+        if (viewerId == null || viewerId.isBlank()) return;
+
+        JSONObject req = new JSONObject()
+                .put("action", "check_block_status_by_chat")
+                .put("viewer_id", viewerId)
+                .put("chat_id", entry.getId().toString());
+
+        new Thread(() -> {
+            JSONObject res = ActionHandler.sendWithResponse(req);
+            if (res == null || !"success".equalsIgnoreCase(res.optString("status"))) return;
+
+            JSONObject data = res.optJSONObject("data");
+            boolean blockedByMe = data != null && data.optBoolean("blocked_by_me", false);
+            boolean blockedMe   = data != null && data.optBoolean("blocked_me", false);
+
+            Platform.runLater(() -> applyBlockUi(blockedByMe, blockedMe));
+        }).start();
+    }
+
+    private void applyBlockUi(boolean blockedByMe, boolean blockedMe) {
+        this.blockedByMeFlag = blockedByMe;
+        this.blockedMeFlag   = blockedMe;
+
+        if (blockedByMe) {
+            // من طرف مقابل را بلاک کرده‌ام → فقط دکمه UNBLOCK نمایش بده
+            if (readOnlyLabel != null) readOnlyLabel.setText("");
+            applyMode(ChatViewMode.BLOCKED);
+            return;
+        }
+
+        if (blockedMe) {
+            // طرف مقابل من را بلاک کرده → متن read-only مخصوص
+            if (readOnlyLabel != null) readOnlyLabel.setText("YOU ARE BLOCKED");
+            applyMode(ChatViewMode.READ_ONLY);
+            return;
+        }
+
+        // هیچ‌کس بلاک نکرده
+        applyMode(ChatViewMode.NORMAL);
+    }
 
 
     public void showChat(ChatEntry entry, ChatViewMode mode) {
@@ -1798,7 +1849,7 @@ private void addBubble(
         if (online) return "online";
 
         LocalDateTime ts = parseWhen(lastSeenIso);
-        if (ts == null) return "Last seen recently";
+        if (ts == null) return "last seen recently";
 
         LocalDate today = LocalDate.now();
         LocalDate d = ts.toLocalDate();
@@ -1811,7 +1862,7 @@ private void addBubble(
         if (days > 30) {
             return "Last seen long time ago";
         }
-        return "Last seen recently";
+        return "last seen recently";
     }
 
     private void setDefaultHeaderAvatarByType(String type){
@@ -2534,6 +2585,8 @@ private void addBubble(
         addContactPane.setVisible(true);
         addContactPane.setManaged(true);
     }
+
+
 
 
 
