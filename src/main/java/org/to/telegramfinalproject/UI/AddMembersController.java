@@ -229,7 +229,6 @@ public class AddMembersController {
             JSONObject resp = ActionHandler.sendWithResponse(batchReq);
             if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
                 Platform.runLater(() -> {
-                    showToast("Members added.");
                     MainController.getInstance().closeOverlay(addMembersCard.getParent());
                 });
                 return;
@@ -249,7 +248,9 @@ public class AddMembersController {
             }
             boolean finalAllOk = allOk;
             Platform.runLater(() -> {
-                showToast(finalAllOk ? "Members added." : "Some members failed.");
+                if (!finalAllOk) {
+                    showToast("Some members failed.");
+                }
                 MainController.getInstance().closeOverlay(addMembersCard.getParent());
             });
         }).start();
