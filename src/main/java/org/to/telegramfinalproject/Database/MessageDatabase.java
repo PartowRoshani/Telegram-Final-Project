@@ -1,14 +1,13 @@
 package org.to.telegramfinalproject.Database;
 
 import org.to.telegramfinalproject.Models.FileAttachment;
+import org.to.telegramfinalproject.Models.MediaRow;
 import org.to.telegramfinalproject.Models.Message;
+import org.to.telegramfinalproject.Utils.ChannelPermissionUtil;
 
 import java.sql.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class MessageDatabase {
@@ -362,6 +361,209 @@ public class MessageDatabase {
     private static String shorten(String s, int maxLen) {
         if (s.length() <= maxLen) return s;
         return s.substring(0, Math.max(0, maxLen - 1)).trim() + "…";
+    }
+
+    public static boolean saveMessageWithOptionalAttachments(
+            UUID messageId, UUID senderId, UUID receiverId,
+            String receiverType, String content, String messageType,
+            List<FileAttachment> attachments
+    ) {
+        Connection conn = null;
+        try {
+            conn = ConnectionDb.connect();
+            conn.setAutoCommit(false);
+
+            boolean isText  = "TEXT".equalsIgnoreCase(messageType);
+            boolean isImage = "IMAGE".equalsIgnoreCase(messageType);
+            boolean isAudio = "AUDIO".equalsIgnoreCase(messageType);
+            if (!isText && !isImage && !isAudio) {
+                throw new IllegalArgumentException("messageType must be TEXT, IMAGE, or AUDIO");
+            }
+
+            if (isText) {
+                if (attachments != null && !attachments.isEmpty())
+                    throw new IllegalArgumentException("TEXT must not have attachments");
+                if (content == null || content.isBlank())
+                    throw new IllegalArgumentException("TEXT must have non-empty content");
+            } else {
+                if (attachments == null || attachments.isEmpty())
+                    throw new IllegalArgumentException("Non-TEXT must have at least one attachment");
+
+                for (FileAttachment a : attachments) {
+                    if (a == null) throw new IllegalArgumentException("Attachment is null");
+                    String ft = a.getFileType();
+                    if (isImage && !"IMAGE".equalsIgnoreCase(ft))
+                        throw new IllegalArgumentException("All attachments must be IMAGE for messageType=IMAGE");
+                    if (isAudio && !"AUDIO".equalsIgnoreCase(ft))
+                        throw new IllegalArgumentException("All attachments must be AUDIO for messageType=AUDIO");
+                }
+            }
+
+            insertMessageTx(conn, messageId, senderId, receiverId, receiverType, content, messageType.toUpperCase());
+            if (!isText) insertAttachmentsTx(conn, messageId, attachments);
+
+            conn.commit();
+            return true;
+        } catch (Exception e) {
+            if (conn != null) try { conn.rollback(); } catch (SQLException ignored) {}
+            e.printStackTrace();
+            return false;
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
+                try { conn.close(); } catch (SQLException ignored) {}
+            }
+        }
+    }
+
+
+    public static boolean insertMessageTx(Connection conn, UUID messageId, UUID senderId, UUID receiverId,
+                                          String receiverType, String content, String messageType) throws SQLException {
+        String sql = "INSERT INTO messages (message_id, sender_id, receiver_type, receiver_id, content, message_type) " +
+                "VALUES (?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, messageId);
+            ps.setObject(2, senderId);
+            ps.setString(3, receiverType);
+            ps.setObject(4, receiverId);
+            if (content == null || content.isBlank()) ps.setNull(5, java.sql.Types.VARCHAR); else ps.setString(5, content);
+            ps.setString(6, messageType);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    public static boolean insertAttachmentsTx(Connection conn, UUID messageId, List<FileAttachment> attachments) throws SQLException {
+        if (attachments == null || attachments.isEmpty()) return true;
+
+        final String sql = """
+        INSERT INTO message_attachments(
+            attachment_id, message_id,
+            file_url, file_type, file_name, file_size, mime_type,
+            width, height, duration_seconds, thumbnail_url,
+            media_key, storage_path
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """;
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (FileAttachment att : attachments) {
+                if (att == null) throw new IllegalArgumentException("Attachment is null");
+                UUID attachmentId = att.getAttachmentId() != null ? att.getAttachmentId() : UUID.randomUUID();
+                UUID mediaKey     = att.getMediaKey()     != null ? att.getMediaKey()     : attachmentId; // ساده‌ترین حالت
+
+                String ft = att.getFileType();
+                if (!"IMAGE".equalsIgnoreCase(ft) && !"AUDIO".equalsIgnoreCase(ft)) {
+                    throw new IllegalArgumentException("file_type must be IMAGE or AUDIO");
+                }
+                if (att.getStoragePath() == null || att.getStoragePath().isBlank()) {
+                    throw new IllegalArgumentException("storage_path is required for socket downloads");
+                }
+
+                int i = 1;
+                ps.setObject(i++, attachmentId);
+                ps.setObject(i++, messageId);
+                //file url (display link)
+                if (att.getFileUrl() == null || att.getFileUrl().isBlank()) ps.setNull(i++, java.sql.Types.VARCHAR);
+                else ps.setString(i++, att.getFileUrl());
+
+                ps.setString(i++, ft.toUpperCase());
+                ps.setString(i++, att.getFileName());
+                if (att.getFileSize() == null) ps.setNull(i++, java.sql.Types.BIGINT); else ps.setLong(i++, att.getFileSize());
+                if (att.getMimeType() == null) ps.setNull(i++, java.sql.Types.VARCHAR); else ps.setString(i++, att.getMimeType());
+                if (att.getWidth() == null) ps.setNull(i++, java.sql.Types.INTEGER); else ps.setInt(i++, att.getWidth());
+                if (att.getHeight() == null) ps.setNull(i++, java.sql.Types.INTEGER); else ps.setInt(i++, att.getHeight());
+                if (att.getDurationSeconds() == null) ps.setNull(i++, java.sql.Types.INTEGER); else ps.setInt(i++, att.getDurationSeconds());
+                if (att.getThumbnailUrl() == null || att.getThumbnailUrl().isBlank()) ps.setNull(i++, java.sql.Types.VARCHAR);
+                else ps.setString(i++, att.getThumbnailUrl());
+
+                ps.setObject(i++, mediaKey);
+                ps.setString(i++, att.getStoragePath());
+
+                ps.addBatch();
+
+                att.setAttachmentId(attachmentId);
+                att.setMediaKey(mediaKey);
+            }
+            ps.executeBatch();
+            return true;
+        }
+    }
+
+    public static MediaRow findMediaByKey(UUID mediaKey) throws SQLException {
+        String sql = """
+        SELECT
+          ma.attachment_id,
+          ma.message_id,
+          ma.media_key,
+          ma.file_name,
+          ma.file_size,
+          ma.mime_type,
+          ma.file_type,
+          ma.width,
+          ma.height,
+          ma.duration_seconds,
+          ma.thumbnail_url,
+          ma.file_url,
+          ma.storage_path,
+          m.receiver_type,
+          m.receiver_id,
+          m.sender_id
+        FROM message_attachments ma
+        JOIN messages m ON m.message_id = ma.message_id
+        WHERE ma.media_key = ?
+        LIMIT 1
+    """;
+
+        try (Connection c = ConnectionDb.connect();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setObject(1, mediaKey);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+
+                MediaRow a = new MediaRow();
+                a.attachmentId    = (UUID) rs.getObject("attachment_id");
+                a.messageId       = (UUID) rs.getObject("message_id");
+                a.mediaKey        = (UUID) rs.getObject("media_key");
+                a.fileName        = rs.getString("file_name");
+
+                long sz = rs.getLong("file_size");
+                a.fileSize = rs.wasNull() ? null : sz; // MediaRow.fileSize = Long
+
+                a.mimeType        = rs.getString("mime_type");
+                a.fileType        = rs.getString("file_type");
+                int w = rs.getInt("width");            a.width  = rs.wasNull() ? null : w;
+                int h = rs.getInt("height");           a.height = rs.wasNull() ? null : h;
+                int d = rs.getInt("duration_seconds"); a.durationSeconds = rs.wasNull() ? null : d;
+                a.thumbnailUrl    = rs.getString("thumbnail_url");
+                a.fileUrl         = rs.getString("file_url");
+                a.storagePath     = rs.getString("storage_path");
+                a.receiverType    = rs.getString("receiver_type");
+                a.receiverId      = (UUID) rs.getObject("receiver_id");
+                a.senderId        = (UUID) rs.getObject("sender_id");
+                return a;
+            }
+        }
+    }
+
+    public static boolean canAccess(UUID requester, MediaRow mr) {
+        if (requester == null || mr == null || mr.receiverType == null) return false;
+
+        // اختیاری: فرستنده همیشه مجاز
+        if (requester.equals(mr.senderId)) return true;
+
+        switch (mr.receiverType.toLowerCase(Locale.ROOT)) {
+            case "private":
+                // receiver_id در پیام‌های private = UUID چت خصوصی
+                return PrivateChatDatabase.isParticipant(mr.receiverId, requester);
+
+            case "group":
+                return GroupDatabase.isMember(mr.receiverId, requester);
+
+            case "channel":
+                return ChannelPermissionUtil.isUserInChannel(requester, mr.receiverId);
+
+            default:
+                return false;
+        }
     }
 
 

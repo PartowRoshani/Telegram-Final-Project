@@ -10,6 +10,7 @@ import org.to.telegramfinalproject.Models.SearchRequestModel;
 import org.to.telegramfinalproject.Models.SearchResultModel;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.LocalDateTime;
@@ -26,6 +27,8 @@ public class ActionHandler {
     private final Scanner scanner;
     public static volatile boolean forceExitChat = false;
     public static ActionHandler instance;
+    private final DataOutputStream outBin; // NEW
+
 
     //use for UI
     private volatile String lastStatus = "error";   // success | error
@@ -57,13 +60,22 @@ public class ActionHandler {
         }
     }
 
-    public ActionHandler(PrintWriter out, BufferedReader in, Scanner scanner) {
+
+    public ActionHandler(PrintWriter out, BufferedReader in, DataOutputStream outBin, Scanner scanner) {
         this.out = out;
-        this.in = in;
+        this.in  = in;
+        this.outBin = outBin;      // NEW
         this.scanner = scanner;
         ActionHandler.instance = this;
-
     }
+
+//    public ActionHandler(PrintWriter out, BufferedReader in, Scanner scanner) {
+//        this.out = out;
+//        this.in = in;
+//        this.scanner = scanner;
+//        ActionHandler.instance = this;
+//
+//    }
 
     public void login(String username , String password){
         JSONObject request = new JSONObject();

@@ -12,6 +12,9 @@ import org.to.telegramfinalproject.Utils.GroupPermissionUtil;
 import java.io.*;
 import java.net.Socket;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -19,6 +22,15 @@ public class ClientHandler implements Runnable {
     private final Socket socket;
     private final AuthService authService = new AuthService();
     private User currentUser;
+
+    // ClientHandler.java
+    private static void log(String msg) {
+        System.out.println(java.time.LocalDateTime.now() + " [ClientHandler] " + msg);
+    }
+    private static void logf(String fmt, Object... args) {
+        log(String.format(fmt, args));
+    }
+
 
 
     public ClientHandler(Socket socket) {
@@ -30,11 +42,73 @@ public class ClientHandler implements Runnable {
         UUID userId = null;
 
         try (
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
+
+//                InputStream  rawIn  = socket.getInputStream();
+//                OutputStream rawOut = socket.getOutputStream();
+//
+//                BufferedReader in = new BufferedReader(new InputStreamReader(rawIn, java.nio.charset.StandardCharsets.UTF_8));
+//                PrintWriter    out = new PrintWriter(new OutputStreamWriter(rawOut, java.nio.charset.StandardCharsets.UTF_8), true);
+
+//                DataInputStream  dis  = new DataInputStream(rawIn);
+//                DataOutputStream dos  = new DataOutputStream(new BufferedOutputStream(rawOut));
+
+//                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+//                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
+//                BufferedInputStream bis = new BufferedInputStream(socket.getInputStream());
+                // DataInputStream dis = new DataInputStream(bis); //for binary headers
+
+                //PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8), true);
+                InputStream  rawIn  = socket.getInputStream();
+                OutputStream rawOut = socket.getOutputStream();
+
+                BufferedInputStream  bis = new BufferedInputStream(rawIn);
+                BufferedOutputStream bos = new BufferedOutputStream(rawOut);
+
+                DataInputStream  dis = new DataInputStream(bis);
+                DataOutputStream dos = new DataOutputStream(bos);
+                PrintWriter      out = new PrintWriter(new OutputStreamWriter(bos, java.nio.charset.StandardCharsets.UTF_8), true);
+
         ) {
+
+//            DataInputStream bin = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+
             String inputLine;
-            while ((inputLine = in.readLine()) != null) {
+            while ((inputLine = readUtf8Line(bis)) != null) {
+
+                String line = inputLine.trim();
+
+
+                if("AVATAR".equalsIgnoreCase(line)){
+
+                    out.println(new JSONObject().put("status","ready").toString());
+                    out.flush();
+                    handleAvatarFrame(dis, out, this.currentUser.getInternal_uuid());
+                    continue;
+
+
+                }
+
+                if ("MEDIA".equalsIgnoreCase(inputLine.trim())) {
+                    handleMediaFrame(dis, out);
+                    continue;
+                }
+
+
+                if ("MEDIA_DL".equalsIgnoreCase(line)) {
+                    UUID cu = (currentUser == null ? null : currentUser.getInternal_uuid());
+                    logf("MEDIA_DL received. currentUser.internal_uuid=%s", cu);
+
+                    if (cu == null) {
+                        log("MEDIA_DL rejected: currentUser is null or no internal_uuid");
+                        sendDlErr(dos, "not authorized");
+                        continue;
+                    }
+                    handleMediaDownload(dis, dos, cu);
+                    continue;
+                }
+
+
+
                 JSONObject requestJson = new JSONObject(inputLine);
                 String action = requestJson.getString("action");
                 ResponseModel response = null;
@@ -3143,6 +3217,542 @@ public class ClientHandler implements Runnable {
             default:      return "[Message]";
         }
     }
+
+
+
+    private static final int MAGIC_AVATAR = 0x41565431; // "AVT1"
+    private static final long MAX_AVATAR = 3L * 1024 * 1024;
+
+    private void handleAvatarFrame(DataInputStream dis, PrintWriter out, UUID currentUserId) {
+        try {
+            int magic = dis.readInt();
+            if (magic != MAGIC_AVATAR) { out.println(err("bad magic")); out.flush(); return; }
+
+            int headerLen = dis.readInt();
+            if (headerLen <= 0 || headerLen > 64*1024) { out.println(err("bad header length")); out.flush(); return; }
+
+            byte[] headerBytes = dis.readNBytes(headerLen);
+            if (headerBytes.length != headerLen) { out.println(err("header truncated")); out.flush(); return; }
+
+            JSONObject h = new JSONObject(new String(headerBytes, java.nio.charset.StandardCharsets.UTF_8));
+
+            long contentLen = dis.readLong();
+            if (contentLen <= 0 || contentLen > MAX_AVATAR) {
+                skip(dis, contentLen);
+                out.println(err("file too large/invalid")); out.flush(); return;
+            }
+
+            String targetType = h.optString("target_type", "user").toLowerCase();
+            UUID targetId;
+            if ("user".equals(targetType)) {
+                String s = h.optString("target_id", "");
+                targetId = s.isEmpty() ? currentUserId : UUID.fromString(s);
+                if (!targetId.equals(currentUserId)) {
+                    skip(dis, contentLen);
+                    out.println(err("forbidden")); out.flush(); return;
+                }
+            } else {
+                String s = h.optString("target_id", "");
+                if (s.isEmpty()) { skip(dis, contentLen); out.println(err("missing target_id")); out.flush(); return; }
+                targetId = UUID.fromString(s);
+                if (!hasManagePermission(currentUserId, targetType, targetId)) {
+                    skip(dis, contentLen);
+                    out.println(err("forbidden")); out.flush(); return;
+                }
+            }
+
+            String fileName = h.optString("file_name", "avatar.bin");
+            String mimeType = h.optString("mime_type", "application/octet-stream");
+            if (!isAllowedImageMime(mimeType)) { skip(dis, contentLen); out.println(err("unsupported mime")); out.flush(); return; }
+            if (fileName.length() > 200) fileName = fileName.substring(0,200);
+
+            java.nio.file.Path baseDir = java.nio.file.Paths.get("uploads").toAbsolutePath().normalize();
+            String subdir = "avatars/" + java.time.LocalDate.now();
+            java.nio.file.Path dir = baseDir.resolve(subdir).normalize();
+            java.nio.file.Files.createDirectories(dir);
+
+            String ext = guessExt_Profile(fileName, mimeType); // ⬅️ این یکی را صدا بزن
+            String storedName = java.util.UUID.randomUUID() + ext;
+            java.nio.file.Path targetPath = dir.resolve(storedName).normalize();
+
+            try (OutputStream fos = new BufferedOutputStream(java.nio.file.Files.newOutputStream(
+                    targetPath, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING))) {
+                long remaining = contentLen;
+                byte[] buf = new byte[8192];
+                while (remaining > 0) {
+                    int toRead = (int)Math.min(buf.length, remaining);
+                    int n = dis.read(buf, 0, toRead);
+                    if (n == -1) throw new EOFException("stream ended early");
+                    fos.write(buf, 0, n);
+                    remaining -= n;
+                }
+            }
+            String requestId = h.optString("message_id", null); // ⬅️ اضافه
+
+            long fileSize = java.nio.file.Files.size(targetPath);
+            String fileUrl = "/" + subdir.replace('\\','/') + "/" + storedName;  // /avatars/YYYY-MM-DD/uuid.jpg
+
+            boolean ok = updateProfileImageUrl(targetType, targetId, fileUrl);
+
+            JSONObject ack = new JSONObject()
+                    .put("status", ok ? "success" : "error")
+                    .put("message_id", requestId == null ? JSONObject.NULL : requestId) // ⬅️ اضافه
+                    .put("target_type", targetType)
+                    .put("target_id", targetId.toString())
+                    .put("file_name", fileName)
+                    .put("mime_type", mimeType)
+                    .put("file_size", fileSize)
+                    .put("display_url", fileUrl);
+
+            out.println(ack.toString());
+            out.flush();
+
+            if (ok) {
+                // (اختیاری) Broadcast به اعضای مرتبط
+                // broadcastProfileChange(targetType, targetId, fileUrl);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            out.println(err("exception"));
+            out.flush();
+        }
+    }
+
+    private static String err(String m) { return new JSONObject().put("status","error").put("message",m).toString(); }
+
+    private static boolean isAllowedImageMime(String mime) {
+        if (mime == null) return false;
+        return mime.equals("image/jpeg") || mime.equals("image/png") || mime.equals("image/webp");
+    }
+
+    private static String guessExt_Profile(String fileName, String mime) {
+        String lower = fileName.toLowerCase();
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return ".jpg";
+        if (lower.endsWith(".png")) return ".png";
+        if (lower.endsWith(".webp")) return ".webp";
+        return switch (mime) {
+            case "image/jpeg" -> ".jpg";
+            case "image/png"  -> ".png";
+            case "image/webp" -> ".webp";
+            default -> ".bin";
+        };
+    }
+
+
+
+    private boolean updateProfileImageUrl(String targetType, UUID targetId, String url) {
+        String sql = switch (targetType) {
+            case "user"    -> "UPDATE users SET image_url=? WHERE internal_uuid=?";
+            case "channel" -> "UPDATE channels SET image_url=? WHERE id=?";
+            case "group"   -> "UPDATE groups SET image_url=? WHERE id=?";
+            default        -> null;
+        };
+        if (sql == null) return false;
+        try (Connection c = ConnectionDb.connect(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, url);
+            ps.setObject(2, targetId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    private void handleMediaFrame(DataInputStream dis, PrintWriter out) {
+        try {
+            final int MAGIC_EXPECTED = 0x4D444D31; // "MDM1"
+            int magic = dis.readInt();
+            if (magic != MAGIC_EXPECTED) {
+                out.println(new JSONObject().put("status","error").put("message","bad magic").toString()); out.flush(); return;
+            }
+
+            int headerLen = dis.readInt();
+            if (headerLen <= 0 || headerLen > 64 * 1024) {
+                out.println(new JSONObject().put("status","error").put("message","bad header length").toString()); out.flush(); return;
+            }
+
+            byte[] headerBytes = dis.readNBytes(headerLen);
+            if (headerBytes.length != headerLen) {
+                out.println(new JSONObject().put("status","error").put("message","header truncated").toString()); out.flush(); return;
+            }
+
+            JSONObject h = new JSONObject(new String(headerBytes, java.nio.charset.StandardCharsets.UTF_8));
+
+            long contentLen = dis.readLong();
+            long MAX_MEDIA = 25L * 1024 * 1024;
+            if (contentLen <= 0 || contentLen > MAX_MEDIA) {
+                skip(dis, contentLen);
+                out.println(new JSONObject().put("status","error").put("message","file too large/invalid").toString()); out.flush(); return;
+            }
+
+            UUID messageId   = UUID.fromString(h.getString("message_id"));
+            UUID senderId    = UUID.fromString(h.getString("sender_id"));
+            String rType     = h.getString("receiver_type");      // private/group/channel
+            UUID receiverId  = UUID.fromString(h.getString("receiver_id"));
+            String messageType = h.getString("message_type").toUpperCase(); // IMAGE | AUDIO
+
+            if (!"IMAGE".equals(messageType) && !"AUDIO".equals(messageType)) {
+                skip(dis, contentLen);
+                out.println(new JSONObject().put("status","error").put("message","unsupported message_type").toString()); out.flush(); return;
+            }
+
+            String fileName = h.optString("file_name", "file.bin");
+            String mimeType = h.optString("mime_type", "application/octet-stream");
+            String text     = h.optString("text", ""); // کپشن اختیاری
+
+            Integer width  = h.has("width")  && !h.isNull("width")  ? h.getInt("width")  : null;
+            Integer height = h.has("height") && !h.isNull("height") ? h.getInt("height") : null;
+
+            if (fileName.length() > 200) fileName = fileName.substring(0, 200);
+
+            java.nio.file.Path baseDir = java.nio.file.Paths.get("uploads").toAbsolutePath().normalize();
+            java.nio.file.Files.createDirectories(baseDir);
+            String kind = "IMAGE".equals(messageType) ? "images" : "audios";
+            String subdir = kind + "/" + java.time.LocalDate.now();
+            java.nio.file.Path dir = baseDir.resolve(subdir).normalize();
+            java.nio.file.Files.createDirectories(dir);
+
+            String ext = guessExt(fileName, mimeType);
+            String storedName = java.util.UUID.randomUUID() + ext;
+            java.nio.file.Path target = dir.resolve(storedName).normalize();
+
+            try (OutputStream fos = new BufferedOutputStream(java.nio.file.Files.newOutputStream(
+                    target, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING))) {
+                long remaining = contentLen;
+                byte[] buf = new byte[8192];
+                while (remaining > 0) {
+                    int toRead = (int) Math.min(buf.length, remaining);
+                    int n = dis.read(buf, 0, toRead);
+                    if (n == -1) throw new EOFException("stream ended early");
+                    fos.write(buf, 0, n);
+                    remaining -= n;
+                }
+            }
+
+            long fileSize = java.nio.file.Files.size(target);
+
+            String storagePath = target.toString();
+            String fileUrl = "/" + subdir.replace('\\','/') + "/" + storedName;
+            String mt = messageType; // "IMAGE" یا "AUDIO"
+            int safeWidth  = ("IMAGE".equals(mt) && width  != null) ? width  : 0;
+            int safeHeight = ("IMAGE".equals(mt) && height != null) ? height : 0;
+            FileAttachment att = new FileAttachment();
+            att.setFileUrl(fileUrl);
+            att.setFileType(messageType);          // IMAGE/AUDIO
+            att.setFileName(fileName);
+            att.setFileSize(fileSize);
+            att.setMimeType(mimeType);
+            att.setWidth(safeWidth);
+            att.setHeight(safeHeight);
+            att.setDurationSeconds(0);
+            att.setThumbnailUrl(null);
+            att.setStoragePath(storagePath);
+            java.util.List<FileAttachment> atts = java.util.List.of(att);
+
+            boolean ok = MessageDatabase.saveMessageWithOptionalAttachments(
+                    messageId, senderId, receiverId, rType, text, messageType, atts
+            );
+
+            UUID mediaKey = null;
+            try (PreparedStatement q = ConnectionDb.connect().prepareStatement(
+                    "SELECT media_key FROM message_attachments WHERE message_id = ? AND storage_path = ? LIMIT 1"
+            )) {
+                q.setObject(1, messageId);
+                q.setString(2, storagePath);
+                try (ResultSet rs = q.executeQuery()) {
+                    if (rs.next()) mediaKey = (UUID) rs.getObject(1);
+                }
+            } catch (SQLException sqle) {
+                sqle.printStackTrace();
+            }
+
+            JSONObject ack = new JSONObject()
+                    .put("status", ok ? "success" : "error")
+                    .put("message_id", messageId.toString())
+                    .put("media_key", mediaKey != null ? mediaKey.toString() : JSONObject.NULL)
+                    .put("file_name", fileName)
+                    .put("file_size", fileSize)
+                    .put("mime_type", mimeType)
+                    .put("display_path", fileUrl);
+
+            out.println(ack.toString());
+            out.flush();
+
+
+            // بعد از out.flush(); و فقط اگر ok==true
+            if (ok) {
+                try {
+                    // 1) دریافت پیام از DB تا send_at و... دقیق باشد
+                    Message m = MessageDatabase.findById(messageId); // اگر چنین متدی نداری، با پارامترهای همین متد بساز/پر کن
+
+                    // 2) لیست دریافت‌کنندگان بر اساس نوع چت
+                    List<UUID> receivers = getReceiversForChat(receiverId, rType.toLowerCase());
+
+
+                    // 3) ساخت payload شامل اتچمنت (media)
+                    User sender = userDatabase.findByInternalUUID(senderId);
+                    JSONObject payload = new JSONObject()
+                            .put("action", "new_message")
+                            .put("data", new JSONObject()
+                                    .put("id", m.getMessage_id().toString())
+                                    .put("chat_id", receiverId.toString())
+                                    .put("chat_type", rType.toLowerCase())
+                                    .put("sender_id", senderId.toString())
+                                    .put("sender_name", sender != null ? sender.getProfile_name() : JSONObject.NULL)
+                                    .put("message_type", messageType.toLowerCase())
+                                    .put("text", (text == null || text.isEmpty()) ? JSONObject.NULL : text)
+                                    .put("media", new JSONObject()
+                                            .put("media_id", mediaKey != null ? mediaKey.toString() : JSONObject.NULL)
+                                            .put("file_name", fileName)
+                                            .put("mime_type", mimeType)
+                                            .put("size_bytes", fileSize)
+                                            .put("url", fileUrl)
+                                            .put("thumbnail_url", JSONObject.NULL)
+                                            .put("width", safeWidth)
+                                            .put("height", safeHeight)
+                                            .put("duration_ms", 0)
+                                    )
+                                    .put("send_at", m.getSend_at().toString())
+                                    .put("status", "SENT")
+                            );
+
+                    // 4) ارسال به همه اعضا (از جمله خودِ فرستنده اگر می‌خواهی UI آن هم یکپارچه آپدیت شود)
+                    for (UUID uid : receivers) {
+                        RealTimeEventDispatcher.sendToUser(uid, payload);
+                    }
+
+                    // (اختیاری) رویداد آپدیت چت‌لیست برای sort بر اساس آخرین پیام
+                    RealTimeEventDispatcher.notifyChatUpdated(receiverId, rType, m);
+
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    // اگر ذخیره شد ولی Broadcast شکست خورد، می‌توانی Log کنی یا Retry سبک انجام دهی
+                }
+            }
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            out.println(new JSONObject().put("status","error").put("message","exception").toString());
+            out.flush();
+        }
+    }
+
+    private static final int MAGIC_DL = 0x4D444D32; // "MDM2"
+
+//    private void handleMediaDownload(DataInputStream inBin, DataOutputStream outBin, UUID requesterId) {
+//        try {
+//            int magic = inBin.readInt();
+//            if (magic != MAGIC_DL) { sendDlErr(outBin, "bad magic"); return; }
+//
+//            int hlen = inBin.readInt();
+//            if (hlen <= 0 || hlen > 64 * 1024) { sendDlErr(outBin, "bad header length"); return; }
+//
+//            byte[] hb = inBin.readNBytes(hlen);
+//            if (hb.length != hlen) { sendDlErr(outBin, "header truncated"); return; }
+//
+//            JSONObject hdr = new JSONObject(new String(hb, java.nio.charset.StandardCharsets.UTF_8));
+//            if (!"download".equalsIgnoreCase(hdr.optString("op"))) { sendDlErr(outBin, "bad op"); return; }
+//
+//            UUID mediaKey = UUID.fromString(hdr.getString("media_key"));
+//            long offset   = Math.max(0L, hdr.optLong("offset", 0L));
+//
+//            MediaRow mr = MessageDatabase.findMediaByKey(mediaKey);
+//            if (mr == null) { sendDlErr(outBin, "not found"); return; }
+//            if (!MessageDatabase.canAccess(requesterId, mr)) { sendDlErr(outBin, "not authorized"); return; }
+//
+//            java.nio.file.Path path = java.nio.file.Paths.get(mr.storagePath).normalize();
+//            long size = java.nio.file.Files.size(path);
+//            if (offset > size) offset = 0L;
+//
+//            JSONObject ok = new JSONObject()
+//                    .put("status","success")
+//                    .put("media_key", mediaKey.toString())
+//                    .put("file_name", mr.fileName)
+//                    .put("mime_type", mr.mimeType)
+//                    .put("file_size", size);
+//
+//            byte[] okb = ok.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+//
+//            outBin.writeInt(MAGIC_DL);
+//            outBin.writeInt(okb.length);
+//            outBin.write(okb);
+//            outBin.writeLong(size - offset);
+//
+//            try (java.io.InputStream fis = new java.io.BufferedInputStream(java.nio.file.Files.newInputStream(path))) {
+//                if (offset > 0) fis.skipNBytes(offset);
+//                byte[] buf = new byte[8192];
+//                long remain = size - offset;
+//                while (remain > 0) {
+//                    int n = fis.read(buf, 0, (int) Math.min(buf.length, remain));
+//                    if (n == -1) break;
+//                    outBin.write(buf, 0, n);
+//                    remain -= n;
+//                }
+//            }
+//            outBin.flush();
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            try { sendDlErr(outBin, "exception"); } catch (Exception ignored) {}
+//        }
+//    }
+
+    private void handleMediaDownload(DataInputStream inBin, DataOutputStream outBin, UUID requesterId) {
+        try {
+            logf("MEDIA_DL start. requester=%s", requesterId);
+
+            int magic = inBin.readInt();
+            if (magic != MAGIC_DL) { sendDlErr(outBin, "bad magic"); return; }
+
+            int hlen = inBin.readInt();
+            if (hlen <= 0 || hlen > 64 * 1024) { sendDlErr(outBin, "bad header length"); return; }
+
+            byte[] hb = inBin.readNBytes(hlen);
+            if (hb.length != hlen) { sendDlErr(outBin, "header truncated"); return; }
+
+            String hdrStr = new String(hb, java.nio.charset.StandardCharsets.UTF_8);
+            logf("MEDIA_DL header: %s", hdrStr);
+
+            JSONObject hdr = new JSONObject(hdrStr);
+            if (!"download".equalsIgnoreCase(hdr.optString("op"))) { sendDlErr(outBin, "bad op"); return; }
+
+            UUID mediaKey = UUID.fromString(hdr.getString("media_key"));
+            long offset   = Math.max(0L, hdr.optLong("offset", 0L));
+            logf("Parsed mediaKey=%s offset=%d", mediaKey, offset);
+
+            MediaRow mr = MessageDatabase.findMediaByKey(mediaKey);
+            if (mr == null) { sendDlErr(outBin, "not found"); return; }
+
+            logf("MediaRow: chatType=%s chatId=%s sender=%s receiver=%s storage=%s",
+                    mr.chatType, mr.chatId, mr.senderId, mr.receiverId, mr.storagePath);
+
+            try (java.sql.Connection c = ConnectionDb.connect();
+                 java.sql.PreparedStatement st = c.prepareStatement(
+                         "SELECT 1 FROM channel_subscribers WHERE channel_id = ? AND user_id = ? LIMIT 1")) {
+                st.setObject(1, mr.chatId, java.sql.Types.OTHER);
+                st.setObject(2, requesterId, java.sql.Types.OTHER);
+                boolean direct;
+                try (java.sql.ResultSet r = st.executeQuery()) { direct = r.next(); }
+                logf("[DL] direct channel membership ch=%s user=%s => %s", mr.chatId, requesterId, direct);
+            } catch (Exception e) {
+                logf("[DL] direct membership check ERROR: %s", e.toString());
+            }
+
+            boolean allowed = MessageDatabase.canAccess(requesterId, mr);
+            logf("canAccess(..) -> %s", allowed);
+            if (!allowed) { sendDlErr(outBin, "not authorized"); return; }
+
+            java.nio.file.Path path = java.nio.file.Paths.get(mr.storagePath).normalize();
+            long size = java.nio.file.Files.size(path);
+            if (offset > size) offset = 0L;
+
+            JSONObject ok = new JSONObject()
+                    .put("status","success")
+                    .put("media_key", mediaKey.toString())
+                    .put("file_name", mr.fileName)
+                    .put("mime_type", mr.mimeType)
+                    .put("file_size", size);
+
+            byte[] okb = ok.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+            outBin.writeInt(MAGIC_DL);
+            outBin.writeInt(okb.length);
+            outBin.write(okb);
+            outBin.writeLong(size - offset);
+            logf("Sending OK header. file=%s size=%d offset=%d", mr.fileName, size, offset);
+
+            try (java.io.InputStream fis = new java.io.BufferedInputStream(java.nio.file.Files.newInputStream(path))) {
+                if (offset > 0) fis.skipNBytes(offset);
+                byte[] buf = new byte[8192];
+                long remain = size - offset;
+                while (remain > 0) {
+                    int n = fis.read(buf, 0, (int) Math.min(buf.length, remain));
+                    if (n == -1) break;
+                    outBin.write(buf, 0, n);
+                    remain -= n;
+                }
+            }
+            outBin.flush();
+            log("MEDIA_DL done.");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            try { sendDlErr(outBin, "exception"); } catch (Exception ignored) {}
+        }
+    }
+
+    private void sendDlErr(DataOutputStream outBin, String msg) throws java.io.IOException {
+        JSONObject j = new JSONObject().put("status","error").put("message", msg);
+        byte[] b = j.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        outBin.writeInt(MAGIC_DL);
+        outBin.writeInt(b.length);
+        outBin.write(b);
+        outBin.writeLong(0L);
+        outBin.flush();
+    }
+
+    private static void skip(DataInputStream dis, long n) throws IOException {
+        if (n <= 0) return;
+        byte[] buf = new byte[8192];
+        long left = n;
+        while (left > 0) {
+            int toRead = (int) Math.min(buf.length, left);
+            int r = dis.read(buf, 0, toRead);
+            if (r == -1) break; // EOF
+            left -= r;
+        }
+    }
+
+    private static String guessExt(String original, String mime) {
+        if (original != null && original.contains(".")) {
+            String ext = original.substring(original.lastIndexOf('.'));
+            if (ext.length() <= 10) return ext.toLowerCase();
+        }
+        if (mime == null) return "";
+
+        String m = mime.toLowerCase();
+
+        if (m.equals("image/png"))  return ".png";
+        if (m.equals("image/jpeg") || m.equals("image/jpg")) return ".jpg";
+        if (m.equals("image/gif"))  return ".gif";
+        if (m.equals("image/webp")) return ".webp";
+
+        if (m.equals("audio/mpeg") || m.equals("audio/mp3")) return ".mp3";
+        if (m.equals("audio/ogg"))  return ".ogg";
+        if (m.equals("audio/opus")) return ".opus";
+        if (m.equals("audio/wav") || m.equals("audio/x-wav")) return ".wav";
+        if (m.equals("audio/m4a") || m.equals("audio/mp4"))  return ".m4a";
+
+//        if (m.equals("video/mp4"))  return ".mp4";
+//        if (m.equals("video/webm")) return ".webm";
+
+        // fallback
+        if (m.startsWith("image/")) return "";
+        if (m.startsWith("audio/")) return "";
+        if (m.startsWith("video/")) return "";
+
+        return "";
+    }
+
+
+    private static String readUtf8Line(BufferedInputStream bis) throws java.io.IOException {
+        StringBuilder sb = new StringBuilder();
+        while (true) {
+            int b = bis.read();
+            if (b == -1) {
+                return sb.length() == 0 ? null : sb.toString();
+            }
+            if (b == '\n') {
+                int len = sb.length();
+                if (len > 0 && sb.charAt(len - 1) == '\r') sb.setLength(len - 1);
+                return sb.toString();
+            }
+            sb.append((char) b);
+        }
+    }
+
+
+
+
 
 
 }

@@ -128,10 +128,7 @@ package org.to.telegramfinalproject.Client;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -158,6 +155,14 @@ public class TelegramClient {
     public static final BlockingQueue<JSONObject> responseQueue = new LinkedBlockingQueue<>();
     public static final Map<String, BlockingQueue<JSONObject>> pendingResponses = new ConcurrentHashMap<>();
     public static UUID loggedInUserId = null;
+    private DataInputStream inBin;                 // NEW
+    private DataOutputStream outBin;               // NEW
+    private static SocketMediaDownloader downloader; // NEW
+    public static final java.util.concurrent.atomic.AtomicBoolean mediaBusy = new java.util.concurrent.atomic.AtomicBoolean(false); // NEW
+
+    public static SocketMediaDownloader getDownloader() { return downloader; }
+    public DataInputStream  getInBin()  { return inBin;  }
+    public DataOutputStream getOutBin() { return outBin; }
 
     private volatile boolean listenerStarted = false;
 
@@ -219,12 +224,26 @@ public class TelegramClient {
         socket = new Socket(SERVER_HOST, SERVER_PORT);
         in  = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
         out = new PrintWriter(socket.getOutputStream(), true);
+
+        InputStream   rawIn  = socket.getInputStream();
+        OutputStream  rawOut = socket.getOutputStream();
+
+        in  = new BufferedReader(new InputStreamReader(rawIn,  java.nio.charset.StandardCharsets.UTF_8));
+        out = new PrintWriter(new OutputStreamWriter(rawOut, java.nio.charset.StandardCharsets.UTF_8), true);
+
+        // NEW: binary streams
+        inBin  = new DataInputStream(rawIn);
+        outBin = new DataOutputStream(rawOut);
+
+        // NEW: media downloader helper
+        downloader = new SocketMediaDownloader(out, inBin, outBin);
+
         System.out.println("✅ Connected to Telegram Server");
     }
 
     private synchronized void initHandlerIfNeeded() {
         if (handler == null) {
-            handler = new ActionHandler(out, in, scanner);
+            handler = new ActionHandler(out, in, outBin, scanner);
         }
     }
 

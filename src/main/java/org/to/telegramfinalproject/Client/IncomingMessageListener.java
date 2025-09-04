@@ -39,15 +39,30 @@ public class IncomingMessageListener implements Runnable {
             String line;
             while ((line = in.readLine()) != null) {
 
+                if (TelegramClient.mediaBusy.get()) {
+                    try { Thread.sleep(15); } catch (InterruptedException ignored) {}
+                    continue;
+                }
+
 
                 JSONObject response = new JSONObject(line);
                 System.out.println("📥 Received raw line: " + line);
 
                 //if it has reqID answer
+                String mid = response.optString("message_id", "");
+                if (!mid.isEmpty()) {
+                    BlockingQueue<JSONObject> q = TelegramClient.pendingResponses.get(mid);
+                    if (q != null) {
+                        q.put(response);
+                        continue; // این پیام مصرف شد
+                    }
+                }
+
                 if (response.has("request_id")) {
                     String requestId = response.getString("request_id");
                     System.out.println("📬 Response with request_id: " + requestId);
                     System.out.println("📬 Full response: " + response.toString(2));
+
 
                     BlockingQueue<JSONObject> queue = TelegramClient.pendingResponses.get(requestId);
                     if (queue != null) {
