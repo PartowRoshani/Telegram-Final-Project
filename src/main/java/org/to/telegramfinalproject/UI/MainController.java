@@ -605,6 +605,9 @@ public class MainController {
             overlayLayer.getChildren().remove(current);
         }
         overlayLayer.getChildren().add(overlayNode);
+
+        // Automatically close sidebar
+        closeSidebar();
     }
 
     public void closeOverlay(Node overlayNode) {
