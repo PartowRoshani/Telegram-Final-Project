@@ -3,12 +3,21 @@ package org.to.telegramfinalproject.UI;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.to.telegramfinalproject.Client.ActionHandler;
+import org.to.telegramfinalproject.Client.Session;
+import org.to.telegramfinalproject.Models.ChatEntry;
+import org.to.telegramfinalproject.Models.ContactEntry;
 
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 public class ContactsController {
@@ -21,120 +30,168 @@ public class ContactsController {
     @FXML private ScrollPane contactsScroll;
     @FXML private Button searchIcon;
 
-    // Sample data for testing (later fetch from DB/server)
-    private final List<Contact> allContacts = Arrays.asList(
-            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Ali", "last seen recently", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Iman", "last seen a long time ago", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Amir", "last seen within a month", "/org/to/telegramfinalproject/Avatars/default_user_profile.png"),
-            new Contact("Sara", "online", "/org/to/telegramfinalproject/Avatars/default_user_profile.png")
-    );
+    /** منبع داده UI — با کانتکت‌های واقعی پر می‌شود */
+    private final List<ContactVM> allContacts = new ArrayList<>();
 
     @FXML
     public void initialize() {
-        // Sort contacts alphabetically on load
-        List<Contact> sorted = allContacts.stream()
-                .sorted(Comparator.comparing(Contact::getName))
-                .collect(Collectors.toList());
-        renderContacts(sorted);
+        // 1) لود اولیه‌ی کانتکت‌ها از سشن/سرور
+        loadContactsAndRender();
 
-        // Search filter
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            String filter = newVal.toLowerCase();
-            List<Contact> filtered = allContacts.stream()
-                    .filter(c -> c.getName().toLowerCase().contains(filter))
-                    .sorted(Comparator.comparing(Contact::getName))
+        // 2) سرچ محلی روی لیست
+        searchField.textProperty().addListener((obs, ov, nv) -> {
+            String f = nv == null ? "" : nv.trim().toLowerCase();
+            List<ContactVM> filtered = allContacts.stream()
+                    .filter(c -> c.profileName.toLowerCase().contains(f)
+                            || (c.userId != null && c.userId.toLowerCase().contains(f)))
+                    .sorted(Comparator.comparing(c -> c.profileName.toLowerCase()))
                     .collect(Collectors.toList());
             renderContacts(filtered);
         });
 
-        // Auto_focus search bar when overlay opens
+        // 3) فوکوس خودکار روی سرچ
         Platform.runLater(() -> searchField.requestFocus());
 
-        // Close with footer button
+        // 4) بستن اورلی
         closeFooterButton.setOnAction(e -> MainController.getInstance().closeOverlay(contactsCard.getParent()));
+        overlayBackground.setOnMouseClicked(e -> MainController.getInstance().closeOverlay(contactsCard.getParent()));
 
-        // Close when clicking outside card
-        overlayBackground.setOnMouseClicked(e -> {
-            MainController.getInstance().closeOverlay(contactsCard.getParent());
-        });
-
-        // Smooth scroll feel for contacts list
+        // 5) اسکرول نرم
         contactsScroll.getStylesheets().add(getClass().getResource("/org/to/telegramfinalproject/CSS/scrollpane.css").toExternalForm());
         contactsScroll.setPannable(true);
         contactsScroll.setFitToWidth(true);
         contactsScroll.setFitToHeight(false);
         contactsScroll.getContent().setOnScroll(event -> {
-            double deltaY = event.getDeltaY() * 0.003; // smaller = smoother
+            double deltaY = event.getDeltaY() * 0.003;
             contactsScroll.setVvalue(contactsScroll.getVvalue() - deltaY);
         });
 
-        // Register scene for ThemeManager → stylesheet swap will handle colors/icons
+        // 6) ثبت صحنه برای ThemeManager
         Platform.runLater(() -> {
             if (contactsCard.getScene() != null) {
                 ThemeManager.getInstance().registerScene(contactsCard.getScene());
             }
         });
 
-        // Listener for theme change
-        ThemeManager.getInstance().darkModeProperty().addListener((obs, oldVal, newVal) -> {
-            updateSearchIcon(newVal);
-        });
-
-        // Set initial state
+        // 7) واکنش به تغییر تم
+        ThemeManager.getInstance().darkModeProperty().addListener((obs, oldVal, newVal) -> updateSearchIcon(newVal));
         updateSearchIcon(ThemeManager.getInstance().isDarkMode());
     }
 
-    private void renderContacts(List<Contact> contacts) {
+    // -----------------------
+    // لود داده و رندر لیست
+    // -----------------------
+    private void loadContactsAndRender() {
+        // اگر Session.contactEntries از قبل لود شده، از همان استفاده می‌کنیم.
+        CompletableFuture
+                .supplyAsync(() -> {
+                    try {
+                        if (Session.contactEntries != null && !Session.contactEntries.isEmpty()) {
+                            return new ArrayList<>(Session.contactEntries);
+                        }
+
+                        // در غیر این صورت از سرور می‌گیریم (اختیاری)
+                        // اگر API «view_contacts» داری، اینجا بفرست:
+                        JSONObject req = new JSONObject()
+                                .put("action", "view_contacts")  // 🔧 اگر نام اکشن‌ات فرق دارد، تغییر بده
+                                .put("user_id", Session.getUserUUID());
+
+                        JSONObject res = ActionHandler.sendWithResponse(req);
+                        if (res == null || !"success".equals(res.optString("status"))) {
+                            return Collections.emptyList();
+                        }
+                        JSONObject data = res.optJSONObject("data");
+                        JSONArray arr = data != null ? data.optJSONArray("contacts") : null;
+                        if (arr == null) return Collections.emptyList();
+
+                        List<ContactEntry> fetched = new ArrayList<>();
+                        for (int i = 0; i < arr.length(); i++) {
+                            JSONObject c = arr.getJSONObject(i);
+                            UUID contactId        = UUID.fromString(c.getString("contact_id"));
+                            String userId         = c.optString("user_id", null);
+                            String contactDisplay = c.optString("contact_display_id", userId);
+                            String profileName    = c.optString("profile_name", contactDisplay);
+                            String imageUrl       = c.optString("image_url", "/org/to/telegramfinalproject/Avatars/default_user_profile.png");
+                            boolean isBlocked     = c.optBoolean("is_blocked", false);
+                            String lastSeenStr    = c.optString("last_seen", null);
+
+                            LocalDateTime lastSeen = null;
+                            if (lastSeenStr != null && !lastSeenStr.isEmpty()) {
+                                try { lastSeen = LocalDateTime.parse(lastSeenStr); } catch (Exception ignore) {}
+                            }
+
+                            fetched.add(new ContactEntry(contactId, userId, contactDisplay, profileName, imageUrl, isBlocked, lastSeen));
+                        }
+                        // اگر می‌خواهی تو سشن هم نگه داری:
+                        if (Session.contactEntries == null) Session.contactEntries = new ArrayList<>();
+                        Session.contactEntries.clear();
+                        Session.contactEntries.addAll(fetched);
+                        return fetched;
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return Collections.<ContactEntry>emptyList();
+                    }
+                })
+                .thenAccept(entries -> Platform.runLater(() -> {
+                    allContacts.clear();
+                    for (Object ce : entries) {
+                        allContacts.add(ContactVM.from((ContactEntry) ce));
+                    }
+                    allContacts.sort(Comparator.comparing(vm -> vm.profileName.toLowerCase()));
+                    renderContacts(allContacts);
+                }));
+    }
+
+    private void renderContacts(List<ContactVM> contacts) {
         contactsList.getChildren().clear();
 
         if (contacts.isEmpty()) {
-            contactsList.getChildren().clear();
-
             StackPane emptyPane = new StackPane();
-            emptyPane.setPrefHeight(300); // << pushes it lower
+            emptyPane.setPrefHeight(300);
             emptyPane.setAlignment(Pos.CENTER);
-
             Label emptyLabel = new Label("No contacts found");
             emptyLabel.getStyleClass().add("no-contacts-label");
-
             emptyPane.getChildren().add(emptyLabel);
-
-            // Do NOT give it prefHeight or Vgrow → prevents scroll bar
             contactsList.getChildren().add(emptyPane);
             return;
         }
 
-        for (Contact c : contacts) {
+        for (ContactVM c : contacts) {
             HBox item = new HBox(10);
             item.getStyleClass().add("contact-item");
+            item.setCursor(Cursor.HAND);
 
-            // Avatar
-            ImageView avatar = new ImageView(new Image(
-                    Objects.requireNonNull(getClass().getResourceAsStream(c.getImageUrl()))
-            ));
+            // آواتار
+            ImageView avatar = new ImageView(loadAvatarSafe(c.imageUrl));
             avatar.setFitWidth(58);
             avatar.setFitHeight(58);
             avatar.setPreserveRatio(true);
 
             VBox details = new VBox(2);
-            Label nameLabel = new Label(c.getName());
+            Label nameLabel = new Label(c.profileName);
             nameLabel.getStyleClass().add("contact-name");
 
-            Label statusLabel = new Label(c.getStatus());
-            statusLabel.getStyleClass().add("contact-status");
 
-            details.getChildren().addAll(nameLabel, statusLabel);
-
+            details.getChildren().addAll(nameLabel);
             item.getChildren().addAll(avatar, details);
+
+            item.setOnMouseClicked(e -> openOrStartPrivateChat(c));
+
             contactsList.getChildren().add(item);
+        }
+    }
+
+    private Image loadAvatarSafe(String urlOrResource) {
+        try {
+            if (urlOrResource != null && urlOrResource.startsWith("/")) {
+                return new Image(Objects.requireNonNull(getClass().getResourceAsStream(urlOrResource)));
+            }
+            // اگر URL وب هم داری، می‌تونی مستقیم Image(url) بسازی
+            return new Image(Objects.requireNonNull(
+                    getClass().getResourceAsStream("/org/to/telegramfinalproject/Avatars/default_user_profile.png")));
+        } catch (Exception ignore) {
+            return new Image(Objects.requireNonNull(
+                    getClass().getResourceAsStream("/org/to/telegramfinalproject/Avatars/default_user_profile.png")));
         }
     }
 
@@ -149,19 +206,103 @@ public class ContactsController {
         searchIcon.setGraphic(icon);
     }
 
-    // Inner class for contact data
-    public static class Contact {
-        private final String name;
-        private final String status;
-        private final String imageUrl;
 
-        public Contact(String name, String status, String imageUrl) {
-            this.name = name;
-            this.status = status;
-            this.imageUrl = imageUrl;
+    private void openOrStartPrivateChat(ContactVM contact) {
+        ChatEntry existing = findExistingPrivateChatWith(contact.contactId);
+        if (existing != null) {
+            MainController.getInstance().openChat(existing);
+            MainController.getInstance().closeOverlay(contactsCard.getParent());
+            return;
         }
-        public String getName() { return name; }
-        public String getStatus() { return status; }
-        public String getImageUrl() { return imageUrl; }
+
+        CompletableFuture
+                .supplyAsync(() -> {
+                    try {
+                        UUID myId = UUID.fromString(Session.currentUser.getString("internal_uuid"));
+                        JSONObject req = new JSONObject()
+                                .put("action", "get_or_create_private_chat")
+                                .put("user1", myId.toString())
+                                .put("user2", contact.contactId.toString());
+
+                        JSONObject res = ActionHandler.sendWithResponse(req);
+                        if (res == null || !"success".equals(res.optString("status"))) {
+                            throw new RuntimeException(res != null ? res.optString("message", "Unknown error")
+                                    : "null response");
+                        }
+                        JSONObject data = res.getJSONObject("data");
+                        UUID chatId = UUID.fromString(data.getString("chat_id"));
+
+                        ChatEntry entry = new ChatEntry(
+                                chatId,
+                                contact.userId,
+                                contact.profileName,
+                                contact.imageUrl,
+                                "private",
+                                null,
+                                false,
+                                false
+                        );
+                        entry.setOtherUserId(contact.contactId);
+
+                        return entry;
+                    } catch (Exception ex) {
+                        throw new RuntimeException(ex);
+                    }
+                })
+                .thenAccept(entry -> Platform.runLater(() -> {
+                    MainController.getInstance().onJoinedOrAdded(entry);
+                    MainController.getInstance().openChat(entry);
+                    MainController.getInstance().closeOverlay(contactsCard.getParent());
+                }))
+                .exceptionally(err -> {
+                    Platform.runLater(() -> {
+                        Alert a = new Alert(Alert.AlertType.ERROR, "Failed to start chat: " + err.getMessage(), ButtonType.OK);
+                        a.showAndWait();
+                    });
+                    return null;
+                });
+    }
+
+
+    private ChatEntry findExistingPrivateChatWith(UUID otherUserUuid) {
+        if (Session.chatList != null) {
+            for (ChatEntry ce : Session.chatList) {
+                if (!"private".equalsIgnoreCase(ce.getType())) continue;
+                UUID stored = ce.getOtherUserId();
+                if (stored != null && stored.equals(otherUserUuid)) return ce;
+            }
+        }
+        if (Session.activeChats != null) {
+            for (ChatEntry ce : Session.activeChats) {
+                if (!"private".equalsIgnoreCase(ce.getType())) continue;
+                UUID stored = ce.getOtherUserId();
+                if (stored != null && stored.equals(otherUserUuid)) return ce;
+            }
+        }
+        return null;
+    }
+
+
+    // -----------------------
+    // ViewModel ساده‌ی کانتکت
+    // -----------------------
+    private static class ContactVM {
+        final UUID contactId;      // internal UUID (واقعی)
+        final String userId;       // @id نمایش (اختیاری)
+        final String profileName;
+        final String imageUrl;
+
+        static ContactVM from(ContactEntry ce) {
+            return new ContactVM(ce.getContactId(), ce.getUserId(), ce.getProfileName(), ce.getImageUrl());
+        }
+
+        ContactVM(UUID contactId, String userId, String profileName, String imageUrl) {
+            this.contactId = contactId;
+            this.userId = userId;
+            this.profileName = profileName != null ? profileName : (userId != null ? userId : "Unknown");
+            this.imageUrl = imageUrl != null ? imageUrl : "/org/to/telegramfinalproject/Avatars/default_user_profile.png";
+        }
+
+
     }
 }

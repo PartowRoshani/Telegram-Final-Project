@@ -40,6 +40,7 @@ public class MainController {
 
 
 
+
     private enum SearchMode {
         GLOBAL,
         CHAT
@@ -429,7 +430,7 @@ public class MainController {
         }
     }
 
-    private void openChat(ChatEntry chat) {
+    void openChat(ChatEntry chat) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_page.fxml"));
             Node chatPage = loader.load();
@@ -1148,5 +1149,9 @@ public class MainController {
             Platform.runLater(() -> sidebarController.setUserFromSession(Session.currentUser));
         }
     }
+
+
+
+
 
 }

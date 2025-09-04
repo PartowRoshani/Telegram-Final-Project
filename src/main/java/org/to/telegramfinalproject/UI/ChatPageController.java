@@ -1861,39 +1861,105 @@ private void addBubble(
         }
     }
 
+//
+//    @FXML
+//    private void onAddContactClicked() {
+//        if (currentChat == null) return;
+//
+//        String myUserId = Session.currentUser != null
+//                ? Session.currentUser.optString("user_id", "")
+//                : "";
+//
+//        // 2) internal_uuid طرف مقابل
+//        UUID other = currentChat.getOtherUserId();
+//        if (other == null) {
+//            // اگر otherUserId هنوز نگرفته‌ای، بهتره قبلش از هدر/پروفایل بیاری.
+//            addSystemMessage("Cannot add: other user UUID is missing.");
+//            return;
+//        }
+//
+//        // 3) درخواست طبق قرارداد سرور
+//        JSONObject req = new JSONObject()
+//                .put("action", "add_contact")
+//                .put("user_id", myUserId)            // ← stringِ user_id (غیر UUID)
+//                .put("contact_id", other.toString()); // ← UUID طرف مقابل
+//
+//        // 4) ارسال
+//        JSONObject res = ActionHandler.sendWithResponse(req);
+//        if (res != null && "success".equalsIgnoreCase(res.optString("status"))) {
+//            // به لیست چت‌ها اضافه و سوییچ به حالت نرمال
+//            MainController.getInstance().onJoinedOrAdded(currentChat);
+//            applyMode(ChatViewMode.NORMAL);
+//            Platform.runLater(() -> messageInput.requestFocus());
+//        } else {
+//            addSystemMessage("Add contact failed: " + (res != null ? res.optString("message","") : "no response"));
+//        }
+//    }
+
 
     @FXML
     private void onAddContactClicked() {
         if (currentChat == null) return;
 
+        // user_id من (همان string که سرور انتظار دارد)
         String myUserId = Session.currentUser != null
                 ? Session.currentUser.optString("user_id", "")
                 : "";
+        if (myUserId.isBlank()) {
+            addSystemMessage("Add contact failed: missing user_id.");
+            return;
+        }
 
-        // 2) internal_uuid طرف مقابل
+        // UUID طرف مقابل (از هدر آمده)
         UUID other = currentChat.getOtherUserId();
         if (other == null) {
-            // اگر otherUserId هنوز نگرفته‌ای، بهتره قبلش از هدر/پروفایل بیاری.
             addSystemMessage("Cannot add: other user UUID is missing.");
             return;
         }
 
-        // 3) درخواست طبق قرارداد سرور
+        // درخواست به سرور
         JSONObject req = new JSONObject()
                 .put("action", "add_contact")
-                .put("user_id", myUserId)            // ← stringِ user_id (غیر UUID)
-                .put("contact_id", other.toString()); // ← UUID طرف مقابل
+                .put("user_id", myUserId)
+                .put("contact_id", other.toString());
 
-        // 4) ارسال
-        JSONObject res = ActionHandler.sendWithResponse(req);
-        if (res != null && "success".equalsIgnoreCase(res.optString("status"))) {
-            // به لیست چت‌ها اضافه و سوییچ به حالت نرمال
-            MainController.getInstance().onJoinedOrAdded(currentChat);
-            applyMode(ChatViewMode.NORMAL);
-            Platform.runLater(() -> messageInput.requestFocus());
-        } else {
-            addSystemMessage("Add contact failed: " + (res != null ? res.optString("message","") : "no response"));
-        }
+        new Thread(() -> {
+            JSONObject res = ActionHandler.sendWithResponse(req);
+            boolean ok = (res != null && "success".equalsIgnoreCase(res.optString("status")));
+
+            Platform.runLater(() -> {
+                if (!ok) {
+                    addSystemMessage("Add contact failed: " + (res != null ? res.optString("message","") : "no response"));
+                    return;
+                }
+
+                // ✅ فقط به کانتکت‌های سشن اضافه کن (لوکالی)
+                try {
+                    // اگر مدل ContactEntry داری از همان استفاده کن
+                    // این یک نمونه‌ی امن برای پر کردن حداقل فیلدهاست
+                    org.to.telegramfinalproject.Models.ContactEntry ce =
+                            new org.to.telegramfinalproject.Models.ContactEntry(
+                                    other,                                 // contact_id (UUID)
+                                    currentChat.getDisplayId(),            // contact_display_id / user_id دیدنی
+                                    currentChat.getDisplayId(),            // هر دو اگر یکی داری
+                                    nz(chatTitle.getText()),               // نام نمایشی
+                                    currentChat.getImageUrl(),             // آواتار (اگر هست)
+                                    false,                                 // is_blocked
+                                    null                                   // last_seen
+                            );
+
+                    if (Session.contactEntries == null)
+                        Session.contactEntries = new java.util.ArrayList<>();
+
+                    boolean exists = Session.contactEntries.stream()
+                            .anyMatch(c -> other.equals(c.getContactId()));
+                    if (!exists) Session.contactEntries.add(ce);
+                } catch (Exception ignore) {}
+
+
+                showOpenFromContactsHint();
+            });
+        }).start();
     }
 
 
@@ -2447,6 +2513,29 @@ private void addBubble(
         // (اختیاری) Saved Messages اگر داری می‌خوای اضافه کنی، اینجا اضافه کن.
 
         return new java.util.ArrayList<>(map.values());
+    }
+
+
+    private void showOpenFromContactsHint() {
+        if (addContactPane == null) return;
+
+        // پنل را نگه دار، فقط محتوا را عوض کن
+        addContactPane.getChildren().clear();
+
+        Label hint = new Label("you should open chat from contact list for first time");
+        hint.getStyleClass().add("footer-link-btn"); // همان کلاس CSS دکمه‌ی پایین
+        // اگر می‌خواهی شبیه لینک آبی شود و کلیک‌پذیر نباشد:
+        hint.setUnderline(true);
+
+        addContactPane.getChildren().add(hint);
+
+        // مطمئن شو فقط همین پانل دیده شود (کامپوزر/بقیه بسته بمانند)
+        composerPane.setVisible(false);
+        composerPane.setManaged(false);
+        joinPane.setVisible(false);
+        joinPane.setManaged(false);
+        addContactPane.setVisible(true);
+        addContactPane.setManaged(true);
     }
 
 
