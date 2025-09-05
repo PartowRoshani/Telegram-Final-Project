@@ -5,6 +5,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import org.json.JSONObject;
@@ -12,6 +13,8 @@ import org.to.telegramfinalproject.Client.ActionHandler;
 import org.to.telegramfinalproject.Client.AvatarLocalResolver;
 import org.to.telegramfinalproject.Client.Session;
 import org.to.telegramfinalproject.Models.ChatEntry;
+
+import java.net.URL;
 
 public class UserInfoController {
 
@@ -22,9 +25,9 @@ public class UserInfoController {
     @FXML private ImageView profileImage;
     @FXML private Label profileName;
     @FXML private Label profileStatus;
-    @FXML private VBox bioBlock;
+    @FXML private HBox bioBlock;
     @FXML private Label userBio;
-    @FXML private VBox usernameBlock;
+    @FXML private HBox usernameBlock;
     @FXML private Label userId;
 
     @FXML private Button moreButton;
@@ -32,8 +35,13 @@ public class UserInfoController {
     @FXML private MenuItem deleteChatItem;
     @FXML private MenuItem blockItem;
     @FXML private MenuItem unblockItem;
+    @FXML private ImageView moreIcon;
+    @FXML private ImageView bioIcon;
+    @FXML private ImageView usernameIcon;
 
     private String otherUserId; // internal_uuid of the other user
+
+    private static final String ICON_PATH = "/org/to/telegramfinalproject/Icons/";
 
     @FXML
     private void initialize() {
@@ -67,6 +75,21 @@ public class UserInfoController {
         deleteChatItem.setOnAction(e -> handleDeleteChat());
         blockItem.setOnAction(e -> handleBlock());
         unblockItem.setOnAction(e -> handleUnblock());
+
+        // Register scene for ThemeManager → stylesheet swap will handle colors/icons
+        Platform.runLater(() -> {
+            if (profileCard.getScene() != null) {
+                ThemeManager.getInstance().registerScene(profileCard.getScene());
+            }
+        });
+
+        // Listener for theme change
+        ThemeManager.getInstance().darkModeProperty().addListener((obs, oldVal, newVal) -> {
+            updateIcons(newVal);
+        });
+
+        // Set initial state
+        updateIcons(ThemeManager.getInstance().isDarkMode());
     }
 
     /** Backend JSON → UI */
@@ -167,5 +190,24 @@ public class UserInfoController {
     private void updateBlockMenu(boolean isBlocked) {
         blockItem.setVisible(!isBlocked);
         unblockItem.setVisible(isBlocked);
+    }
+
+    private void updateIcons(boolean darkMode) {
+        String suffix = darkMode ? "_light.png" : "_dark.png";
+
+        moreIcon.setImage(loadImage(ICON_PATH + "more" + suffix));
+        bioIcon.setImage(loadImage(ICON_PATH + "bio" + suffix));
+        usernameIcon.setImage(loadImage(ICON_PATH + "user_id" + suffix));
+    }
+
+    // --- helpers -------------------------------------------------------------
+
+    private Image loadImage(String path) {
+        URL res = getClass().getResource(path);
+        if (res == null) {
+            System.err.println("Resource not found: " + path);
+            return null;
+        }
+        return new Image(res.toExternalForm());
     }
 }
