@@ -35,15 +35,6 @@
                 <contextMenu>
                     <ContextMenu fx:id="infoMoreMenu">
                         <items>
-                            <MenuItem fx:id="deleteChatItem" text="Delete chat" style="-fx-text-fill: red;">
-                                <graphic>
-                                    <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
-                                        <image>
-                                            <Image url="@/org/to/telegramfinalproject/Icons/delete_red.png"/>
-                                        </image>
-                                    </ImageView>
-                                </graphic>
-                            </MenuItem>
                             <MenuItem fx:id="blockItem" text="Block" style="-fx-text-fill: red;">
                                 <graphic>
                                     <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
@@ -58,6 +49,15 @@
                                     <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
                                         <image>
                                             <Image url="@/org/to/telegramfinalproject/Icons/block_red.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </MenuItem>
+                            <MenuItem fx:id="deleteChatItem" text="Delete chat" style="-fx-text-fill: red;">
+                                <graphic>
+                                    <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/delete_red.png"/>
                                         </image>
                                     </ImageView>
                                 </graphic>
