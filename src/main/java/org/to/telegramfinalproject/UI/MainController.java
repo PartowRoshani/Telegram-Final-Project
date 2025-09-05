@@ -549,7 +549,7 @@ public class MainController {
     }
 
     @FXML
-    private void closeSidebar() {
+    public void closeSidebar() {
         if (sidebarRoot != null && isSidebarOpen) {
             TranslateTransition slideOut = new TranslateTransition(Duration.millis(250), sidebarRoot);
             slideOut.setToX(-getSidebarWidth());

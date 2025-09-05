@@ -53,7 +53,7 @@ public class SettingsController {
         populateFromSession();
 
         // Make it circular
-        Circle clip = new Circle(48, 28, 38); // centerX, centerY, radius
+        Circle clip = new Circle(40, 30, 38); // centerX, centerY, radius
         profileImage.setClip(clip);
 
         // Buttons
@@ -223,11 +223,11 @@ public class SettingsController {
 
         // ست کردن در UI
         profileName.setText(cachedName);
-        profileId.setText(cachedUsername);
+        profileId.setText("@" + cachedUsername);
         profileImage.setImage(cachedAvatar);
 
         // گرد کردن تصویر (با توجه به اندازه‌ی واقعی)
-        Circle clip = new Circle(38, 38, 38); // centerX, centerY, radius
+        Circle clip = new Circle(40, 30, 38); // centerX, centerY, radius
         profileImage.setClip(clip);
     }
 }

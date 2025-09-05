@@ -324,6 +324,7 @@ public class SidebarMenuController {
             boolean opened = false;
             try {
                 MainController.getInstance().openChat(entry);
+                MainController.getInstance().closeSidebar();
                 opened = true;
             } catch (Throwable t) {
                 // مسیر دوم: اگر با id/type باز می‌کنی، یا اول info می‌گیری:

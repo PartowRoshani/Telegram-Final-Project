@@ -90,7 +90,7 @@ public class EditProfileController {
 
         backButton.setOnAction(e -> {
             saveChangesAndClose();
-            closeEdit(); // ← قبلاً goBack بود
+            MainController.getInstance().goBack(overlayBackground);
         });
 
         // Load your camera icon image (white camera icon for visibility)
@@ -143,7 +143,6 @@ public class EditProfileController {
     }
 
     private void closeEdit() {
-        //MainController.getInstance().closeOverlay(editCard.getParent());
 //        MainController.getInstance().goBack(overlayBackground);
         MainController.getInstance().closeOverlay(editCard.getParent());
 
