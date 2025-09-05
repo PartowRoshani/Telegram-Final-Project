@@ -254,6 +254,7 @@ public class IncomingMessageListener implements Runnable {
                         e.printStackTrace();
                     }
                 }).start();
+                break;
             }
 
             case "new_message" :{
@@ -278,6 +279,7 @@ public class IncomingMessageListener implements Runnable {
                         chatCtl.onRealTimeNewMessage(uiMsg);
                     }
                 });
+                break;
             }
 
             case "message_edited": {
@@ -288,6 +290,7 @@ public class IncomingMessageListener implements Runnable {
                     var chatCtl = (mc != null) ? mc.getChatPageController() : null;
                     if (chatCtl != null) chatCtl.onRealTimeMessageEdited(ui);
                 });
+                break;
             }
 
             case "message_deleted_global", "message_deleted_one_sided", "message_deleted" : {
@@ -297,6 +300,7 @@ public class IncomingMessageListener implements Runnable {
                     var chatCtl = (mc != null) ? mc.getChatPageController() : null;
                     if (chatCtl != null) chatCtl.onRealTimeMessageDeleted(ui);
                 });
+                break;
             }
 
             case "message_reacted", "message_unreacted" : {
@@ -306,6 +310,7 @@ public class IncomingMessageListener implements Runnable {
                     var chatCtl = (mc != null) ? mc.getChatPageController() : null;
                     if (chatCtl != null) chatCtl.onRealTimeReaction(ui);
                 });
+                break;
             }
 
 
@@ -313,6 +318,7 @@ public class IncomingMessageListener implements Runnable {
             case "chat_updated": {
                 var data = response.getJSONObject("data");
                 bumpChatListFromUpdate(data);
+                break;
             }
 
             case "user_status_changed" : {
@@ -327,6 +333,7 @@ public class IncomingMessageListener implements Runnable {
                             msg.optString("last_seen","")
                     );
                 });
+                break;
             }
 
 
@@ -334,6 +341,7 @@ public class IncomingMessageListener implements Runnable {
 
             case "blocked_by_user", "unblocked_by_user", "message_seen" : {
                 displayRealTimeMessage(action, msg);
+                break;
             }
 
 
