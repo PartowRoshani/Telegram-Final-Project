@@ -14,7 +14,7 @@ public final class AvatarFX {
 
         Circle c = new Circle();
         c.radiusProperty().bind(Bindings.min(iv.fitWidthProperty(), iv.fitHeightProperty()).divide(2));
-        c.centerXProperty().bind(iv.fitWidthProperty().divide(2));
+        c.centerXProperty().bind(iv.fitWidthProperty().divide(3));
         c.centerYProperty().bind(iv.fitHeightProperty().divide(2));
         iv.setClip(c);
     }

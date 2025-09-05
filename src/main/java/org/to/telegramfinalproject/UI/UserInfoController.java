@@ -40,6 +40,7 @@ public class UserInfoController {
     @FXML private ImageView usernameIcon;
 
     private String otherUserId; // internal_uuid of the other user
+    private ChatEntry entry;
 
     private static final String ICON_PATH = "/org/to/telegramfinalproject/Icons/";
 
@@ -73,8 +74,8 @@ public class UserInfoController {
         });
 
         deleteChatItem.setOnAction(e -> handleDeleteChat());
-        blockItem.setOnAction(e -> handleBlock());
-        unblockItem.setOnAction(e -> handleUnblock());
+        blockItem.setOnAction(e -> handleToggleBlock(entry));
+        unblockItem.setOnAction(e -> handleToggleBlock(entry));
 
         // Register scene for ThemeManager → stylesheet swap will handle colors/icons
         Platform.runLater(() -> {
@@ -93,7 +94,11 @@ public class UserInfoController {
     }
 
     /** Backend JSON → UI */
-    public void setProfileDataFromJson(ChatEntry entry, JSONObject data) {
+    public void setProfileDataFromJson(ChatEntry entry, JSONObject data, String targetUuid) {
+        // save the correct UUID
+        this.otherUserId = targetUuid;
+        this.entry = entry;
+
         // --- Profile name ---
         String name = data.optString("profile_name", entry.getName());
         profileName.setText(name);
@@ -141,9 +146,6 @@ public class UserInfoController {
             );
         }
 
-        // --- Other user ID (needed for block/delete) ---
-        this.otherUserId = data.optString("other_user_id", entry.getId().toString());
-
         // --- Block/Unblock ---
         boolean blocked = data.optBoolean("blocked", false)
                 || data.optBoolean("is_blocked", false)
@@ -163,28 +165,55 @@ public class UserInfoController {
         }
     }
 
-    private void handleBlock() {
+    private void handleToggleBlock(ChatEntry entry) {
+        if (otherUserId == null) return;
+
+        // 1) Send toggle request
         JSONObject req = new JSONObject()
-                .put("action", "block_user")
-                .put("target_id", otherUserId)
-                .put("viewer_id", Session.getUserUUID());
+                .put("action", "toggle_block")
+                .put("user_id", Session.getUserUUID())
+                .put("target_id", otherUserId);
 
         JSONObject resp = ActionHandler.sendWithResponse(req);
-        if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
-            updateBlockMenu(true);
+        if (resp == null) {
+            MainController.getInstance().showAlert("Error", "No response from server.", Alert.AlertType.ERROR);
+            return;
         }
-    }
 
-    private void handleUnblock() {
-        JSONObject req = new JSONObject()
-                .put("action", "unblock_user")
-                .put("target_id", otherUserId)
-                .put("viewer_id", Session.getUserUUID());
-
-        JSONObject resp = ActionHandler.sendWithResponse(req);
-        if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
-            updateBlockMenu(false);
+        if (!"success".equalsIgnoreCase(resp.optString("status"))) {
+            MainController.getInstance().showAlert("Error",
+                    resp.optString("message", "Failed to toggle block"),
+                    Alert.AlertType.ERROR);
+            return;
         }
+
+        // 2) Immediately re-check block state from server
+        JSONObject checkReq = new JSONObject()
+                .put("action", "check_block_status_by_chat")
+                .put("viewer_id", Session.getUserUUID())
+                .put("chat_id", entry.getId().toString());
+
+        JSONObject checkResp = ActionHandler.sendWithResponse(checkReq);
+        if (checkResp == null || !"success".equalsIgnoreCase(checkResp.optString("status"))) {
+            System.err.println("⚠️ Failed to refresh block status after toggle.");
+            return;
+        }
+
+        JSONObject data = checkResp.optJSONObject("data");
+        boolean blockedByMe = data != null && data.optBoolean("blocked_by_me", false);
+        boolean blockedMe   = data != null && data.optBoolean("blocked_me", false);
+
+        // 3) Update UI on FX thread
+        Platform.runLater(() -> {
+            // update overlay (block/unblock menu)
+            updateBlockMenu(blockedByMe);
+
+            // update chat page input bar
+            ChatPageController c = ChatPageController.getInstance();
+            if (c != null) {
+                c.applyBlockUi(blockedByMe, blockedMe);
+            }
+        });
     }
 
     private void updateBlockMenu(boolean isBlocked) {

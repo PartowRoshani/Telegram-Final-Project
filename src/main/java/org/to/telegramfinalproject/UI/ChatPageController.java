@@ -842,7 +842,7 @@ public class ChatPageController {
         } else {
             setDefaultHeaderAvatarByType(entry.getType());
         }
-        AvatarFX.circleClip(userAvatar, 36);
+        AvatarFX.circleClip(userAvatar, 40);
 
 
         // حالت اولیه (بدون انتظار هدر)
@@ -863,11 +863,13 @@ public class ChatPageController {
 
     // === (3-dot menu + header click) ===
     configureHeaderActions(entry);
+
+    requestBlockStatusByChat(entry);
 }
 
 
 
-    private void requestBlockStatusByChat(ChatEntry entry) {
+    public void requestBlockStatusByChat(ChatEntry entry) {
         if (entry == null || !"private".equalsIgnoreCase(entry.getType())) return;
 
         String viewerId = Session.getUserUUID(); // internal_uuid کاربر فعلی
@@ -890,7 +892,7 @@ public class ChatPageController {
         }).start();
     }
 
-    private void applyBlockUi(boolean blockedByMe, boolean blockedMe) {
+    public void applyBlockUi(boolean blockedByMe, boolean blockedMe) {
         this.blockedByMeFlag = blockedByMe;
         this.blockedMeFlag   = blockedMe;
 
@@ -945,6 +947,8 @@ public class ChatPageController {
 
         // Wire up menu + header click
         configureHeaderActions(entry);
+
+        requestBlockStatusByChat(entry);
     }
 
     private void configureHeaderActions(ChatEntry entry) {
@@ -983,6 +987,7 @@ public class ChatPageController {
 
     private void openInfoScene(ChatEntry entry) {
         JSONObject req = new JSONObject();
+        String targetId = null; // 👈 capture it here for the private case
 
         switch (entry.getType().toLowerCase()) {
             case "private" -> {
@@ -1003,7 +1008,7 @@ public class ChatPageController {
                     return;
                 }
 
-                String targetId = targetResp.optJSONObject("data").optString("target_id", null);
+                targetId = targetResp.optJSONObject("data").optString("target_id", null);
                 if (targetId == null || targetId.isBlank()) {
                     Platform.runLater(() ->
                             MainController.getInstance().showAlert(
@@ -1037,6 +1042,8 @@ public class ChatPageController {
                 return;
             }
         }
+
+        final String finalTargetId = targetId; // 👈 capture for use in the FX thread
 
         new Thread(() -> {
             JSONObject resp = ActionHandler.sendWithResponse(req);
@@ -1074,7 +1081,8 @@ public class ChatPageController {
                                     "/org/to/telegramfinalproject/Fxml/user_info.fxml"));
                             overlay = loader.load();
                             UserInfoController c = loader.getController();
-                            c.setProfileDataFromJson(entry, data);
+                            // 👇 pass targetId so UserInfoController gets the real UUID
+                            c.setProfileDataFromJson(entry, data, finalTargetId);
                         }
                         case "group" -> {
                             loader = new FXMLLoader(getClass().getResource(
