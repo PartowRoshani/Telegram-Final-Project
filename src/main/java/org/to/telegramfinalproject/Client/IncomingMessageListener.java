@@ -138,22 +138,22 @@ public class IncomingMessageListener implements Runnable {
         JSONObject finalMsg = msg;
         JSONObject finalMsg1 = msg;
         switch (action) {
-            case "added_to_group", "added_to_channel",
-                 "removed_from_group", "removed_from_channel",
-                 "chat_deleted", "created_private_chat" -> {
-                // این قسمت مستقل از UI/کنسول است
-                System.out.println("🔄 Chat list changed. Updating...");
-                Session.forceRefreshChatList = true;
-
-                String chatId = msg.getString("chat_id");
-                String chatType = msg.getString("chat_type");
-                ActionHandler.requestChatInfo(chatId, chatType);
-
-                if (action.equals("removed_from_group") || action.equals("removed_from_channel") || action.equals("chat_deleted")) {
-                    System.out.println("🚫 You were removed from the chat or chat was deleted. Exiting...");
-                    ActionHandler.forceExitChat = true;
-                }
-            }
+//            case "added_to_group", "added_to_channel",
+//                 "removed_from_group", "removed_from_channel",
+//                 "chat_deleted", "created_private_chat" -> {
+//                // این قسمت مستقل از UI/کنسول است
+//                System.out.println("🔄 Chat list changed. Updating...");
+//                Session.forceRefreshChatList = true;
+//
+//                String chatId = msg.getString("chat_id");
+//                String chatType = msg.getString("chat_type");
+//                ActionHandler.requestChatInfo(chatId, chatType);
+//
+//                if (action.equals("removed_from_group") || action.equals("removed_from_channel") || action.equals("chat_deleted")) {
+//                    System.out.println("🚫 You were removed from the chat or chat was deleted. Exiting...");
+//                    ActionHandler.forceExitChat = true;
+//                }
+//            }
 
 //            case "chat_updated" -> {
 //                if (uiMode == UIMode.UI) {
@@ -163,7 +163,89 @@ public class IncomingMessageListener implements Runnable {
 //                }
 //            }
 
-            case "became_admin", "removed_admin", "ownership_transferred", "admin_permissions_updated" -> {
+            case "added_to_group":
+            case "added_to_channel":
+            case "created_private_chat": {
+                // داده‌ها
+                UUID chatId   = UUID.fromString(msg.getString("chat_id"));
+                String type   = msg.getString("chat_type");      // "group" | "channel" | "private"
+                String name   = msg.optString("name", "");
+                String imgUrl = msg.optString("image_url", "");
+
+                // یک ChatEntry مینیمال بساز (تا UI سریع واکنش بده)
+                ChatEntry ce = new ChatEntry();
+                ce.setId(chatId.toString());
+                ce.setType(type);
+                ce.setName(name);
+                ce.setImageUrl(imgUrl);
+
+                Platform.runLater(() -> {
+                    var mc = MainController.getInstance();
+                    if (mc == null) return;
+
+                    // به لیست‌ها اضافه و UI را رفرش می‌کند (متد خودت)
+                    mc.onJoinedOrAdded(ce);
+
+                    // اگر همین چت الان بازه، مود مناسب را اعمال کن
+                    var cpc = mc.getChatPageController();
+                    if (cpc != null && cpc.isSameChat(chatId, type)) {
+                        // ❗ اگر applyMode در ChatPageController private است،
+                        // یا publicش کن یا این دو خط را حذف کن.
+                        // گروه → NORMAL ، کانال → READ_ONLY (مگر اینکه اجازه پست داشته باشی)
+                        // cpc.applyMode("group".equalsIgnoreCase(type) ? ChatViewMode.NORMAL : ChatViewMode.READ_ONLY);
+                        // cpc.fetchAndRenderHeader(ce); // اختیاری: هدر را تازه کن
+                    }
+                });
+                break;
+            }
+
+            case "removed_from_group":
+            case "removed_from_channel": {
+                UUID chatId = UUID.fromString(msg.getString("chat_id"));
+                String type = msg.getString("chat_type");
+
+                Platform.runLater(() -> {
+                    var mc = MainController.getInstance();
+                    if (mc == null) return;
+
+                    removeFromAllLists(chatId);
+                    mc.refreshChatListUI();
+
+                    // اگر همین چت باز است → به حالت نیاز به Join برگرد
+                    var cpc = mc.getChatPageController();
+                    if (cpc != null && cpc.isSameChat(chatId, type)) {
+                        // اگر applyMode private است، این خط را کامنت کن یا publicش کن
+                        // cpc.applyMode(ChatViewMode.NEEDS_JOIN);
+                    }
+                });
+                break;
+            }
+
+            case "chat_deleted": {
+                UUID chatId = UUID.fromString(msg.getString("chat_id"));
+                String type = msg.getString("chat_type");
+
+                Platform.runLater(() -> {
+                    var mc = MainController.getInstance();
+                    if (mc == null) return;
+
+                    removeFromAllLists(chatId);
+                    mc.refreshChatListUI();
+
+                    var cpc = mc.getChatPageController();
+                    if (cpc != null && cpc.isSameChat(chatId, type)) {
+                        // حداقل ورودی را ببندیم/غیرفعال کنیم
+                        // اگر applyMode private است، این خط را کامنت کن یا publicش کن
+                        // cpc.applyMode(ChatViewMode.READ_ONLY);
+                        // و یک پیام سیستمی هم نشان بده
+                        cpc.addSystemMessage("This chat was deleted.");
+                    }
+                });
+                break;
+            }
+
+
+            case "became_admin", "removed_admin", "ownership_transferred", "admin_permissions_updated" : {
                 System.out.println("🧩 Detected admin/owner role change. Calling handler...");
                 new Thread(() -> {
                     try {
@@ -174,7 +256,7 @@ public class IncomingMessageListener implements Runnable {
                 }).start();
             }
 
-            case "new_message" -> {
+            case "new_message" :{
                 JSONObject data = response.optJSONObject("data");
                 if (data == null) break;
 
@@ -198,7 +280,7 @@ public class IncomingMessageListener implements Runnable {
                 });
             }
 
-            case "message_edited" -> {
+            case "message_edited": {
                 JSONObject ui = normalizeMessageId(msg);
                 // (اختیاری) اگر ایونت زمان و چت را هم می‌دهد، می‌توانی چت‌لیست را آپدیت کنی
                 Platform.runLater(() -> {
@@ -208,7 +290,7 @@ public class IncomingMessageListener implements Runnable {
                 });
             }
 
-            case "message_deleted_global", "message_deleted_one_sided", "message_deleted" -> {
+            case "message_deleted_global", "message_deleted_one_sided", "message_deleted" : {
                 JSONObject ui = normalizeMessageId(msg);
                 Platform.runLater(() -> {
                     var mc = MainController.getInstance();
@@ -217,7 +299,7 @@ public class IncomingMessageListener implements Runnable {
                 });
             }
 
-            case "message_reacted", "message_unreacted" -> {
+            case "message_reacted", "message_unreacted" : {
                 JSONObject ui = normalizeMessageId(msg);
                 Platform.runLater(() -> {
                     var mc = MainController.getInstance();
@@ -228,12 +310,12 @@ public class IncomingMessageListener implements Runnable {
 
 
 
-            case "chat_updated" -> {
+            case "chat_updated": {
                 var data = response.getJSONObject("data");
                 bumpChatListFromUpdate(data);
             }
 
-            case "user_status_changed" -> {
+            case "user_status_changed" : {
 
                 displayRealTimeMessage(action, msg);
                 Platform.runLater(() -> {
@@ -250,11 +332,11 @@ public class IncomingMessageListener implements Runnable {
 
 
 
-            case "blocked_by_user", "unblocked_by_user", "message_seen" -> {
+            case "blocked_by_user", "unblocked_by_user", "message_seen" : {
                 displayRealTimeMessage(action, msg);
             }
 
-            default -> {
+            default :{
                 System.out.println("\n❓ Unknown real-time action: " + action);
                 System.out.println(msg.toString(2));
             }
@@ -547,6 +629,19 @@ public class IncomingMessageListener implements Runnable {
             return copy;
         }
         return j;
+    }
+
+
+    private void removeFromAllLists(UUID chatId) {
+        if (Session.chatList != null) {
+            Session.chatList.removeIf(c -> chatId.toString().equals(String.valueOf(c.getId())));
+        }
+        if (Session.activeChats != null) {
+            Session.activeChats.removeIf(c -> chatId.toString().equals(String.valueOf(c.getId())));
+        }
+        if (Session.archivedChats != null) {
+            Session.archivedChats.removeIf(c -> chatId.toString().equals(String.valueOf(c.getId())));
+        }
     }
 
 
