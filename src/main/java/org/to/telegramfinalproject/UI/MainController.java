@@ -156,7 +156,7 @@ public class MainController {
     }
 
 
-    void refreshChatListUI() {
+    public void refreshChatListUI() {
         Platform.runLater(() -> {
             chatListContainer.getChildren().clear();
             itemControllers.clear();
@@ -433,31 +433,81 @@ public class MainController {
         }
     }
 
+//    void openChat(ChatEntry chat) {
+//        try {
+//            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_page.fxml"));
+//            Node chatPage = loader.load();
+//
+//
+//
+//
+//
+//
+//
+//            ChatPageController controller = loader.getController();
+//            controller.showChat(chat);
+//
+//            this.chatPageController = controller;
+//            Session.currentChatId = chat.getId().toString();
+//
+//            chatDisplayArea.getChildren().setAll(chatPage);
+//            chat.setUnreadCount(0);
+//            ChatItemController item = itemControllers.get(chat.getId());
+//            if (item != null) item.setUnread(0);
+//
+//        } catch (IOException ex) {
+//            ex.printStackTrace();
+//        }
+//    }
+
     void openChat(ChatEntry chat) {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_page.fxml"));
-            Node chatPage = loader.load();
+        // فقط برای پرایوت: اول بلاک/بلاک‌شدن را چک کن، بعد مود را تعیین کن
+        if ("private".equalsIgnoreCase(chat.getType())) {
+            final String viewerId = org.to.telegramfinalproject.Client.Session.getUserUUID(); // internal_uuid کاربر فعلی
+            if (viewerId != null && !viewerId.isBlank()) {
+                new Thread(() -> {
+                    org.json.JSONObject req = new org.json.JSONObject()
+                            .put("action", "check_block_status_by_chat")
+                            .put("viewer_id", viewerId)
+                            .put("chat_id", chat.getId().toString());
 
+                    org.json.JSONObject res = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
 
+                    boolean blockedByMe = false;
+                    boolean blockedMe   = false;
+                    if (res != null && "success".equalsIgnoreCase(res.optString("status"))) {
+                        org.json.JSONObject data = res.optJSONObject("data");
+                        if (data != null) {
+                            // اسم فیلدها را با سرور خودت یکی کن
+                            blockedByMe = data.optBoolean("blocked_by_me", false) || data.optBoolean("is_blocked", false);
+                            blockedMe   = data.optBoolean("blocked_me", false);
+                        }
+                    }
 
+                    final ChatViewMode mode = blockedByMe
+                            ? ChatViewMode.BLOCKED
+                            : (blockedMe ? ChatViewMode.READ_ONLY : ChatViewMode.NORMAL);
 
-
-
-
-            ChatPageController controller = loader.getController();
-            controller.showChat(chat);
-
-            this.chatPageController = controller;
-            Session.currentChatId = chat.getId().toString();
-
-            chatDisplayArea.getChildren().setAll(chatPage);
-            chat.setUnreadCount(0);
-            ChatItemController item = itemControllers.get(chat.getId());
-            if (item != null) item.setUnread(0);
-
-        } catch (IOException ex) {
-            ex.printStackTrace();
+                    Platform.runLater(() -> openChatWithMode(chat, mode));
+                }).start();
+                return; // نذار پایین دوباره باز شود
+            }
         }
+
+        if ("channel".equalsIgnoreCase(chat.getType())) {
+            boolean canPost =
+                    chat.isOwner() || chat.isAdmin() ||
+                            (chat.getPermissions() != null &&
+                                    chat.getPermissions().optBoolean("can_post", false));
+            // اگر فقط owner/admin ملاک توست، خط بالا را به این تغییر بده:
+            // boolean canPost = chat.isOwner() || chat.isAdmin();
+
+            openChatWithMode(chat, canPost ? ChatViewMode.NORMAL : ChatViewMode.READ_ONLY);
+            return;
+        }
+
+        // غیرپرایوت یا اگر viewerId نبود → نرمال
+        openChatWithMode(chat, ChatViewMode.NORMAL);
     }
 
 

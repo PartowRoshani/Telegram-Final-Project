@@ -15,8 +15,13 @@ module org.to.telegramfinalproject {
     requires spark.core;
     requires javax.servlet.api;
     requires mp3agic;
-    opens org.to.telegramfinalproject to javafx.fxml;
-    exports org.to.telegramfinalproject;
-    exports org.to.telegramfinalproject.Client;
+
+    // FXML کنترلرها در این پکیج‌اند:
+    opens org.to.telegramfinalproject.UI to javafx.fxml;
+    // اگر FXML از کلاس‌های Client هم استفاده می‌کند:
     opens org.to.telegramfinalproject.Client to javafx.fxml;
+
+    // فقط اگر لازم است از بیرون به این API‌ها کامپایل شود:
+    exports org.to.telegramfinalproject.Client;
+    // ⚠️ عمداً NOT exporting/opens ریشه‌ی پکیج، چون کلاس ندارد.
 }

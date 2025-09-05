@@ -64,6 +64,8 @@ public class ChatPageController {
     @FXML
     private ImageView searchIcon;
 
+    @FXML private VBox blockedPane;
+
     @FXML
     private Button moreButton;          // 3-dots button
     @FXML
@@ -114,6 +116,8 @@ public class ChatPageController {
 
     private boolean blockedByMeFlag = false;
     private boolean blockedMeFlag   = false;
+    private volatile boolean justJoinedThisChat = false;
+
 
 
     // ===== state =====
@@ -372,7 +376,6 @@ public class ChatPageController {
 //        if (!text.isEmpty()) {
 //            addMessage("You", text);
 //            messageInput.clear();
-//            // TODO: send to server
 //        }
 //    }
 
@@ -691,7 +694,7 @@ public class ChatPageController {
 //        messageContainer.getChildren().add(msg);
 //    }
 
-    private void addSystemMessage(String content) {
+    public void addSystemMessage(String content) {
         Label sys = new Label(content);
         sys.setStyle("-fx-text-fill: gray; -fx-font-size: 11;");
         messageContainer.getChildren().add(sys);
@@ -699,38 +702,38 @@ public class ChatPageController {
         messageScrollPane.setVvalue(1.0);
     }
 
-    /**
-     * Update all header/footer icons according to current theme.
-     */
-    private void syncIconsWithTheme() {
-        boolean dark = themeManager.isDarkMode();
-        // We use “_light” icons on dark backgrounds, and “_dark” on light backgrounds.
-        String suffix = dark ? "_light.png" : "_dark.png";
-
-        // attachment
-        if (attachmentIcon != null) {
-            attachmentIcon.setImage(loadIcon("attachment" + suffix));
-        }
-        // send
-        if (sendIcon != null) {
-            sendIcon.setImage(loadIcon("send_cyan2.png"));
-        }
-        // header icons
-        if (searchIcon != null) {
-            searchIcon.setImage(loadIcon("search" + suffix));
-        }
-        if (moreIcon != null) {
-            moreIcon.setImage(loadIcon("more" + suffix));
-        }
-
-        // header text tint (if you’re not fully relying on CSS)
-        if (chatTitle != null) chatTitle.setStyle(dark ? "-fx-text-fill:#e8f1f8;" : "-fx-text-fill:#0f141a;");
-        if (chatStatus != null) chatStatus.setStyle(dark ? "-fx-text-fill:#8ea1b2;" : "-fx-text-fill:#7e8a97;");
-
-        // View profile icon in more button
-        ((ImageView) viewProfileItem.getGraphic())
-                .setImage(loadIcon("view_profile" + suffix));
-    }
+//    /**
+//     * Update all header/footer icons according to current theme.
+//     */
+//    private void syncIconsWithTheme() {
+//        boolean dark = themeManager.isDarkMode();
+//        // We use “_light” icons on dark backgrounds, and “_dark” on light backgrounds.
+//        String suffix = dark ? "_light.png" : "_dark.png";
+//
+//        // attachment
+//        if (attachmentIcon != null) {
+//            attachmentIcon.setImage(loadIcon("attachment" + suffix));
+//        }
+//        // send
+//        if (sendIcon != null) {
+//            sendIcon.setImage(loadIcon("send_cyan2.png"));
+//        }
+//        // header icons
+//        if (searchIcon != null) {
+//            searchIcon.setImage(loadIcon("search" + suffix));
+//        }
+//        if (moreIcon != null) {
+//            moreIcon.setImage(loadIcon("more" + suffix));
+//        }
+//
+//        // header text tint (if you’re not fully relying on CSS)
+//        if (chatTitle != null) chatTitle.setStyle(dark ? "-fx-text-fill:#e8f1f8;" : "-fx-text-fill:#0f141a;");
+//        if (chatStatus != null) chatStatus.setStyle(dark ? "-fx-text-fill:#8ea1b2;" : "-fx-text-fill:#7e8a97;");
+//
+//        // View profile icon in more button
+//        ((ImageView) viewProfileItem.getGraphic())
+//                .setImage(loadIcon("view_profile" + suffix));
+//    }
 
     private Image loadIcon(String filename) {
         var url = getClass().getResource(ICON_BASE + filename);
@@ -759,7 +762,7 @@ public class ChatPageController {
 //        } else {
 //            setDefaultHeaderAvatarByType(entry.getType());
 //        }
-////        userAvatar.setClip(new Circle(20, 20, 20));
+    ////        userAvatar.setClip(new Circle(20, 20, 20));
 //        AvatarFX.circleClip(userAvatar, 36);
 //
 //
@@ -800,37 +803,37 @@ public class ChatPageController {
 //    }
 
 
-public void showChat(ChatEntry entry) {
-    this.currentChat = entry;
-    this.chatName = entry.getName();
+    public void showChat(ChatEntry entry) {
+        this.currentChat = entry;
+        this.chatName = entry.getName();
 
-    chatTitle.setText(entry.getName());
-    if (entry.getImageUrl() != null && !entry.getImageUrl().isEmpty()) {
-        Image img = AvatarLocalResolver.load(entry.getImageUrl());
-        if (img != null) userAvatar.setImage(img); else setDefaultHeaderAvatarByType(entry.getType());
-    } else {
-        setDefaultHeaderAvatarByType(entry.getType());
+        chatTitle.setText(entry.getName());
+        if (entry.getImageUrl() != null && !entry.getImageUrl().isEmpty()) {
+            Image img = AvatarLocalResolver.load(entry.getImageUrl());
+            if (img != null) userAvatar.setImage(img); else setDefaultHeaderAvatarByType(entry.getType());
+        } else {
+            setDefaultHeaderAvatarByType(entry.getType());
+        }
+        AvatarFX.circleClip(userAvatar, 36);
+
+
+        // حالت اولیه (بدون انتظار هدر)
+        if ("channel".equalsIgnoreCase(entry.getType())) {
+            boolean canPostLocal = entry.isOwner() || entry.isAdmin()
+                    || (entry.getPermissions()!=null && entry.getPermissions().optBoolean("can_post", false));
+            applyMode(canPostLocal ? ChatViewMode.NORMAL : ChatViewMode.READ_ONLY);
+        } else {
+            applyMode(ChatViewMode.NORMAL);
+        }
+
+        messageContainer.getChildren().clear();
+        loadMessages(entry);
+        markAsRead(entry);
+
+        // حالا هدر بیاد، دوباره نهایی‌اش می‌کنیم
+        fetchAndRenderHeader(entry);
+
     }
-    AvatarFX.circleClip(userAvatar, 36);
-
-
-    // حالت اولیه (بدون انتظار هدر)
-    if ("channel".equalsIgnoreCase(entry.getType())) {
-        boolean canPostLocal = entry.isOwner() || entry.isAdmin()
-                || (entry.getPermissions()!=null && entry.getPermissions().optBoolean("can_post", false));
-        applyMode(canPostLocal ? ChatViewMode.NORMAL : ChatViewMode.READ_ONLY);
-    } else {
-        applyMode(ChatViewMode.NORMAL);
-    }
-
-    messageContainer.getChildren().clear();
-    loadMessages(entry);
-    markAsRead(entry);
-
-    // حالا هدر بیاد، دوباره نهایی‌اش می‌کنیم
-    fetchAndRenderHeader(entry);
-
-}
 
 
 
@@ -1175,7 +1178,7 @@ public void showChat(ChatEntry entry) {
 //            menu.show(row, ev.getScreenX(), ev.getScreenY());
 //            ev.consume();
 //        });
-//// با کلیک معمولی هم اگر دوست داری:
+    //// با کلیک معمولی هم اگر دوست داری:
 //        row.setOnMouseClicked(ev -> {
 //            if (ev.getButton() == javafx.scene.input.MouseButton.PRIMARY && ev.getClickCount() == 1) {
 //                menu.show(row, ev.getScreenX(), ev.getScreenY());
@@ -1186,110 +1189,110 @@ public void showChat(ChatEntry entry) {
 
 
 
-private void addBubble(
-        boolean outgoing,
-        String displayName,
-        String type,
-        String content,
-        java.time.LocalDateTime sentAt,
-        String messageId,
-        String forwardedFrom,
-        String forwardedBy,
-        String replyToId,
-        boolean edited,
-        org.json.JSONArray reactions
-) {
-    // === Meta (نام + زمان) ===
-    String metaText = (displayName == null ? "" : displayName) + " • " + formatWhen(sentAt);
-    if (edited) metaText += " (edited)";
-    Label meta = new Label(metaText);
-    meta.setStyle("-fx-font-size: 11; -fx-text-fill: #7e8a97;");
-    meta.setWrapText(true);
-    // برچسب برای آپدیت‌های بعدی (edit)
-    meta.getProperties().put("role", "metaLabel");
+    private void addBubble(
+            boolean outgoing,
+            String displayName,
+            String type,
+            String content,
+            java.time.LocalDateTime sentAt,
+            String messageId,
+            String forwardedFrom,
+            String forwardedBy,
+            String replyToId,
+            boolean edited,
+            org.json.JSONArray reactions
+    ) {
+        // === Meta (نام + زمان) ===
+        String metaText = (displayName == null ? "" : displayName) + " • " + formatWhen(sentAt);
+        if (edited) metaText += " (edited)";
+        Label meta = new Label(metaText);
+        meta.setStyle("-fx-font-size: 11; -fx-text-fill: #7e8a97;");
+        meta.setWrapText(true);
+        // برچسب برای آپدیت‌های بعدی (edit)
+        meta.getProperties().put("role", "metaLabel");
 
-    // === متن/نوع پیام ===
-    String t = type == null ? "" : type.trim().toUpperCase();
-    boolean isText = t.isEmpty() ? (content != null && !content.isBlank()) : "TEXT".equals(t);
-    String bodyText = isText ? (content == null ? "" : content) : bracketLabel(t);
+        // === متن/نوع پیام ===
+        String t = type == null ? "" : type.trim().toUpperCase();
+        boolean isText = t.isEmpty() ? (content != null && !content.isBlank()) : "TEXT".equals(t);
+        String bodyText = isText ? (content == null ? "" : content) : bracketLabel(t);
 
-    Label msg = new Label(bodyText);
-    msg.setWrapText(true);
-    msg.setMinHeight(Region.USE_PREF_SIZE);
-    // برچسب برای آپدیت‌های بعدی (edit)
-    msg.getProperties().put("role", "msgLabel");
+        Label msg = new Label(bodyText);
+        msg.setWrapText(true);
+        msg.setMinHeight(Region.USE_PREF_SIZE);
+        // برچسب برای آپدیت‌های بعدی (edit)
+        msg.getProperties().put("role", "msgLabel");
 
-    // === رنگ بابل‌ها
-    boolean dark = themeManager.isDarkMode();
-    String mine   = dark ? "#2b7cff" : "#d8ecff";  // outgoing (من)
-    String theirs = dark ? "#2c333a" : "#f2f4f7";  // incoming (خیلی روشن به‌جای سفید)
-    String bg     = outgoing ? mine : theirs;
+        // === رنگ بابل‌ها
+        boolean dark = themeManager.isDarkMode();
+        String mine   = dark ? "#2b7cff" : "#d8ecff";  // outgoing (من)
+        String theirs = dark ? "#2c333a" : "#f2f4f7";  // incoming (خیلی روشن به‌جای سفید)
+        String bg     = outgoing ? mine : theirs;
 
-    msg.setStyle(
-            "-fx-background-color:" + bg + ";" +
-                    "-fx-padding:8 12;" +
-                    "-fx-background-radius:12;" +
-                    "-fx-max-width: 520;"
-    );
+        msg.setStyle(
+                "-fx-background-color:" + bg + ";" +
+                        "-fx-padding:8 12;" +
+                        "-fx-background-radius:12;" +
+                        "-fx-max-width: 520;"
+        );
 
-    // === بدنه‌ی بابل ===
-    VBox bubble = new VBox(4);
-    bubble.getChildren().add(meta);
+        // === بدنه‌ی بابل ===
+        VBox bubble = new VBox(4);
+        bubble.getChildren().add(meta);
 
-    // برچسب‌گذاری بابل برای پیدا کردنش در آپدیت‌های realtime
-    if (messageId != null && !messageId.isBlank()) {
-        bubble.getProperties().put("messageId", messageId);
-    }
-
-    // Forward header (اختیاری)
-    if (hasVal(forwardedFrom) || hasVal(forwardedBy)) {
-        bubble.getChildren().add(buildForwardHeader(forwardedFrom, forwardedBy));
-    }
-
-    // Reply preview (اختیاری)
-    if (hasVal(replyToId)) {
-        bubble.getChildren().add(buildReplyBoxFromIndex(replyToId));
-    }
-
-    // متن اصلی
-    bubble.getChildren().add(msg);
-
-    // Reactions (اختیاری) + برچسب برای تعویض سریع در ریِل‌تایم
-    if (reactions != null && reactions.length() > 0) {
-        Node rxBar = buildReactionsBarFromJson(reactions, dark);
-        rxBar.getProperties().put("role", "reactionsBar");
-        bubble.getChildren().add(rxBar);
-    }
-
-    // === ردیف چیدمان راست/چپ ===
-    HBox row = new HBox(bubble);
-    row.setFillHeight(true);
-    row.setSpacing(4);
-    row.setAlignment(outgoing ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
-    row.setPadding(new Insets(2, 6, 2, 6));
-
-    // اضافه به کانتینر
-    messageContainer.getChildren().add(row);
-
-    // ایندکس نود برای آپدیت/حذف realtime
-    if (messageId != null && !messageId.isBlank()) {
-        messageNodes.put(messageId, row);
-    }
-
-    boolean isMine = outgoing;
-
-    // منوی راست‌کلیک/کلیک (بدون تغییر در ساختار کدت)
-    ContextMenu menu = buildMessageMenu(isMine, messageId, type, content);
-    row.setOnContextMenuRequested(ev -> {
-        menu.show(row, ev.getScreenX(), ev.getScreenY());
-        ev.consume();
-    });
-    row.setOnMouseClicked(ev -> {
-        if (ev.getButton() == javafx.scene.input.MouseButton.PRIMARY && ev.getClickCount() == 1) {
-            menu.show(row, ev.getScreenX(), ev.getScreenY());
+        // برچسب‌گذاری بابل برای پیدا کردنش در آپدیت‌های realtime
+        if (messageId != null && !messageId.isBlank()) {
+            bubble.getProperties().put("messageId", messageId);
         }
-    });
-}
+
+        // Forward header (اختیاری)
+        if (hasVal(forwardedFrom) || hasVal(forwardedBy)) {
+            bubble.getChildren().add(buildForwardHeader(forwardedFrom, forwardedBy));
+        }
+
+        // Reply preview (اختیاری)
+        if (hasVal(replyToId)) {
+            bubble.getChildren().add(buildReplyBoxFromIndex(replyToId));
+        }
+
+        // متن اصلی
+        bubble.getChildren().add(msg);
+
+        // Reactions (اختیاری) + برچسب برای تعویض سریع در ریِل‌تایم
+        if (reactions != null && reactions.length() > 0) {
+            Node rxBar = buildReactionsBarFromJson(reactions, dark);
+            rxBar.getProperties().put("role", "reactionsBar");
+            bubble.getChildren().add(rxBar);
+        }
+
+        // === ردیف چیدمان راست/چپ ===
+        HBox row = new HBox(bubble);
+        row.setFillHeight(true);
+        row.setSpacing(4);
+        row.setAlignment(outgoing ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+        row.setPadding(new Insets(2, 6, 2, 6));
+
+        // اضافه به کانتینر
+        messageContainer.getChildren().add(row);
+
+        // ایندکس نود برای آپدیت/حذف realtime
+        if (messageId != null && !messageId.isBlank()) {
+            messageNodes.put(messageId, row);
+        }
+
+        boolean isMine = outgoing;
+
+        // منوی راست‌کلیک/کلیک (بدون تغییر در ساختار کدت)
+        ContextMenu menu = buildMessageMenu(isMine, messageId, type, content);
+        row.setOnContextMenuRequested(ev -> {
+            menu.show(row, ev.getScreenX(), ev.getScreenY());
+            ev.consume();
+        });
+        row.setOnMouseClicked(ev -> {
+            if (ev.getButton() == javafx.scene.input.MouseButton.PRIMARY && ev.getClickCount() == 1) {
+                menu.show(row, ev.getScreenX(), ev.getScreenY());
+            }
+        });
+    }
 
     private ContextMenu buildMessageMenu(boolean isMine, String messageId, String type, String content) {
         ContextMenu menu = new ContextMenu();
@@ -1748,18 +1751,10 @@ private void addBubble(
                 data.optString("last_seen", null)
         ));
 
-        // ⭐️ بلاک؟
-        boolean blocked = data.optBoolean("blocked", false)
-                || data.optBoolean("is_blocked", false)
-                || data.optBoolean("blocked_by_me", false);
-
-        if (blocked) {
-            if (readOnlyLabel != null) readOnlyLabel.setText(""); // فقط UNBLOCK را نشان بده
-            applyMode(ChatViewMode.BLOCKED);
-        } else {
-            applyMode(ChatViewMode.NORMAL);
-        }
+        // ❌ هیچ applyMode اینجا نزن!
+        // حتی اگر blocked آمد، تصمیم مود از بیرون می‌آید.
     }
+
 
 
     private void updateGroupHeader(ChatEntry entry, JSONObject data) {
@@ -1768,17 +1763,18 @@ private void addBubble(
         String img = data.optString("image_url", "");
         if (hasVal(img)) {
             try {
-                Image im = AvatarLocalResolver.load(img);  // ⬅️
+                Image im = AvatarLocalResolver.load(img);
                 if (im != null) userAvatar.setImage(im);
                 userAvatar.setClip(new Circle(20, 20, 20));
             } catch (Exception ignore) {}
         }
 
-
         int members = data.optInt("member_count", 0);
         int online  = data.optInt("online_count", -1);
         chatStatus.setText(online >= 0 ? (members + " members, " + online + " online")
                 : (members + " members"));
+
+        // ❌ هیچ applyMode اینجا نزن!
     }
 
 //    private void updateChannelHeader(ChatEntry entry, JSONObject data) {
@@ -1814,14 +1810,8 @@ private void addBubble(
         int subs = data.optInt("member_count", 0);
         chatStatus.setText(subs + " subscribers");
 
-        boolean canPost = canPostToChannel(entry, data);
-        if (canPost) {
-            applyMode(ChatViewMode.NORMAL);
-            Platform.runLater(() -> messageInput.requestFocus());
-        } else {
-            if (readOnlyLabel != null) readOnlyLabel.setText("YOU CAN’T SEND MESSAGES IN THIS CHANNEL");
-            applyMode(ChatViewMode.READ_ONLY);
-        }
+        // ❌ هیچ applyMode اینجا نزن!
+        // حتی اگر can_post را بده، به مود دست نزن.
     }
 
 
@@ -1876,11 +1866,46 @@ private void addBubble(
         ));
     }
 
+//    @FXML
+//    private void onJoinClicked() {
+//        if (currentChat == null) return;
+//
+//        // 1) internal_uuid کاربر فعلی (UUID)
+//        String myInternalUuid = Session.currentUser != null
+//                ? Session.currentUser.optString("internal_uuid", "")
+//                : "";
+//        if (myInternalUuid.isBlank()) {
+//            addSystemMessage("Join failed: missing current user internal_uuid.");
+//            return;
+//        }
+//
+//        // 2) internal_uuid مقصد (گروه/کانال)
+//        String targetId = currentChat.getId().toString();
+//
+//        // 3) نوع و نام اکشن
+//        String t = currentChat.getType();
+//        String action = "group".equalsIgnoreCase(t) ? "join_group" : "join_channel";
+//
+//        // 4) درخواست طبق قرارداد سرور (کلیدها: user_id = UUID کاربر، id = UUID مقصد)
+//        JSONObject req = new JSONObject()
+//                .put("action", action)
+//                .put("user_id", myInternalUuid) // ← UUID
+//                .put("id",       targetId);     // ← UUID گروه/کانال
+//
+//        JSONObject res = ActionHandler.sendWithResponse(req);
+//        if (res != null && "success".equalsIgnoreCase(res.optString("status"))) {
+//            MainController.getInstance().onJoinedOrAdded(currentChat);
+//            applyMode(ChatViewMode.NORMAL);
+//            Platform.runLater(() -> messageInput.requestFocus());
+//        } else {
+//            addSystemMessage("Join failed: " + (res != null ? res.optString("message","") : "no response"));
+//        }
+//    }
+
     @FXML
     private void onJoinClicked() {
         if (currentChat == null) return;
 
-        // 1) internal_uuid کاربر فعلی (UUID)
         String myInternalUuid = Session.currentUser != null
                 ? Session.currentUser.optString("internal_uuid", "")
                 : "";
@@ -1889,27 +1914,71 @@ private void addBubble(
             return;
         }
 
-        // 2) internal_uuid مقصد (گروه/کانال)
-        String targetId = currentChat.getId().toString();
+        final String targetId = currentChat.getId().toString();
+        final String t = currentChat.getType();
+        final String action = "group".equalsIgnoreCase(t) ? "join_group" : "join_channel";
 
-        // 3) نوع و نام اکشن
-        String t = currentChat.getType();
-        String action = "group".equalsIgnoreCase(t) ? "join_group" : "join_channel";
-
-        // 4) درخواست طبق قرارداد سرور (کلیدها: user_id = UUID کاربر، id = UUID مقصد)
         JSONObject req = new JSONObject()
                 .put("action", action)
-                .put("user_id", myInternalUuid) // ← UUID
-                .put("id",       targetId);     // ← UUID گروه/کانال
+                .put("user_id", myInternalUuid) // UUID من
+                .put("id", targetId);           // UUID مقصد
 
-        JSONObject res = ActionHandler.sendWithResponse(req);
-        if (res != null && "success".equalsIgnoreCase(res.optString("status"))) {
-            MainController.getInstance().onJoinedOrAdded(currentChat);
-            applyMode(ChatViewMode.NORMAL);
-            Platform.runLater(() -> messageInput.requestFocus());
-        } else {
-            addSystemMessage("Join failed: " + (res != null ? res.optString("message","") : "no response"));
-        }
+        // ⛔ روی ترد FX کال شبکه نزن!
+        new Thread(() -> {
+            JSONObject res = ActionHandler.sendWithResponse(req);
+            boolean ok = (res != null && "success".equalsIgnoreCase(res.optString("status")));
+
+            Platform.runLater(() -> {
+                if (!ok) {
+                    addSystemMessage("Join failed: " + (res != null ? res.optString("message","") : "no response"));
+                    return;
+                }
+
+                // برای جلوگیری از داون‌گِرید مود توسط هِدرِ بعدی:
+                justJoinedThisChat = true;
+
+                // اگر MainController نال نبود، لیست چت‌ها را آپدیت کن
+                var mc = MainController.getInstance();
+                if (mc != null) {
+                    mc.onJoinedOrAdded(currentChat);
+                }
+
+                // ⚠️ منطق: گروه → همیشه Composer باز شود.
+                //        کانال → اگر اجازه‌ی پست داری، Composer؛ وگرنه READ_ONLY با پیام.
+//                if ("group".equalsIgnoreCase(t)) {
+//                    applyMode(ChatViewMode.NORMAL);
+//                    messageInput.requestFocus();
+//                } else if ("channel".equalsIgnoreCase(t)) {
+//                    // اگر می‌خواهی «همان‌جا» Composer فعال شود، باید اجازه‌ی پست را
+//                    // یا از سرور بگیری یا لوکال ست کنی (طبق بیزینس‌لاک‌ت).
+//                    // این‌جا منطقی‌تر: فقط اگر واقعاً اجازه داری.
+//                    boolean canPost =
+//                            (currentChat.isOwner() || currentChat.isAdmin()) ||
+//                                    (currentChat.getPermissions()!=null && currentChat.getPermissions().optBoolean("can_post", false));
+//                    if (canPost) {
+//                        applyMode(ChatViewMode.NORMAL);
+//                        messageInput.requestFocus();
+//                    } else {
+//                        if (readOnlyLabel != null)
+//                            readOnlyLabel.setText("YOU CAN’T SEND MESSAGES IN THIS CHANNEL");
+//                        applyMode(ChatViewMode.READ_ONLY);
+//                    }
+//                } else {
+//                    applyMode(ChatViewMode.NORMAL);
+//                    messageInput.requestFocus();
+//                }
+
+                if ("group".equalsIgnoreCase(t)) {
+                    applyMode(ChatViewMode.NORMAL);
+                } else if ("channel".equalsIgnoreCase(t)) {
+                    // تصمیم بیزینسی: ثبت کن.
+                    applyMode(ChatViewMode.READ_ONLY);  // یا NORMAL اگر همین را می‌خواهی
+                }
+
+                // هدر را دوباره بگیر (ولی نگذار مود را خراب کند)
+                fetchAndRenderHeader(currentChat);
+            });
+        }).start();
     }
 
 //
@@ -2041,6 +2110,55 @@ private void addBubble(
 
 
 
+//    private void applyMode(ChatViewMode mode) {
+//        currentMode = mode;
+//
+//        boolean normal    = (mode == ChatViewMode.NORMAL);
+//        boolean needsJoin = (mode == ChatViewMode.NEEDS_JOIN);
+//        boolean needsAdd  = (mode == ChatViewMode.NEEDS_ADD_CONTACT);
+//        boolean readOnly  = (mode == ChatViewMode.READ_ONLY);
+//        boolean blocked   = (mode == ChatViewMode.BLOCKED);
+//
+//        // Composer فقط در حالت نرمال
+//        composerPane.setVisible(normal);
+//        composerPane.setManaged(normal);
+//
+//        // Join / Add
+//        joinPane.setVisible(needsJoin);
+//        joinPane.setManaged(needsJoin);
+//        addContactPane.setVisible(needsAdd);
+//        addContactPane.setManaged(needsAdd);
+//
+//        // پنل پایین برای READ_ONLY/BLOCKED
+//        boolean showRO = readOnly || blocked;
+//        if (readOnlyPane != null) {
+//            readOnlyPane.setVisible(showRO);
+//            readOnlyPane.setManaged(showRO);
+//        }
+//
+//        // متن آبی برای READ_ONLY
+//        if (readOnlyLabel != null) {
+//            readOnlyLabel.setVisible(readOnly);
+//            readOnlyLabel.setManaged(readOnly);
+//        }
+//
+//        // دکمهٔ قرمز UNBLOCK فقط در BLOCKED
+//        if (unblockBtn != null) {
+//            unblockBtn.setVisible(blocked);
+//            unblockBtn.setManaged(blocked);
+//        }
+//
+//        // متن دکمه‌های Join/Add
+//        if (needsJoin && joinButton != null && currentChat != null) {
+//            String what = "channel".equalsIgnoreCase(currentChat.getType()) ? "CHANNEL" : "GROUP";
+//            joinButton.setText(("Join " + what).toUpperCase());
+//        }
+//        if (needsAdd && addContactButton != null) {
+//            addContactButton.setText("ADD CONTACT");
+//        }
+//    }
+
+
     private void applyMode(ChatViewMode mode) {
         currentMode = mode;
 
@@ -2050,36 +2168,27 @@ private void addBubble(
         boolean readOnly  = (mode == ChatViewMode.READ_ONLY);
         boolean blocked   = (mode == ChatViewMode.BLOCKED);
 
-        // Composer فقط در حالت نرمال
+        // فقط در حالت نرمال: کامپوزر
         composerPane.setVisible(normal);
         composerPane.setManaged(normal);
 
-        // Join / Add
+        // پنل‌های Join / Add
         joinPane.setVisible(needsJoin);
         joinPane.setManaged(needsJoin);
         addContactPane.setVisible(needsAdd);
         addContactPane.setManaged(needsAdd);
 
-        // پنل پایین برای READ_ONLY/BLOCKED
-        boolean showRO = readOnly || blocked;
+        // پنل‌های پایین
         if (readOnlyPane != null) {
-            readOnlyPane.setVisible(showRO);
-            readOnlyPane.setManaged(showRO);
+            readOnlyPane.setVisible(readOnly);
+            readOnlyPane.setManaged(readOnly);
+        }
+        if (blockedPane != null) {
+            blockedPane.setVisible(blocked);
+            blockedPane.setManaged(blocked);
         }
 
-        // متن آبی برای READ_ONLY
-        if (readOnlyLabel != null) {
-            readOnlyLabel.setVisible(readOnly);
-            readOnlyLabel.setManaged(readOnly);
-        }
-
-        // دکمهٔ قرمز UNBLOCK فقط در BLOCKED
-        if (unblockBtn != null) {
-            unblockBtn.setVisible(blocked);
-            unblockBtn.setManaged(blocked);
-        }
-
-        // متن دکمه‌های Join/Add
+        // متن دکمه‌ها
         if (needsJoin && joinButton != null && currentChat != null) {
             String what = "channel".equalsIgnoreCase(currentChat.getType()) ? "CHANNEL" : "GROUP";
             joinButton.setText(("Join " + what).toUpperCase());
@@ -2090,29 +2199,50 @@ private void addBubble(
     }
 
 
+
+
     @FXML
     private void onUnblockClicked() {
         if (currentChat == null) return;
-        UUID other = currentChat.getOtherUserId();
-        if (other == null && currentChat.getDisplayId() == null) return;
 
-
-        org.json.JSONObject req = new org.json.JSONObject()
-                .put("action", "toggle_block")
-                .put("user_id", org.to.telegramfinalproject.Client.Session.currentUser.getString("user_id"))
-                .put("target_id", (other != null) ? other.toString() : currentChat.getDisplayId());
-
-        org.json.JSONObject res = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
-        boolean ok = (res != null) && ("ok".equalsIgnoreCase(res.optString("status"))
-                || "success".equalsIgnoreCase(res.optString("status")));
-
-        if (ok) {
-            applyMode(ChatViewMode.NORMAL);
-            Platform.runLater(() -> messageInput.requestFocus());
-        } else {
-            addSystemMessage("Unblock failed.");
+        final String viewerUuid = org.to.telegramfinalproject.Client.Session.getUserUUID(); // internal_uuid
+        if (viewerUuid == null || viewerUuid.isBlank()) {
+            addSystemMessage("Missing viewer UUID");
+            return;
         }
+
+        // شبکه روی بک‌گراند
+        new Thread(() -> {
+            // 1) اگر otherUserId نداشتیم، از سرور بگیر
+            java.util.UUID other = currentChat.getOtherUserId();
+            if (other == null) {
+                other = resolvePeerUuidFromServer(currentChat);
+            }
+            if (other == null) {
+                Platform.runLater(() -> addSystemMessage("Could not resolve peer UUID."));
+                return;
+            }
+
+            // 2) حالا درخواست آن‌بلاک
+            org.json.JSONObject req = new org.json.JSONObject()
+                    .put("action", "toggle_block")
+                    .put("user_id", viewerUuid)        // internal_uuid خودت
+                    .put("target_id", other.toString()); // internal_uuid طرف مقابل
+
+            org.json.JSONObject res = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
+            boolean ok = res != null && "success".equalsIgnoreCase(res.optString("status"));
+
+            Platform.runLater(() -> {
+                if (ok) {
+                    applyMode(ChatViewMode.NORMAL);
+                    messageInput.requestFocus();
+                } else {
+                    addSystemMessage("Unblock failed: " + (res != null ? res.optString("message","") : ""));
+                }
+            });
+        }).start();
     }
+
 
 
 
@@ -2586,6 +2716,62 @@ private void addBubble(
         addContactPane.setManaged(true);
     }
 
+
+    private void syncIconsWithTheme() {
+        boolean dark = themeManager.isDarkMode();
+        String suffix = dark ? "_light.png" : "_dark.png";
+
+        if (attachmentIcon != null) attachmentIcon.setImage(loadIcon("attachment" + suffix));
+        if (sendIcon != null)       sendIcon.setImage(loadIcon("send_cyan2.png"));
+        if (searchIcon != null)     searchIcon.setImage(loadIcon("search" + suffix));
+        if (moreIcon != null)       moreIcon.setImage(loadIcon("more" + suffix));
+
+        if (chatTitle != null)  chatTitle.setStyle(dark ? "-fx-text-fill:#e8f1f8;" : "-fx-text-fill:#0f141a;");
+        if (chatStatus != null) chatStatus.setStyle(dark ? "-fx-text-fill:#8ea1b2;" : "-fx-text-fill:#7e8a97;");
+
+        // 👇 این خط قبلاً ممکن بود NPE بده
+        if (viewProfileItem != null && viewProfileItem.getGraphic() instanceof ImageView iv) {
+            iv.setImage(loadIcon("view_profile" + suffix));
+        }
+    }
+
+
+
+    // ChatPageController
+
+    private UUID resolvePeerUuidFromServer(ChatEntry chat) {
+        if (chat == null || !"private".equalsIgnoreCase(chat.getType())) return null;
+
+        // اگر از قبل ست شده بود از همون استفاده کن
+        try {
+            UUID cached = chat.getOtherUserId();
+            if (cached != null) return cached;
+        } catch (Exception ignore) {}
+
+        // درخواست به سرور برای گرفتن target_id
+        org.json.JSONObject req = new org.json.JSONObject()
+                .put("action", "get_private_chat_target")
+                .put("chat_id", chat.getId().toString());
+        // اگر سمت سرور لازم دارد، می‌توانی viewer را هم بفرستی:
+        // .put("viewer_id", Session.getUserUUID());
+
+        org.json.JSONObject res = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
+        if (res == null || !"success".equalsIgnoreCase(res.optString("status"))) return null;
+
+        org.json.JSONObject data = res.optJSONObject("data");
+        if (data == null) return null;
+
+        String tid = data.optString("target_id", "");
+        if (tid == null || tid.isBlank()) return null;
+
+        try {
+            java.util.UUID target = java.util.UUID.fromString(tid);
+            chat.setOtherUserId(target); // کش محلی کن که دفعات بعد لازم نشه
+            return target;
+        } catch (Exception ignore) {
+            return null;
+        }
+    }
 
 
 

@@ -56,20 +56,25 @@
     -fx-background-color: transparent;
 }
 
-/* لینک‌استایل دکمه‌ها در بنر */
-.chat-footer-banner .footer-link-btn {
+
+
+.button.footer-link-btn {
     -fx-background-color: transparent;
-    -fx-text-fill: #1E88E5; /* آبی پیش‌فرض */
-    -fx-font-weight: 700;
-    -fx-padding: 6 12;
     -fx-background-insets: 0;
+    -fx-background-radius: 0;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 6 12;
+    -fx-font-weight: 700;
     -fx-cursor: hand;
+    -fx-effect: null;
+    -fx-text-fill: #1E88E5; /* پیش‌فرض آبی */
 }
-.chat-footer-banner .footer-link-btn:hover {
+.button.footer-link-btn:hover {
     -fx-underline: true;
 }
 
-/* نسخه قرمز برای UNBLOCK */
-.chat-footer-banner .footer-link-btn.danger {
-    -fx-text-fill: #D32F2F; /* قرمز */
+/* نسخه‌ی قرمز برای UNBLOCK */
+.button.footer-link-btn.danger {
+    -fx-text-fill: #D32F2F;
 }

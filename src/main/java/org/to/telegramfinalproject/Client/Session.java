@@ -133,7 +133,6 @@ public class Session {
         resortAndRefresh();
     }
 
-    /** سورت بر اساس lastMessageTime (نزولی) و آپدیت active/archived */
     public static void resortAndRefresh() {
         chatList.sort((c1, c2) -> {
             if (c1.getLastMessageTime() == null && c2.getLastMessageTime() == null) return 0;

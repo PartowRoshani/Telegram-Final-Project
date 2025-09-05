@@ -147,10 +147,14 @@
           visible="false" managed="false" styleClass="chat-footer-banner">
         <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
-        <Button fx:id="unblockBtn"
+        <Button
+                fx:id="unblockBtn"
+                id="unblockAction"
                 text="UNBLOCK"
                 onAction="#onUnblockClicked"
-                styleClass="footer-link-btn danger"/>
+                styleClass="footer-link-btn danger"
+                style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-background-radius: 0; -fx-border-color: transparent; -fx-border-width: 0; -fx-text-fill: #D32F2F; -fx-font-weight: 700; -fx-padding: 6 12; -fx-effect: null;"/>
+
     </VBox>
 
 
