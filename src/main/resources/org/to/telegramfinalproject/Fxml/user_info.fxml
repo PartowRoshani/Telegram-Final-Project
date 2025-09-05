@@ -24,7 +24,7 @@
             <Pane HBox.hgrow="ALWAYS"/> <!-- pushes buttons to right -->
 
             <!-- More / overflow -->
-            <Button fx:id="moreButton" styleClass="icon-button">
+            <Button fx:id="infoMoreButton" styleClass="icon-button">
                 <graphic>
                     <ImageView fx:id="moreIcon" fitWidth="18" fitHeight="18" preserveRatio="true">
                         <image>
@@ -33,7 +33,7 @@
                     </ImageView>
                 </graphic>
                 <contextMenu>
-                    <ContextMenu fx:id="moreMenu">
+                    <ContextMenu fx:id="infoMoreMenu">
                         <items>
                             <MenuItem fx:id="deleteChatItem" text="Delete chat" style="-fx-text-fill: red;">
                                 <graphic>
@@ -113,7 +113,7 @@
                     <ImageView fx:id="usernameIcon" fitWidth="16" fitHeight="16" preserveRatio="true"
                                styleClass="info-icon">
                         <image>
-                            <Image url="@/org/to/telegramfinalproject/Icons/user_id_dark.png"/>
+                            <Image url="@/org/to/telegramfinalproject/Icons/username_dark.png"/>
                         </image>
                     </ImageView>
 

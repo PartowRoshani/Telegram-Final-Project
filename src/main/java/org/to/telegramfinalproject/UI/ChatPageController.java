@@ -71,15 +71,17 @@ public class ChatPageController {
     @FXML private VBox blockedPane;
 
     @FXML
-    private Button moreButton;          // 3-dots button
+    private Button chatMoreButton;          // 3-dots button
     @FXML
     private ImageView moreIcon;
     @FXML
-    private ContextMenu moreMenu;
+    private ContextMenu chatMoreMenu;
     @FXML
     private MenuItem viewProfileItem;
     @FXML
     private MenuItem deleteChatItem;
+    @FXML
+    private MenuItem archiveItem;
 
     // ===== send icon =====
     @FXML
@@ -262,12 +264,12 @@ public class ChatPageController {
         }
 
         // Hook "More" button → show menu under it
-        if (moreButton != null) {
-            moreButton.setOnAction(e -> {
-                if (!moreMenu.isShowing()) {
-                    moreMenu.show(moreButton, Side.BOTTOM, 0, 0);
+        if (chatMoreButton != null) {
+            chatMoreButton.setOnAction(e -> {
+                if (!chatMoreMenu.isShowing()) {
+                    chatMoreMenu.show(chatMoreButton, Side.BOTTOM, 0, 0);
                 } else {
-                    moreMenu.hide();
+                    chatMoreMenu.hide();
                 }
             });
         }
@@ -282,6 +284,19 @@ public class ChatPageController {
             System.out.println("Deleting chat with " + chatName);
             // TODO: delete logic
         });
+
+        if (archiveItem != null) {
+            archiveItem.setOnAction(e -> {
+                System.out.println("Toggling archive for chat " + chatName);
+                // TODO: backend call → toggleArchive(chatId, type)
+                // Also update text: "Archive chat" ↔ "Unarchive chat"
+                if ("Archive chat".equals(archiveItem.getText())) {
+                    archiveItem.setText("Unarchive chat");
+                } else {
+                    archiveItem.setText("Archive chat");
+                }
+            });
+        }
 
         // Initial icon sync once the Scene is ready (stylesheet applied)
         Platform.runLater(this::syncIconsWithTheme);
@@ -933,42 +948,34 @@ public class ChatPageController {
     }
 
     private void configureHeaderActions(ChatEntry entry) {
-        moreMenu.getItems().clear();
+        chatMoreMenu.getItems().clear();
 
         switch (entry.getType().toLowerCase(Locale.ROOT)) {
             case "private" -> {
-                MenuItem viewProfile = new MenuItem("View profile");
-                viewProfile.setOnAction(e -> openInfoScene(entry));
-
-                MenuItem deleteChat = new MenuItem("Delete chat");
-                deleteChat.setStyle("-fx-text-fill: red;");
-                deleteChat.setOnAction(e -> deleteChatButton(entry));
-
-                moreMenu.getItems().addAll(viewProfile, deleteChat);
+                archiveItem.setOnAction(e -> toggleArchive(entry));
+                viewProfileItem.setOnAction(e -> openInfoScene(entry));
+                deleteChatItem.setOnAction(e -> deleteChatButton(entry));
+                chatMoreMenu.getItems().addAll(archiveItem, viewProfileItem, deleteChatItem);
             }
             case "group" -> {
                 MenuItem viewGroup = new MenuItem("View group info");
                 viewGroup.setOnAction(e -> openInfoScene(entry));
-
                 MenuItem leaveGroup = new MenuItem("Leave group");
                 leaveGroup.setOnAction(e -> leaveGroupButton(entry));
-
-                moreMenu.getItems().addAll(viewGroup, leaveGroup);
+                chatMoreMenu.getItems().addAll(viewGroup, leaveGroup);
             }
             case "channel" -> {
                 MenuItem viewChannel = new MenuItem("View channel info");
                 viewChannel.setOnAction(e -> openInfoScene(entry));
-
                 MenuItem leaveChannel = new MenuItem("Leave channel");
                 leaveChannel.setOnAction(e -> leaveChannelButton(entry));
-
-                moreMenu.getItems().addAll(viewChannel, leaveChannel);
+                chatMoreMenu.getItems().addAll(viewChannel, leaveChannel);
             }
         }
 
-        // Clicking header (but not the 3-dot) → open info scene
+        // Header click opens info
         chatHeader.setOnMouseClicked(e -> {
-            if (!moreButton.equals(e.getTarget())) {
+            if (!chatMoreButton.equals(e.getTarget())) {
                 openInfoScene(entry);
             }
         });
@@ -1135,6 +1142,19 @@ public class ChatPageController {
         JSONObject resp = ActionHandler.sendWithResponse(req);
         if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
             MainController.getInstance().closeCurrentChat();
+        }
+    }
+
+    private void toggleArchive(ChatEntry entry) {
+        if (entry == null) return;
+
+        // Just toggle the text for now
+        if ("Archive chat".equals(archiveItem.getText())) {
+            archiveItem.setText("Unarchive chat");
+            System.out.println("Pretend: chat " + entry.getName() + " archived.");
+        } else {
+            archiveItem.setText("Archive chat");
+            System.out.println("Pretend: chat " + entry.getName() + " unarchived.");
         }
     }
 
@@ -2945,20 +2965,24 @@ public class ChatPageController {
         String suffix = dark ? "_light.png" : "_dark.png";
 
         if (attachmentIcon != null) attachmentIcon.setImage(loadIcon("attachment" + suffix));
-        if (sendIcon != null)       sendIcon.setImage(loadIcon("send_cyan2.png"));
+        if (sendIcon != null)       sendIcon.setImage(loadIcon("send_cyan2.png")); // always cyan
         if (searchIcon != null)     searchIcon.setImage(loadIcon("search" + suffix));
         if (moreIcon != null)       moreIcon.setImage(loadIcon("more" + suffix));
 
         if (chatTitle != null)  chatTitle.setStyle(dark ? "-fx-text-fill:#e8f1f8;" : "-fx-text-fill:#0f141a;");
         if (chatStatus != null) chatStatus.setStyle(dark ? "-fx-text-fill:#8ea1b2;" : "-fx-text-fill:#7e8a97;");
 
-        // 👇 این خط قبلاً ممکن بود NPE بده
+        // === Context menu icons ===
+        if (archiveItem != null && archiveItem.getGraphic() instanceof ImageView iv) {
+            iv.setImage(loadIcon("archived_chats" + suffix));
+        }
         if (viewProfileItem != null && viewProfileItem.getGraphic() instanceof ImageView iv) {
             iv.setImage(loadIcon("view_profile" + suffix));
         }
+        if (deleteChatItem != null && deleteChatItem.getGraphic() instanceof ImageView iv) {
+            iv.setImage(loadIcon("delete_red.png")); // stays red in both themes
+        }
     }
-
-
 
     // ChatPageController
 
@@ -2995,8 +3019,5 @@ public class ChatPageController {
             return null;
         }
     }
-
-
-
 
 }

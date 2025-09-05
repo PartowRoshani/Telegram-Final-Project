@@ -30,8 +30,8 @@ public class UserInfoController {
     @FXML private HBox usernameBlock;
     @FXML private Label userId;
 
-    @FXML private Button moreButton;
-    @FXML private ContextMenu moreMenu;
+    @FXML private Button infoMoreButton;
+    @FXML private ContextMenu infoMoreMenu;
     @FXML private MenuItem deleteChatItem;
     @FXML private MenuItem blockItem;
     @FXML private MenuItem unblockItem;
@@ -51,21 +51,21 @@ public class UserInfoController {
                 MainController.getInstance().closeOverlay(profileCard.getParent()));
 
         // Show menu manually
-        moreButton.setOnAction(e -> {
-            if (moreMenu != null) {
-                moreMenu.show(moreButton, javafx.geometry.Side.BOTTOM, 0, 0);
+        infoMoreButton.setOnAction(e -> {
+            if (infoMoreMenu != null) {
+                infoMoreMenu.show(infoMoreButton, javafx.geometry.Side.BOTTOM, 0, 0);
             }
         });
 
         // Hide menu when clicking outside
         Platform.runLater(() -> {
-            if (moreButton.getScene() != null) {
-                moreButton.getScene().addEventFilter(
+            if (infoMoreButton.getScene() != null) {
+                infoMoreButton.getScene().addEventFilter(
                         javafx.scene.input.MouseEvent.MOUSE_PRESSED, ev -> {
-                            if (moreMenu.isShowing()
-                                    && !moreButton.localToScreen(moreButton.getBoundsInLocal())
+                            if (infoMoreMenu.isShowing()
+                                    && !infoMoreButton.localToScreen(infoMoreButton.getBoundsInLocal())
                                     .contains(ev.getScreenX(), ev.getScreenY())) {
-                                moreMenu.hide();
+                                infoMoreMenu.hide();
                             }
                         }
                 );
@@ -197,7 +197,7 @@ public class UserInfoController {
 
         moreIcon.setImage(loadImage(ICON_PATH + "more" + suffix));
         bioIcon.setImage(loadImage(ICON_PATH + "bio" + suffix));
-        usernameIcon.setImage(loadImage(ICON_PATH + "user_id" + suffix));
+        usernameIcon.setImage(loadImage(ICON_PATH + "username" + suffix));
     }
 
     // --- helpers -------------------------------------------------------------

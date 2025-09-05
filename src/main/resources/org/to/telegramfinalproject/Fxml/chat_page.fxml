@@ -41,19 +41,27 @@
         </Button>
 
         <!-- More / overflow -->
-        <Button fx:id="moreButton" styleClass="icon-btn">
+        <Button fx:id="chatMoreButton" styleClass="icon-btn">
             <graphic>
                 <ImageView fx:id="moreIcon" fitWidth="18" fitHeight="18" preserveRatio="true">
                     <image><Image url="@/org/to/telegramfinalproject/Icons/more_light.png"/></image>
                 </ImageView>
             </graphic>
             <contextMenu>
-                <ContextMenu fx:id="moreMenu">
+                <ContextMenu fx:id="chatMoreMenu">
                     <items>
+                        <MenuItem fx:id="archiveItem" text="Archive chat">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/archived_chats_dark.png"/>
+                                    </image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
                         <MenuItem fx:id="viewProfileItem" text="View profile">
                             <graphic>
                                 <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
-                                    <image><Image url="@/org/to/telegramfinalproject/Icons/view_profile_light.png"/></image>
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/view_profile_dark.png"/></image>
                                 </ImageView>
                             </graphic>
                         </MenuItem>
