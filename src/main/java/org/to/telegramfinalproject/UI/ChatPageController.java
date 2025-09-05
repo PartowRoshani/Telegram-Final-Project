@@ -83,6 +83,13 @@ public class ChatPageController {
     @FXML
     private MenuItem archiveItem;
 
+    // ===== Group & Channel more button =====
+    @FXML private MenuItem viewGroupItem;
+    @FXML private MenuItem leaveGroupItem;
+
+    @FXML private MenuItem viewChannelItem;
+    @FXML private MenuItem leaveChannelItem;
+
     // ===== send icon =====
     @FXML
     private ImageView sendIcon;
@@ -842,7 +849,7 @@ public class ChatPageController {
         } else {
             setDefaultHeaderAvatarByType(entry.getType());
         }
-        AvatarFX.circleClip(userAvatar, 40);
+        AvatarFX.circleClip(userAvatar, 36);
 
 
         // حالت اولیه (بدون انتظار هدر)
@@ -1043,7 +1050,7 @@ public class ChatPageController {
             }
         }
 
-        final String finalTargetId = targetId; // 👈 capture for use in the FX thread
+        final String finalTargetId = targetId;
 
         new Thread(() -> {
             JSONObject resp = ActionHandler.sendWithResponse(req);
