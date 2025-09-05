@@ -15,6 +15,8 @@ import org.to.telegramfinalproject.Client.Session;
 import org.to.telegramfinalproject.Models.ChatEntry;
 
 import java.net.URL;
+import java.util.Optional;
+import java.util.UUID;
 
 public class UserInfoController {
 
@@ -38,6 +40,8 @@ public class UserInfoController {
     @FXML private ImageView moreIcon;
     @FXML private ImageView bioIcon;
     @FXML private ImageView usernameIcon;
+    @FXML private Button deleteChatButton;
+
 
     private String otherUserId; // internal_uuid of the other user
 
@@ -72,7 +76,7 @@ public class UserInfoController {
             }
         });
 
-        deleteChatItem.setOnAction(e -> handleDeleteChat());
+        deleteChatItem.setOnAction(e -> onDeleteChatClicked());
         blockItem.setOnAction(e -> handleBlock());
         unblockItem.setOnAction(e -> handleUnblock());
 
@@ -162,6 +166,106 @@ public class UserInfoController {
             MainController.getInstance().closeOverlay(profileCard.getParent());
         }
     }
+
+
+
+    @FXML
+    private void onDeleteChatClicked() {
+//        if (!"private".equalsIgnoreCase(Session.currentChatType)) {
+//            new Alert(Alert.AlertType.INFORMATION, "This action is available only for private chats.").showAndWait();
+//            return;
+//        }
+
+        UUID chatId = Session.currentChatEntry != null
+                ? Session.currentChatEntry.getId()
+                : (Session.currentChatId != null ? UUID.fromString(Session.currentChatId) : null);
+
+        if (chatId == null) {
+            new Alert(Alert.AlertType.ERROR, "Invalid chat id.").showAndWait();
+            return;
+        }
+
+        ButtonType oneSide  = new ButtonType("Delete one-sided", ButtonBar.ButtonData.LEFT);
+        ButtonType bothSide = new ButtonType("Delete both-sided", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancel   = ButtonType.CANCEL;
+
+        Alert dlg = new Alert(
+                Alert.AlertType.CONFIRMATION,
+                "Choose how you want to delete this private chat:",
+                oneSide, bothSide, cancel
+        );
+        dlg.setHeaderText("Delete Private Chat");
+
+        Optional<ButtonType> res = dlg.showAndWait();
+        if (res.isEmpty() || res.get() == cancel) return;
+
+        boolean both = (res.get() == bothSide);
+        performDeletePrivateChat(chatId, both);
+    }
+
+
+    private void performDeletePrivateChat(UUID chatId, boolean both) {
+        // نال‌سیف: هر کدوم هست disable کن
+        if (deleteChatButton != null) deleteChatButton.setDisable(true);
+        if (deleteChatItem   != null) deleteChatItem.setDisable(true);
+        if (infoMoreMenu != null && infoMoreMenu.isShowing()) infoMoreMenu.hide();
+        if (infoMoreButton != null) infoMoreButton.setDisable(true);
+
+        new Thread(() -> {
+            JSONObject req = new JSONObject()
+                    .put("action", "delete_private_chat")
+                    .put("chat_id", chatId.toString())
+                    .put("both", both);
+
+            JSONObject resp = ActionHandler.sendWithResponse(req);
+
+            Platform.runLater(() -> {
+                // re-enable نال‌سیف
+                if (deleteChatButton != null) deleteChatButton.setDisable(false);
+                if (deleteChatItem   != null) deleteChatItem.setDisable(false);
+                if (infoMoreButton   != null) infoMoreButton.setDisable(false);
+
+                if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
+                    removeChatFromSessionAndGoBack(chatId);
+                    MainController.getInstance().closeOverlay(profileCard.getParent());
+
+//                    new Alert(Alert.AlertType.INFORMATION,
+//                            "Chat deleted " + (both ? "for both sides." : "only for you.")
+//                    ).showAndWait();
+                } else {
+                    String msg = (resp != null ? resp.optString("message", "Unknown error")
+                            : "No response from server.");
+                    new Alert(Alert.AlertType.ERROR, "Failed to delete chat: " + msg).showAndWait();
+                }
+            });
+        }).start();
+    }
+
+
+    private void removeChatFromSessionAndGoBack(UUID chatId) {
+//        if (Session.chatList != null)      Session.chatList.removeIf(e -> chatId.equals(e.getId()));
+//        if (Session.activeChats != null)   Session.activeChats.removeIf(e -> chatId.equals(e.getId()));
+//        if (Session.archivedChats != null) Session.archivedChats.removeIf(e -> chatId.equals(e.getId()));
+
+        if (Session.currentChatId != null && Session.currentChatId.equals(chatId.toString())) {
+            Session.currentChatId = null;
+            Session.currentChatType = null;
+            Session.currentChatEntry = null;
+            Session.inChatMenu = false;
+
+            MainController.getInstance().closeOverlay(profileCard.getParent());
+
+            AppRouter.showMain();
+            return;
+        }
+
+        try {
+            MainController.getInstance().refreshChatListUI();
+        } catch (Exception ignore) {
+            AppRouter.showMain();
+        }
+    }
+
 
     private void handleBlock() {
         JSONObject req = new JSONObject()
