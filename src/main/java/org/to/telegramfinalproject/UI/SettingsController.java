@@ -10,6 +10,9 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
+import org.json.JSONObject;
+import org.to.telegramfinalproject.Client.ActionHandler;
+import org.to.telegramfinalproject.Client.Session;
 
 import java.io.IOException;
 import java.net.URL;
@@ -48,7 +51,7 @@ public class SettingsController {
         instance = this;
 
         editProfileItem.setOnAction(e -> openEditProfile());
-        logoutItem.setOnAction(e -> System.out.println("Log Out clicked"));
+        logoutItem.setOnAction(e -> onLogoutClicked());
 
         populateFromSession();
 
@@ -230,4 +233,33 @@ public class SettingsController {
         Circle clip = new Circle(38, 38, 38); // centerX, centerY, radius
         profileImage.setClip(clip);
     }
+
+    // جایی مثل SidebarMenuController یا MainController
+    private void onLogoutClicked() {
+        new Thread(() -> {
+            JSONObject req = new JSONObject().put("action","logout"); // user_id لازم نیست
+             req.put("user_id",Session.getUserUUID()); // user_id لازم نیست
+
+            JSONObject res = ActionHandler.sendWithResponse(req);
+
+            Platform.runLater(() -> {
+                if (res != null && "success".equalsIgnoreCase(res.optString("status"))) {
+                    try {
+                        // قطع ارتباط/لیسنر (اگر متد داری)
+                        // TelegramClient.disconnect();
+                    } catch (Exception ignore) {}
+
+                    // پاک‌سازی امن سشن (ترجیحاً clear به‌جای null)
+                    Session.currentUser = null;
+                    Session.chatList = null;
+                    AppRouter.showIntro();   // intro.fxml
+                } else {
+                    new Alert(Alert.AlertType.ERROR,
+                            "Logout not successful: " + (res != null ? res.optString("message") : "No response")
+                    ).showAndWait();
+                }
+            });
+        }).start();
+    }
+
 }
