@@ -172,4 +172,40 @@ public class Session {
         return entry;
     }
 
+
+
+    public static boolean inArchivedView = false;
+
+    public static boolean isArchived(UUID chatId) {
+        if (archivedChats == null) return false;
+        for (ChatEntry e : archivedChats) if (e.getId().equals(chatId)) return true;
+        return false;
+    }
+
+    public static void moveToArchived(ChatEntry e) {
+        if (e == null) return;
+        if (chatList != null)      chatList.removeIf(x -> x.getId().equals(e.getId()));
+        if (activeChats != null)   activeChats.removeIf(x -> x.getId().equals(e.getId()));
+        if (archivedChats != null) archivedChats.removeIf(x -> x.getId().equals(e.getId()));
+        if (archivedChats != null) archivedChats.add(e);
+    }
+
+    public static void moveToActive(ChatEntry e) {
+        if (e == null) return;
+        if (archivedChats != null) archivedChats.removeIf(x -> x.getId().equals(e.getId()));
+        if (activeChats != null)   activeChats.removeIf(x -> x.getId().equals(e.getId()));
+        if (chatList != null)      chatList.removeIf(x -> x.getId().equals(e.getId()));
+        if (activeChats != null)   activeChats.add(e);
+    }
+
+    // مرتب‌سازی بر اساس آخرین پیام (در صورت داشتن فیلد)
+    public static void sortListsByLastMessage() {
+        java.util.Comparator<ChatEntry> cmp =
+                java.util.Comparator.comparing(ChatEntry::getLastMessageTime, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
+                        .reversed();
+        if (activeChats != null)   activeChats.sort(cmp);
+        if (archivedChats != null) archivedChats.sort(cmp);
+    }
+
+
 }

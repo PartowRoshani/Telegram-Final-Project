@@ -10,11 +10,7 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Pane;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import org.to.telegramfinalproject.Client.Session;
@@ -37,6 +33,10 @@ public class MainController {
     @FXML private ImageView noResultIcon;
     @FXML private ScrollPane globalSearchScroll;
     @FXML private VBox globalSearchResultsContainer;
+
+    //Archives
+    @FXML private VBox chatListVBox;
+    @FXML private Label chatListHeader;
 
     private boolean blockedByMeFlag = false;
     private boolean blockedMeFlag   = false;
@@ -153,11 +153,26 @@ public class MainController {
     }
 
 
+//    public void refreshChatListUI() {
+//        Platform.runLater(() -> {
+//            chatListContainer.getChildren().clear();
+//            itemControllers.clear();
+//            populateChatListFromSession(); // همون متدی که نودها رو می‌سازه و می‌چسبونه
+//        });
+//    }
+
+
     public void refreshChatListUI() {
         Platform.runLater(() -> {
             chatListContainer.getChildren().clear();
             itemControllers.clear();
-            populateChatListFromSession(); // همون متدی که نودها رو می‌سازه و می‌چسبونه
+
+            if (Session.inArchivedView) {
+                refreshArchivedListUI(); // ⬅️ همین ظرف chatListContainer را پر می‌کند
+            } else {
+                ensureArchivedHeaderRow();   // ⬅️ اول هدر را در chatListContainer بگذار
+                populateChatListFromSession();
+            }
         });
     }
 
@@ -170,7 +185,8 @@ public class MainController {
     @FXML
     public void initialize() {
         // Populate chat list
-        populateChatListFromSession();
+//        populateChatListFromSession();
+        refreshChatListUI();
 
         // Register the scene for automatic CSS updates
         Platform.runLater(() -> {
@@ -316,7 +332,7 @@ public class MainController {
     }
 
     private void populateChatListFromSession() {
-        chatListContainer.getChildren().clear();
+//        chatListContainer.getChildren().clear();
 
         var list = (org.to.telegramfinalproject.Client.Session.activeChats != null
                 && !org.to.telegramfinalproject.Client.Session.activeChats.isEmpty())
@@ -1233,6 +1249,95 @@ public class MainController {
 
 
 
+
+    private static final String ARCHIVED_ROW_KEY = "ARCHIVED_HEADER_ROW";
+
+    public void ensureArchivedHeaderRow() {
+        boolean hasArchived = Session.archivedChats != null && !Session.archivedChats.isEmpty();
+
+        // اگر آرشیو نداریم، هدر قبلی را حذف کن و برگرد
+        if (!hasArchived) {
+            chatListContainer.getChildren().removeIf(n -> ARCHIVED_ROW_KEY.equals(n.getUserData()));
+            return;
+        }
+
+        // اگر قبلاً هست، دوباره نساز
+        boolean exists = chatListContainer.getChildren().stream()
+                .anyMatch(n -> ARCHIVED_ROW_KEY.equals(n.getUserData()));
+        if (exists) return;
+
+        HBox headerRow = new HBox(8);
+        headerRow.setUserData(ARCHIVED_ROW_KEY);
+        headerRow.getStyleClass().add("archived-header-row");
+
+        Label title = new Label("Archived Chats");
+        Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
+        Button openBtn = new Button("Open");
+        openBtn.setOnAction(e -> showArchivedListUI());
+
+        headerRow.getChildren().addAll(title, spacer, openBtn);
+        headerRow.setMinHeight(36); headerRow.setPrefHeight(36);
+
+        // در ابتدای همان لیست اصلیِ چت‌ها
+        chatListContainer.getChildren().add(0, headerRow);
+    }
+
+    public void showArchivedListUI() {
+        Session.inArchivedView = true;
+        refreshChatListUI();
+    }
+
+    public void refreshArchivedListUI() {
+        chatListContainer.getChildren().clear();
+
+        // Back row (بماند)
+        HBox backRow = new HBox();
+        Label back = new Label("← Back to Active");
+        back.getStyleClass().add("archived-back");
+        back.setOnMouseClicked(e -> {
+            Session.inArchivedView = false;
+            refreshChatListUI();
+        });
+        backRow.getChildren().add(back);
+        backRow.setStyle("-fx-padding: 6 10 8 10;");
+        chatListContainer.getChildren().add(backRow);
+
+        // ✅ از همین سل‌ساز FXML استفاده کن تا دقیقا هم‌شکل اکتیو باشد
+        if (Session.archivedChats != null && !Session.archivedChats.isEmpty()) {
+            for (ChatEntry e : Session.archivedChats) {
+                addChatNode(e);  // ⬅️ همونی که در اکتیو استفاده می‌کنی
+            }
+        } else {
+            Label empty = new Label("No archived chats");
+            empty.getStyleClass().add("muted");
+            chatListContainer.getChildren().add(empty);
+        }
+    }
+
+
+
+    // ساخت یک سل آیتم (برای اکتیو/آرشیو)
+    private HBox buildChatCell(ChatEntry e, boolean archivedView) {
+        HBox row = new HBox(8);
+        ImageView avatar = new ImageView(); avatar.setFitWidth(36); avatar.setFitHeight(36);
+        // ... لود تصویر از e.getImageUrl() اگر داری
+        Label name = new Label(e.getName());
+        Region spacer = new Region(); HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
+        Label last = new Label(safeLastLine(e)); // آخرین پیام/زمان (اختیاری)
+
+        row.getChildren().addAll(avatar, name, spacer, last);
+        row.getStyleClass().add("chat-row");
+
+        // کلیک روی آیتم → openChat
+        row.setOnMouseClicked(ev -> openChat(e));
+
+        return row;
+    }
+
+    private String safeLastLine(ChatEntry e) {
+        String s = e.getLastMessagePreview(); // اگر داری
+        return s != null ? s : "";
+    }
 
 
 

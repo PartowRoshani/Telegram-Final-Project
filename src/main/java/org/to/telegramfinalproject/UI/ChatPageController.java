@@ -294,14 +294,9 @@ public class ChatPageController {
 
         if (archiveItem != null) {
             archiveItem.setOnAction(e -> {
-                System.out.println("Toggling archive for chat " + chatName);
-                // TODO: backend call → toggleArchive(chatId, type)
-                // Also update text: "Archive chat" ↔ "Unarchive chat"
-                if ("Archive chat".equals(archiveItem.getText())) {
-                    archiveItem.setText("Unarchive chat");
-                } else {
-                    archiveItem.setText("Archive chat");
-                }
+                ChatEntry entry = Session.currentChatEntry;
+                if (entry == null) return;
+                toggleArchive(entry);
             });
         }
 
@@ -1161,17 +1156,62 @@ public class ChatPageController {
     }
 
     private void toggleArchive(ChatEntry entry) {
-        if (entry == null) return;
+        boolean currentlyArchived = Session.isArchived(entry.getId());
 
-        // Just toggle the text for now
-        if ("Archive chat".equals(archiveItem.getText())) {
-            archiveItem.setText("Unarchive chat");
-            System.out.println("Pretend: chat " + entry.getName() + " archived.");
-        } else {
-            archiveItem.setText("Archive chat");
-            System.out.println("Pretend: chat " + entry.getName() + " unarchived.");
-        }
+        // Disable UI source while processing
+        if (archiveItem != null) archiveItem.setDisable(true);
+
+        new Thread(() -> {
+            JSONObject req = new JSONObject()
+                    .put("chat_id", entry.getId().toString());
+
+            if (!currentlyArchived) {
+                // ARCHIVE
+                req.put("action", "archive_chat")
+                        .put("chat_type", entry.getType()); // سرور می‌خواهد
+            } else {
+                // UNARCHIVE
+                req.put("action", "unarchive_chat");
+            }
+
+            JSONObject resp = ActionHandler.sendWithResponse(req);
+
+            Platform.runLater(() -> {
+                if (archiveItem != null) archiveItem.setDisable(false);
+
+                if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
+                    // 1) جابه‌جایی در Session
+                    if (!currentlyArchived) {
+                        Session.moveToArchived(entry);
+                        if (archiveItem != null) archiveItem.setText("Unarchive chat");
+                    } else {
+                        Session.moveToActive(entry);
+                        if (archiveItem != null) archiveItem.setText("Archive chat");
+                    }
+                    Session.sortListsByLastMessage();
+
+                    // 2) تازه‌سازی UI لیست‌ها
+                    try {
+                        MainController.getInstance().refreshChatListUI(); // پیاده‌سازی در بخش 3
+                    } catch (Exception ignore) {}
+
+                    // 3) اگر وارد نمای آرشیو هستیم و آن‌آرشیو شد، بلافاصله از لیست آرشیو حذف شود
+                    if (Session.inArchivedView && !Session.isArchived(entry.getId())) {
+                        try { MainController.getInstance().refreshArchivedListUI(); } catch (Exception ignore) {}
+                    }
+
+                    // 4) اگر تازه برای اولین بار آرشیو داریم، ردیف "Archived Chats" در بالای لیست ظاهر شود
+                    try { MainController.getInstance().ensureArchivedHeaderRow(); } catch (Exception ignore) {}
+
+                } else {
+                    String msg = (resp != null ? resp.optString("message", "Unknown error")
+                            : "No response from server.");
+                    new Alert(Alert.AlertType.ERROR, "Failed to toggle archive: " + msg).showAndWait();
+                }
+            });
+        }).start();
     }
+
 
     private void loadMessages(ChatEntry entry) {
         JSONObject req = new JSONObject();
@@ -2184,7 +2224,6 @@ public class ChatPageController {
                 .put("user_id", myInternalUuid) // UUID من
                 .put("id", targetId);           // UUID مقصد
 
-        // ⛔ روی ترد FX کال شبکه نزن!
         new Thread(() -> {
             JSONObject res = ActionHandler.sendWithResponse(req);
             boolean ok = (res != null && "success".equalsIgnoreCase(res.optString("status")));
@@ -2699,7 +2738,7 @@ public class ChatPageController {
                             currentChat.getType().equalsIgnoreCase(target.type)) {
                         loadMessages(currentChat);
                     } else {
-                        addSystemMessage("Forwarded to " + (target.name.isBlank() ? target.id : target.name));
+//                        addSystemMessage("Forwarded to " + (target.name.isBlank() ? target.id : target.name));
                     }
                 }
             });
