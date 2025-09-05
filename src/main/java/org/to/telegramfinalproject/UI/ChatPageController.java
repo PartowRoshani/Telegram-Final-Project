@@ -2,6 +2,7 @@ package org.to.telegramfinalproject.UI;
 
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
@@ -23,6 +24,7 @@ import org.to.telegramfinalproject.Client.Session;
 import org.to.telegramfinalproject.Models.ChatEntry;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -58,6 +60,8 @@ public class ChatPageController {
     private Label chatTitle;            // contact/group title
     @FXML
     private Label chatStatus;           // last seen / online
+    @FXML
+    private HBox chatHeader;            // Header
 
     @FXML
     private Button searchInChatButton;  // magnifier button
@@ -84,11 +88,11 @@ public class ChatPageController {
     @FXML private VBox joinPane;
     @FXML private VBox addContactPane;
 
-    //For search handeling
+    // For search handling
     @FXML private Button joinButton;
     @FXML private Button addContactButton;
 
-    //Handle View chat
+    // Handle View chat
     @FXML private Button unblockBtn;
     @FXML private VBox readOnlyPane;
     @FXML private Label readOnlyLabel;
@@ -124,6 +128,7 @@ public class ChatPageController {
 
     // Where your icons live
     private static final String ICON_BASE = "/org/to/telegramfinalproject/Icons/";
+    private static ChatPageController instance;
     private ChatEntry currentChat;
     private UUID me;
 
@@ -146,6 +151,14 @@ public class ChatPageController {
         } catch (Exception ignore) {
             me = null;
         }
+    }
+
+    public ChatPageController() {
+        instance = this;
+    }
+
+    public static ChatPageController getInstance() {
+        return instance;
     }
 
     private static String str(org.json.JSONObject j, String k) {
@@ -813,7 +826,6 @@ public void showChat(ChatEntry entry) {
     }
     AvatarFX.circleClip(userAvatar, 36);
 
-
     // حالت اولیه (بدون انتظار هدر)
     if ("channel".equalsIgnoreCase(entry.getType())) {
         boolean canPostLocal = entry.isOwner() || entry.isAdmin()
@@ -830,6 +842,8 @@ public void showChat(ChatEntry entry) {
     // حالا هدر بیاد، دوباره نهایی‌اش می‌کنیم
     fetchAndRenderHeader(entry);
 
+    // === (3-dot menu + header click) ===
+    configureHeaderActions(entry);
 }
 
 
@@ -883,16 +897,18 @@ public void showChat(ChatEntry entry) {
     public void showChat(ChatEntry entry, ChatViewMode mode) {
         this.currentChat = entry;
 
-        // --- Header ---
+        // --- Header (fallback until server responds) ---
         chatTitle.setText(entry.getName());
         if (entry.getImageUrl() != null && !entry.getImageUrl().isEmpty()) {
             Image img = AvatarLocalResolver.load(entry.getImageUrl());
-            if (img != null) userAvatar.setImage(img); else setDefaultHeaderAvatarByType(entry.getType());
+            if (img != null) userAvatar.setImage(img);
+            else setDefaultHeaderAvatarByType(entry.getType());
         } else {
             setDefaultHeaderAvatarByType(entry.getType());
         }
         AvatarFX.circleClip(userAvatar, 36);
 
+        // Fetch live header info from server
         fetchAndRenderHeader(entry);
 
         // --- Messages ---
@@ -900,12 +916,221 @@ public void showChat(ChatEntry entry) {
         loadMessages(entry);
         markAsRead(entry);
 
-        // --- حالت UI (Composer / Join / Add Contact) ---
+        // --- UI mode (Composer / Join / Add Contact) ---
         applyMode(mode);
 
-        // فوکوس اگر در حالت نرمال هستیم
+        // Focus if normal mode
         if (mode == ChatViewMode.NORMAL) {
             Platform.runLater(() -> messageInput.requestFocus());
+        }
+
+        // Wire up menu + header click
+        configureHeaderActions(entry);
+    }
+
+    private void configureHeaderActions(ChatEntry entry) {
+        moreMenu.getItems().clear();
+
+        switch (entry.getType().toLowerCase(Locale.ROOT)) {
+            case "private" -> {
+                MenuItem viewProfile = new MenuItem("View profile");
+                viewProfile.setOnAction(e -> openInfoScene(entry));
+
+                MenuItem deleteChat = new MenuItem("Delete chat");
+                deleteChat.setStyle("-fx-text-fill: red;");
+                deleteChat.setOnAction(e -> deleteChatButton(entry));
+
+                moreMenu.getItems().addAll(viewProfile, deleteChat);
+            }
+            case "group" -> {
+                MenuItem viewGroup = new MenuItem("View group info");
+                viewGroup.setOnAction(e -> openInfoScene(entry));
+
+                MenuItem leaveGroup = new MenuItem("Leave group");
+                leaveGroup.setOnAction(e -> leaveGroupButton(entry));
+
+                moreMenu.getItems().addAll(viewGroup, leaveGroup);
+            }
+            case "channel" -> {
+                MenuItem viewChannel = new MenuItem("View channel info");
+                viewChannel.setOnAction(e -> openInfoScene(entry));
+
+                MenuItem leaveChannel = new MenuItem("Leave channel");
+                leaveChannel.setOnAction(e -> leaveChannelButton(entry));
+
+                moreMenu.getItems().addAll(viewChannel, leaveChannel);
+            }
+        }
+
+        // Clicking header (but not the 3-dot) → open info scene
+        chatHeader.setOnMouseClicked(e -> {
+            if (!moreButton.equals(e.getTarget())) {
+                openInfoScene(entry);
+            }
+        });
+    }
+
+    private void openInfoScene(ChatEntry entry) {
+        JSONObject req = new JSONObject();
+
+        switch (entry.getType().toLowerCase()) {
+            case "private" -> {
+                // First ask server for the target_id of this private chat
+                JSONObject targetReq = new JSONObject()
+                        .put("action", "get_private_chat_target")
+                        .put("chat_id", entry.getId().toString());
+
+                JSONObject targetResp = ActionHandler.sendWithResponse(targetReq);
+                if (targetResp == null || !"success".equalsIgnoreCase(targetResp.optString("status"))) {
+                    Platform.runLater(() ->
+                            MainController.getInstance().showAlert(
+                                    "Error",
+                                    targetResp != null ? targetResp.optString("message") : "Failed to fetch chat target.",
+                                    Alert.AlertType.ERROR
+                            )
+                    );
+                    return;
+                }
+
+                String targetId = targetResp.optJSONObject("data").optString("target_id", null);
+                if (targetId == null || targetId.isBlank()) {
+                    Platform.runLater(() ->
+                            MainController.getInstance().showAlert(
+                                    "Error",
+                                    "No target user found for this chat.",
+                                    Alert.AlertType.ERROR
+                            )
+                    );
+                    return;
+                }
+
+                req.put("action", "view_profile")
+                        .put("target_id", targetId);
+            }
+            case "group" -> {
+                req.put("action", "view_group")
+                        .put("group_id", entry.getId().toString());
+            }
+            case "channel" -> {
+                req.put("action", "view_channel")
+                        .put("channel_id", entry.getId().toString());
+            }
+            default -> {
+                Platform.runLater(() ->
+                        MainController.getInstance().showAlert(
+                                "Error",
+                                "Unsupported chat type: " + entry.getType(),
+                                Alert.AlertType.ERROR
+                        )
+                );
+                return;
+            }
+        }
+
+        new Thread(() -> {
+            JSONObject resp = ActionHandler.sendWithResponse(req);
+            if (resp == null || !"success".equalsIgnoreCase(resp.optString("status"))) {
+                Platform.runLater(() ->
+                        MainController.getInstance().showAlert(
+                                "Error",
+                                resp != null ? resp.optString("message") : "Server not responding.",
+                                Alert.AlertType.ERROR
+                        )
+                );
+                return;
+            }
+
+            JSONObject data = resp.optJSONObject("data");
+            if (data == null) {
+                Platform.runLater(() ->
+                        MainController.getInstance().showAlert(
+                                "Error",
+                                "Malformed server response.",
+                                Alert.AlertType.ERROR
+                        )
+                );
+                return;
+            }
+
+            Platform.runLater(() -> {
+                try {
+                    FXMLLoader loader;
+                    Node overlay = null;
+
+                    switch (entry.getType().toLowerCase()) {
+                        case "private" -> {
+                            loader = new FXMLLoader(getClass().getResource(
+                                    "/org/to/telegramfinalproject/Fxml/user_info.fxml"));
+                            overlay = loader.load();
+                            UserInfoController c = loader.getController();
+                            c.setProfileDataFromJson(entry, data);
+                        }
+                        case "group" -> {
+                            loader = new FXMLLoader(getClass().getResource(
+                                    "/org/to/telegramfinalproject/Fxml/group_info.fxml"));
+                            overlay = loader.load();
+                            GroupInfoController c = loader.getController();
+                            c.setGroupDataFromJson(entry, data);
+                        }
+                        case "channel" -> {
+                            loader = new FXMLLoader(getClass().getResource(
+                                    "/org/to/telegramfinalproject/Fxml/channel_info.fxml"));
+                            overlay = loader.load();
+                            ChannelInfoController c = loader.getController();
+                            c.setChannelDataFromJson(entry, data);
+                        }
+                    }
+
+                    if (overlay != null) {
+                        MainController.getInstance().showOverlay(overlay);
+                    }
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    MainController.getInstance().showAlert(
+                            "Error",
+                            "Could not load info scene.",
+                            Alert.AlertType.ERROR
+                    );
+                }
+            });
+        }).start();
+    }
+
+    private void deleteChatButton(ChatEntry entry) {
+        JSONObject req = new JSONObject()
+                .put("action", "delete_chat")
+                .put("receiver_id", entry.getId().toString())
+                .put("viewer_id", Session.getUserUUID());
+
+        JSONObject resp = ActionHandler.sendWithResponse(req);
+        if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
+            // TODO: close chat + refresh sidebar
+            MainController.getInstance().closeCurrentChat();
+        }
+    }
+
+    private void leaveGroupButton(ChatEntry entry) {
+        JSONObject req = new JSONObject()
+                .put("action", "leave_group")
+                .put("group_id", entry.getId().toString())
+                .put("viewer_id", Session.getUserUUID());
+
+        JSONObject resp = ActionHandler.sendWithResponse(req);
+        if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
+            MainController.getInstance().closeCurrentChat();
+        }
+    }
+
+    private void leaveChannelButton(ChatEntry entry) {
+        JSONObject req = new JSONObject()
+                .put("action", "leave_channel")
+                .put("channel_id", entry.getId().toString())
+                .put("viewer_id", Session.getUserUUID());
+
+        JSONObject resp = ActionHandler.sendWithResponse(req);
+        if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
+            MainController.getInstance().closeCurrentChat();
         }
     }
 
@@ -1845,7 +2070,7 @@ private void addBubble(
 
 
 
-    private String userStatusText(boolean online, String lastSeenIso) {
+    public String userStatusText(boolean online, String lastSeenIso) {
         if (online) return "online";
 
         LocalDateTime ts = parseWhen(lastSeenIso);

@@ -41,9 +41,6 @@ public class MainController {
     private boolean blockedByMeFlag = false;
     private boolean blockedMeFlag   = false;
 
-
-
-
     private enum SearchMode {
         GLOBAL,
         CHAT
@@ -633,6 +630,37 @@ public class MainController {
             overlayLayer.getChildren().clear();
             overlayLayer.getChildren().add(previous);
         }
+    }
+
+    public void closeCurrentChat() {
+        // 1. Clear the chat area
+        chatDisplayArea.getChildren().clear();
+
+        // 2. Re-add the placeholder label
+        placeholderLabel.setVisible(true);
+        placeholderLabel.setManaged(true);
+        placeholderLabel.setText("Select a chat to start messaging");
+
+        chatDisplayArea.getChildren().add(placeholderLabel);
+
+        // 3. Ask the chat list to refresh
+        MainController.getInstance().refreshChatListUI();
+    }
+
+    public void showAlert(String title, String message, Alert.AlertType type) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(type);
+            alert.setTitle(title);
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+
+            // Tie it to the main window so it centers nicely
+            if (mainRoot.getScene() != null && mainRoot.getScene().getWindow() != null) {
+                alert.initOwner(mainRoot.getScene().getWindow());
+            }
+
+            alert.showAndWait();
+        });
     }
 
     // ===== Search UI state =====

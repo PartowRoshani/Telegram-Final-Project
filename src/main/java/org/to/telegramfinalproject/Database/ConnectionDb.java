@@ -7,7 +7,7 @@ import java.sql.SQLException;
 public class ConnectionDb {
     private static final String JDBC_URL = "jdbc:postgresql://localhost:5432/Telegram";
     private static final String USERNAME = "postgres";
-    private static final String PASSWORD = "Partow@1384";
+    private static final String PASSWORD = "124postpass";
 
     public ConnectionDb() {
     }

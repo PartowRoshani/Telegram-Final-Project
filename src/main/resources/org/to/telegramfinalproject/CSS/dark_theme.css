@@ -1079,3 +1079,56 @@
     -fx-border-color: red;
     -fx-border-radius: 6;
 }
+
+/* === User Info (Dark) === */
+.user-info-card {
+    -fx-background-color: #1f1f1f;
+    -fx-background-radius: 8;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 12, 0, 0, 3);
+}
+.user-info-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f2f2f2;
+}
+.user-info-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #fff;
+}
+.user-info-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #aaa;
+}
+.user-info-main {
+    -fx-font-size: 13px;
+    -fx-text-fill: #f0f0f0;
+}
+.user-info-sub {
+    -fx-font-size: 11px;
+    -fx-text-fill: #999;
+}
+.user-info-separator {
+    -fx-background-color: #333;
+}
+
+/* === Shared buttons === */
+.danger-button {
+    -fx-background-color: #e74c3c;
+    -fx-text-fill: white;
+    -fx-background-radius: 6;
+    -fx-padding: 4 12;
+}
+.danger-button:hover {
+    -fx-background-color: #c0392b;
+}
+
+/* === Profile image === */
+.profile-picture {
+    -fx-background-color: #2c2c2c;
+    -fx-background-radius: 50%;
+    -fx-border-color: #444;
+    -fx-border-radius: 50%;
+    -fx-border-width: 1;
+}
