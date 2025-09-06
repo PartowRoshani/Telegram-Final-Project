@@ -7,10 +7,15 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
 import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
@@ -117,6 +122,14 @@ public class ChatPageController {
     private String pendingReplyToId = null;    // اگه کاربر ریپلای رو زده
     private String pendingEditMsgId = null;    // اگه کاربر ادیت رو شروع کرده
     private final Map<String, Node> messageNodes = new HashMap<>();
+    private final Deque<HBox> pendingBubbles = new ArrayDeque<>();
+
+
+
+    // جایی عمومی (مثلا بالای کلاس)
+    private static final String UPLOADS_DIR = "C:/Users/User/Desktop/Project/uploads"; // با مسیر خودت یکی کن
+    private static final String HTTP_BASE   = "http://localhost:8080";                 // اگر بعدا HTTP رو درست کردی
+
 
 
     private JSONObject lastHeaderData = null;
@@ -668,7 +681,10 @@ public class ChatPageController {
                         fMessageId,           // message_id
                         "", "", "",           // forwarded_from, forwarded_by, reply_to_id
                         false,                // edited
-                        null                  // reactions
+                        null,                  // reactions
+                        null,
+                        null
+
                 );
 
                 // آپدیت پیش‌نمایش لیست چت‌ها
@@ -694,12 +710,122 @@ public class ChatPageController {
 
     private void openFileChooser() {
         FileChooser fc = new FileChooser();
-        fc.setTitle("Select a file to send");
+        fc.setTitle("Select image or audio");
+
+        // فقط عکس/صدا
+        fc.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp"),
+                new FileChooser.ExtensionFilter("Audio", "*.mp3", "*.wav", "*.m4a", "*.ogg", "*.aac")
+        );
+
         File file = fc.showOpenDialog(attachmentButton.getScene().getWindow());
-        if (file != null) {
-            System.out.println("Selected file: " + file.getAbsolutePath());
-            // TODO: actually send file
-            addSystemMessage("Attached file: " + file.getName());
+        if (file == null) return;
+
+        // نوع (IMAGE/AUDIO) را از اسم/محتوا حدس بزنیم
+        String type = guessType(file);
+        if (type == null) {
+            toast("Only Image and Aduio");
+            return;
+        }
+        currentChatId = String.valueOf(currentChat.getId());
+        Session.currentChatType = currentChat.getType();
+
+        // مقصد چت از Session
+        if (Session.currentChatId == null || Session.currentChatType == null) {
+            toast("Not available chat");
+            return;
+        }
+
+        UUID receiverId = UUID.fromString(Session.currentChatId);
+        String receiverType = Session.currentChatType; // "private" | "group" | "channel"
+
+        String caption = (messageInput != null) ? messageInput.getText().trim() : "";
+        if (messageInput != null) messageInput.clear();
+
+        // 1) حباب Pending فوری در UI
+        HBox pending = addPendingMediaBubble(file, type, caption);
+
+        // 2) ارسال واقعی در بک‌گراند با ActionHandler
+        new Thread(() -> {
+            ActionHandler ah = ActionHandler.getInstance();
+            ah.sendMediaMessage(receiverId, receiverType, type, file, caption);
+
+            // نکته: پیام واقعی بعد از ذخیره روی سرور، از طریق Listener برمی‌گرده.
+            // وقتی رسید، در Listener این متد را صدا بزنید تا یک حباب Pending حذف شود:
+            // Platform.runLater(() -> removeOnePendingBubble());
+        }, "Media-Uploader").start();
+    }
+
+    /** حدس نوع فایل: IMAGE یا AUDIO */
+    private String guessType(File f) {
+        String name = f.getName().toLowerCase();
+        if (name.matches(".*\\.(png|jpg|jpeg|gif|bmp|webp)$")) return "IMAGE";
+        if (name.matches(".*\\.(mp3|wav|m4a|ogg|aac)$"))       return "AUDIO";
+        // اگر خواستی دقیق‌تر: با Files.probeContentType هم تست کن
+        return null;
+    }
+
+    /** ساخت یک حباب «درحال ارسال…» */
+    private HBox addPendingMediaBubble(File file, String type, String caption) {
+        HBox root = new HBox(8);
+        root.getStyleClass().add("bubble-outgoing"); // استایل دلخواهت
+        root.setFillHeight(true);
+
+        ImageView iv = null;
+        if ("IMAGE".equalsIgnoreCase(type)) {
+            iv = new ImageView(new Image(file.toURI().toString(), 360, 360, true, true, true));
+            iv.setPreserveRatio(true);
+            iv.setFitWidth(240);     // سایز معقول برای Pending
+            iv.setFitHeight(240);
+            root.getChildren().add(iv);
+        } else if ("AUDIO".equalsIgnoreCase(type)) {
+            // برای صدا یک آیکون ساده و نام فایل
+            ImageView icon = new ImageView(); // اگر آیکون داری اینجا بگذار
+            icon.setFitWidth(24); icon.setFitHeight(24);
+            Label name = new Label(file.getName());
+            HBox audioBox = new HBox(6, icon, name);
+            root.getChildren().add(audioBox);
+        }
+
+        VBox right = new VBox(4);
+        if (caption != null && !caption.isBlank()) {
+            Label cap = new Label(caption);
+            cap.getStyleClass().add("msg-caption");
+            cap.setWrapText(true);
+            right.getChildren().add(cap);
+        }
+
+        HBox statusRow = new HBox(6);
+        ProgressIndicator spinner = new ProgressIndicator();
+        spinner.setPrefSize(16, 16);
+        Label status = new Label("Sending...");
+        status.getStyleClass().add("msg-status");
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        statusRow.getChildren().addAll(spinner, status, spacer);
+
+        right.getChildren().add(statusRow);
+        root.getChildren().add(right);
+
+        messageContainer.getChildren().add(root);
+        pendingBubbles.addLast(root);
+
+        return root;
+    }
+
+    /** وقتی پیام واقعی (از خودِ کاربر) برای همین چت رسید، یکی از Pendingها را حذف کن. */
+    public void removeOnePendingBubble() {
+        HBox node = pendingBubbles.pollFirst();
+        if (node != null) {
+            messageContainer.getChildren().remove(node);
+        }
+    }
+
+    private void toast(String msg) {
+        // هر جور که خودت نوتیف/Toast داری
+        System.out.println("ℹ️ " + msg);
+        if (messageInput != null) {
+            messageInput.setTooltip(new Tooltip(msg));
         }
     }
 
@@ -1300,6 +1426,58 @@ public class ChatPageController {
 
     private final java.util.Map<String, org.json.JSONObject> msgIndex = new java.util.HashMap<>();
 
+//    private void renderMessages(org.json.JSONArray list) {
+//        messageContainer.getChildren().clear();
+//
+//        // برای reply-preview: ایندکس کردن پیام‌ها با message_id
+//        msgIndex.clear();
+//        for (int i = 0; i < list.length(); i++) {
+//            org.json.JSONObject m = list.getJSONObject(i);
+//            String mid = str(m, "message_id");
+//            if (!mid.isEmpty()) msgIndex.put(mid, m);
+//        }
+//
+//        String myId = (Session.currentUser != null && Session.currentUser.has("internal_uuid"))
+//                ? Session.currentUser.getString("internal_uuid") : "";
+//
+//        for (int i = 0; i < list.length(); i++) {
+//            org.json.JSONObject m = list.getJSONObject(i);
+//
+//            String senderId    = str(m, "sender_id");
+//            String senderName  = str(m, "sender_name");
+//            String type        = str(m, "message_type");
+//            String content     = str(m, "content");
+//            String whenStr     = str(m, "send_at");
+//            String msgId       = str(m, "message_id");
+//
+//            // فوروارد / ریپلای / ادیت / ری‌اکشن
+//            String fwdFrom     = nz(str(m, "forwarded_from"));
+//            String fwdBy       = nz(str(m, "forwarded_by"));
+//            String replyToId   = nz(str(m, "reply_to_id"));
+//            boolean edited     = bool(m, "is_edited");
+//            org.json.JSONArray reactions = arr(m, "reactions");
+//
+//            boolean outgoing = senderId.equalsIgnoreCase(myId);
+//            if (senderName == null || senderName.isBlank()) {
+//                senderName = outgoing ? "You"
+//                        : (senderId == null || senderId.isBlank()
+//                        ? "Unknown"
+//                        : senderId.substring(0, Math.min(8, senderId.length())));
+//            }
+//
+//            java.time.LocalDateTime ts = parseWhen(whenStr);
+//
+//            // نمایش
+//            addBubble(outgoing, senderName, type, content, ts, msgId,
+//                    fwdFrom, fwdBy, replyToId, edited, reactions);
+//        }
+//
+//        // کمی فاصله بین پیام‌ها
+//        messageContainer.setSpacing(8);
+//        messageScrollPane.layout();
+//        messageScrollPane.setVvalue(1.0);
+//    }
+
     private void renderMessages(org.json.JSONArray list) {
         messageContainer.getChildren().clear();
 
@@ -1320,9 +1498,13 @@ public class ChatPageController {
             String senderId    = str(m, "sender_id");
             String senderName  = str(m, "sender_name");
             String type        = str(m, "message_type");
-            String content     = str(m, "content");
+            String content     = str(m, "content");     // این همون کپشنه برای IMAGE
             String whenStr     = str(m, "send_at");
             String msgId       = str(m, "message_id");
+
+            // 👇 جدید: URL ها
+            String fileUrl     = str(m, "file_url");
+            String thumbUrl    = str(m, "thumb_url");
 
             // فوروارد / ریپلای / ادیت / ری‌اکشن
             String fwdFrom     = nz(str(m, "forwarded_from"));
@@ -1341,16 +1523,16 @@ public class ChatPageController {
 
             java.time.LocalDateTime ts = parseWhen(whenStr);
 
-            // نمایش
+            // 👇 امضای جدید addBubble با fileUrl/thumbUrl
             addBubble(outgoing, senderName, type, content, ts, msgId,
-                    fwdFrom, fwdBy, replyToId, edited, reactions);
+                    fwdFrom, fwdBy, replyToId, edited, reactions, fileUrl, thumbUrl);
         }
 
-        // کمی فاصله بین پیام‌ها
         messageContainer.setSpacing(8);
         messageScrollPane.layout();
         messageScrollPane.setVvalue(1.0);
     }
+
 
     private String shortId(String id){
         return (id==null||id.isEmpty()) ? "Unknown" : id.substring(0, Math.min(8,id.length()));
@@ -1490,104 +1672,216 @@ public class ChatPageController {
 
 
 
+//    private void addBubble(
+//            boolean outgoing,
+//            String displayName,
+//            String type,
+//            String content,
+//            java.time.LocalDateTime sentAt,
+//            String messageId,
+//            String forwardedFrom,
+//            String forwardedBy,
+//            String replyToId,
+//            boolean edited,
+//            org.json.JSONArray reactions
+//    ) {
+//        // === Meta (نام + زمان) ===
+//        String metaText = (displayName == null ? "" : displayName) + " • " + formatWhen(sentAt);
+//        if (edited) metaText += " (edited)";
+//        Label meta = new Label(metaText);
+//        meta.setStyle("-fx-font-size: 11; -fx-text-fill: #7e8a97;");
+//        meta.setWrapText(true);
+//        // برچسب برای آپدیت‌های بعدی (edit)
+//        meta.getProperties().put("role", "metaLabel");
+//
+//        // === متن/نوع پیام ===
+//        String t = type == null ? "" : type.trim().toUpperCase();
+//        boolean isText = t.isEmpty() ? (content != null && !content.isBlank()) : "TEXT".equals(t);
+//        String bodyText = isText ? (content == null ? "" : content) : bracketLabel(t);
+//
+//        Label msg = new Label(bodyText);
+//        msg.setWrapText(true);
+//        msg.setMinHeight(Region.USE_PREF_SIZE);
+//        // برچسب برای آپدیت‌های بعدی (edit)
+//        msg.getProperties().put("role", "msgLabel");
+//
+//        // === رنگ بابل‌ها
+//        boolean dark = themeManager.isDarkMode();
+//        String mine   = dark ? "#2b7cff" : "#d8ecff";  // outgoing (من)
+//        String theirs = dark ? "#2c333a" : "#f2f4f7";  // incoming (خیلی روشن به‌جای سفید)
+//        String bg     = outgoing ? mine : theirs;
+//
+//        msg.setStyle(
+//                "-fx-background-color:" + bg + ";" +
+//                        "-fx-padding:8 12;" +
+//                        "-fx-background-radius:12;" +
+//                        "-fx-max-width: 520;"
+//        );
+//
+//        // === بدنه‌ی بابل ===
+//        VBox bubble = new VBox(4);
+//        bubble.getChildren().add(meta);
+//
+//        // برچسب‌گذاری بابل برای پیدا کردنش در آپدیت‌های realtime
+//        if (messageId != null && !messageId.isBlank()) {
+//            bubble.getProperties().put("messageId", messageId);
+//        }
+//
+//        // Forward header (اختیاری)
+//        if (hasVal(forwardedFrom) || hasVal(forwardedBy)) {
+//            bubble.getChildren().add(buildForwardHeader(forwardedFrom, forwardedBy));
+//        }
+//
+//        // Reply preview (اختیاری)
+//        if (hasVal(replyToId)) {
+//            bubble.getChildren().add(buildReplyBoxFromIndex(replyToId));
+//        }
+//
+//        // متن اصلی
+//        bubble.getChildren().add(msg);
+//
+//        // Reactions (اختیاری) + برچسب برای تعویض سریع در ریِل‌تایم
+//        if (reactions != null && reactions.length() > 0) {
+//            Node rxBar = buildReactionsBarFromJson(reactions, dark);
+//            rxBar.getProperties().put("role", "reactionsBar");
+//            bubble.getChildren().add(rxBar);
+//        }
+//
+//        // === ردیف چیدمان راست/چپ ===
+//        HBox row = new HBox(bubble);
+//        row.setFillHeight(true);
+//        row.setSpacing(4);
+//        row.setAlignment(outgoing ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+//        row.setPadding(new Insets(2, 6, 2, 6));
+//
+//        // اضافه به کانتینر
+//        messageContainer.getChildren().add(row);
+//
+//        // ایندکس نود برای آپدیت/حذف realtime
+//        if (messageId != null && !messageId.isBlank()) {
+//            messageNodes.put(messageId, row);
+//        }
+//
+//        boolean isMine = outgoing;
+//
+//        // منوی راست‌کلیک/کلیک (بدون تغییر در ساختار کدت)
+//        ContextMenu menu = buildMessageMenu(isMine, messageId, type, content);
+//        row.setOnContextMenuRequested(ev -> {
+//            menu.show(row, ev.getScreenX(), ev.getScreenY());
+//            ev.consume();
+//        });
+//        row.setOnMouseClicked(ev -> {
+//            if (ev.getButton() == javafx.scene.input.MouseButton.PRIMARY && ev.getClickCount() == 1) {
+//                menu.show(row, ev.getScreenX(), ev.getScreenY());
+//            }
+//        });
+//    }
+
     private void addBubble(
             boolean outgoing,
             String displayName,
             String type,
-            String content,
+            String content, // برای IMAGE = کپشن
             java.time.LocalDateTime sentAt,
             String messageId,
             String forwardedFrom,
             String forwardedBy,
             String replyToId,
             boolean edited,
-            org.json.JSONArray reactions
+            org.json.JSONArray reactions,
+            String fileUrl,         // 👈 جدید
+            String thumbUrl         // 👈 جدید
     ) {
-        // === Meta (نام + زمان) ===
         String metaText = (displayName == null ? "" : displayName) + " • " + formatWhen(sentAt);
         if (edited) metaText += " (edited)";
         Label meta = new Label(metaText);
         meta.setStyle("-fx-font-size: 11; -fx-text-fill: #7e8a97;");
         meta.setWrapText(true);
-        // برچسب برای آپدیت‌های بعدی (edit)
         meta.getProperties().put("role", "metaLabel");
 
-        // === متن/نوع پیام ===
         String t = type == null ? "" : type.trim().toUpperCase();
         boolean isText = t.isEmpty() ? (content != null && !content.isBlank()) : "TEXT".equals(t);
-        String bodyText = isText ? (content == null ? "" : content) : bracketLabel(t);
 
-        Label msg = new Label(bodyText);
-        msg.setWrapText(true);
-        msg.setMinHeight(Region.USE_PREF_SIZE);
-        // برچسب برای آپدیت‌های بعدی (edit)
-        msg.getProperties().put("role", "msgLabel");
-
-        // === رنگ بابل‌ها
+        // رنگ پس‌زمینه برای متن (برای عکس پس‌زمینه نمی‌ذاریم تا تمیز باشه)
         boolean dark = themeManager.isDarkMode();
-        String mine   = dark ? "#2b7cff" : "#d8ecff";  // outgoing (من)
-        String theirs = dark ? "#2c333a" : "#f2f4f7";  // incoming (خیلی روشن به‌جای سفید)
-        String bg     = outgoing ? mine : theirs;
+        String mine   = dark ? "#2b7cff" : "#d8ecff";
+        String theirs = dark ? "#2c333a" : "#f2f4f7";
 
-        msg.setStyle(
-                "-fx-background-color:" + bg + ";" +
-                        "-fx-padding:8 12;" +
-                        "-fx-background-radius:12;" +
-                        "-fx-max-width: 520;"
-        );
-
-        // === بدنه‌ی بابل ===
         VBox bubble = new VBox(4);
         bubble.getChildren().add(meta);
-
-        // برچسب‌گذاری بابل برای پیدا کردنش در آپدیت‌های realtime
         if (messageId != null && !messageId.isBlank()) {
             bubble.getProperties().put("messageId", messageId);
         }
 
-        // Forward header (اختیاری)
         if (hasVal(forwardedFrom) || hasVal(forwardedBy)) {
             bubble.getChildren().add(buildForwardHeader(forwardedFrom, forwardedBy));
         }
-
-        // Reply preview (اختیاری)
         if (hasVal(replyToId)) {
             bubble.getChildren().add(buildReplyBoxFromIndex(replyToId));
         }
 
-        // متن اصلی
-        bubble.getChildren().add(msg);
+        if (isText) {
+            // متن
+            String bodyText = content == null ? "" : content;
+            Label msg = new Label(bodyText);
+            msg.setWrapText(true);
+            msg.setMinHeight(Region.USE_PREF_SIZE);
+            msg.getProperties().put("role", "msgLabel");
+            String bg = outgoing ? mine : theirs;
+            msg.setStyle("-fx-background-color:" + bg + ";" +
+                    "-fx-padding:8 12;" +
+                    "-fx-background-radius:12;" +
+                    "-fx-max-width: 520;");
+            bubble.getChildren().add(msg);
 
-        // Reactions (اختیاری) + برچسب برای تعویض سریع در ریِل‌تایم
+        } else if ("IMAGE".equals(t)) {
+            // 👇 نمایش تصویر از روی URL سرور + کپشن اختیاری
+            Node imageNode = buildImageNode(fileUrl, thumbUrl, content);
+            bubble.getChildren().add(imageNode);
+
+        } else if ("AUDIO".equals(t)) {
+            // می‌تونی بعداً کاملش کنی
+            Label ph = new Label("🎵 Audio");
+            ph.setWrapText(true);
+            String bg = outgoing ? mine : theirs;
+            ph.setStyle("-fx-background-color:" + bg + ";" +
+                    "-fx-padding:8 12;" +
+                    "-fx-background-radius:12;" +
+                    "-fx-max-width: 520;");
+            bubble.getChildren().add(ph);
+
+        } else {
+            // ناشناخته
+            Label ph = new Label("[" + t + "]");
+            ph.setWrapText(true);
+            String bg = outgoing ? mine : theirs;
+            ph.setStyle("-fx-background-color:" + bg + ";" +
+                    "-fx-padding:8 12;" +
+                    "-fx-background-radius:12;" +
+                    "-fx-max-width: 520;");
+            bubble.getChildren().add(ph);
+        }
+
         if (reactions != null && reactions.length() > 0) {
             Node rxBar = buildReactionsBarFromJson(reactions, dark);
             rxBar.getProperties().put("role", "reactionsBar");
             bubble.getChildren().add(rxBar);
         }
 
-        // === ردیف چیدمان راست/چپ ===
         HBox row = new HBox(bubble);
         row.setFillHeight(true);
         row.setSpacing(4);
         row.setAlignment(outgoing ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
         row.setPadding(new Insets(2, 6, 2, 6));
 
-        // اضافه به کانتینر
         messageContainer.getChildren().add(row);
-
-        // ایندکس نود برای آپدیت/حذف realtime
         if (messageId != null && !messageId.isBlank()) {
             messageNodes.put(messageId, row);
         }
 
         boolean isMine = outgoing;
-
-        // منوی راست‌کلیک/کلیک (بدون تغییر در ساختار کدت)
         ContextMenu menu = buildMessageMenu(isMine, messageId, type, content);
-        row.setOnContextMenuRequested(ev -> {
-            menu.show(row, ev.getScreenX(), ev.getScreenY());
-            ev.consume();
-        });
+        row.setOnContextMenuRequested(ev -> { menu.show(row, ev.getScreenX(), ev.getScreenY()); ev.consume(); });
         row.setOnMouseClicked(ev -> {
             if (ev.getButton() == javafx.scene.input.MouseButton.PRIMARY && ev.getClickCount() == 1) {
                 menu.show(row, ev.getScreenX(), ev.getScreenY());
@@ -1595,12 +1889,96 @@ public class ChatPageController {
         });
     }
 
+    private Node buildImageNode(String fileUrl, String thumbUrl, String caption) {
+        String url = hasVal(fileUrl) ? absolute(fileUrl) : null;
+        if (!hasVal(url)) return new Label("❌ Image not available");
+
+        ImageView iv = new ImageView();
+        iv.setPreserveRatio(true);
+        iv.setSmooth(true);
+        iv.setFitWidth(360);
+        iv.setFitHeight(360);
+
+        Image img = new Image(url, 360, 360, true, true, true);
+        iv.setImage(img);
+
+        img.errorProperty().addListener((obs, wasErr, isErr) -> {
+            if (isErr) {
+                System.err.println("⚠️ Image load failed: " + url + " | ex=" + img.getException());
+                Label err = new Label("❌ Failed to load image");
+                VBox fallback = new VBox(4, err);
+                Platform.runLater(() -> {
+                    if (iv.getParent() instanceof VBox v) {
+                        int idx = v.getChildren().indexOf(iv);
+                        if (idx >= 0) v.getChildren().set(idx, fallback);
+                    }
+                });
+            }
+        });
+
+        iv.setOnMouseClicked(e -> openImagePreviewDialog(url));
+
+        VBox box = new VBox(6, iv);
+        if (hasVal(caption)) {
+            Label cap = new Label(caption);
+            cap.setWrapText(true);
+            cap.setStyle("-fx-padding:6 8; -fx-background-radius:10; -fx-background-color: transparent; -fx-max-width: 520;");
+            box.getChildren().add(cap);
+        }
+        return box;
+    }
+
+
+
+
+    private void openImagePreviewDialog(String fullUrl) {
+        if (fullUrl == null || fullUrl.isBlank()) return;
+
+        // IMPORTANT: fullUrl همین حالا absolute است؛ دوباره absolute(...) نزن
+        String url = fullUrl;
+
+        ImageView iv = new ImageView(new Image(url, true));
+        iv.setPreserveRatio(true);
+
+        ScrollPane sp = new ScrollPane(iv);
+        sp.setPannable(true);
+        sp.setFitToWidth(true);
+        sp.setFitToHeight(true);
+
+        Stage st = new Stage();
+        st.setTitle("Preview");
+        st.initOwner(attachmentButton.getScene().getWindow());
+        st.setScene(new Scene(sp, 900, 700));
+        st.addEventHandler(KeyEvent.KEY_PRESSED, e -> { if (e.getCode() == KeyCode.ESCAPE) st.close(); });
+        st.show();
+    }
+
+
+    private String absolute(String pathOrUrl) {
+        if (pathOrUrl == null || pathOrUrl.isBlank()) return null;
+        if (pathOrUrl.startsWith("http")) return pathOrUrl;
+
+        // اگر نسبی است مثل /images/2025-09-06/xxx.jpg یا /audios/...
+        String rel = pathOrUrl.startsWith("/") ? pathOrUrl.substring(1) : pathOrUrl;
+
+        // حالت لوکال: file://
+        java.nio.file.Path p = java.nio.file.Paths.get(UPLOADS_DIR, rel.replace("/", java.io.File.separator));
+        java.net.URI uri = p.toUri();               // می‌شود file:///C:/Users/.../uploads/images/...
+        return uri.toString();
+
+        // اگر خواستی از HTTP بخوانی، به‌جای return بالا این را برگردان:
+        // return HTTP_BASE + (pathOrUrl.startsWith("/") ? pathOrUrl : "/" + pathOrUrl);
+    }
+
+
+
+
     private ContextMenu buildMessageMenu(boolean isMine, String messageId, String type, String content) {
         ContextMenu menu = new ContextMenu();
 
         // --- 2.1 نوار ریکشن بالای منو (مثل تلگرام) ---
         HBox reactions = new HBox(8);
-        String[] emojis = {"👍","👎","😂","😭","🕊️","⚡"};
+        String[] emojis = {"👍","👎","😂","😭","⚡"};
         for (String e : emojis) {
             Button b = new Button(e);
             b.getStyleClass().add("reaction-btn");
@@ -1788,6 +2166,64 @@ public class ChatPageController {
 //    }
 
 
+//    public void onRealTimeNewMessage(JSONObject m) {
+//        try {
+//            String chatIdStr = str(m,"receiver_id");
+//            String chatType  = str(m,"receiver_type");
+//            if (chatIdStr.isEmpty() || chatType.isEmpty()) return;
+//
+//            UUID chatId = UUID.fromString(chatIdStr);
+//            boolean isCurrent = isSameChat(chatId, chatType);
+//
+//            // id → message_id fallback
+//            if (!m.has("message_id") && m.has("id")) {
+//                m.put("message_id", m.getString("id"));
+//            }
+//            String msgId = str(m,"message_id");
+//            if (!hasVal(msgId)) return;
+//
+//            // ✅ اگر قبلاً همین پیام داخل UI اضافه شده، دیگه دوباره نساز
+//            if (messageNodes.containsKey(msgId)) return;
+//
+//            String senderName = hasVal(str(m,"sender_name")) ? str(m,"sender_name")
+//                    : (hasVal(str(m,"sender_id")) ? shortId(str(m,"sender_id")) : "Unknown");
+//
+//            String type    = hasVal(str(m,"message_type")) ? str(m,"message_type") : "TEXT";
+//            String content = str(m,"content");
+//            String whenIso = str(m,"send_at");
+//
+//            String fwdFrom = str(m,"forwarded_from");
+//            String fwdBy   = str(m,"forwarded_by");
+//            String replyTo = str(m,"reply_to_id");
+//            boolean edited = bool(m,"is_edited");
+//            JSONArray reacts = arr(m,"reactions");
+//
+//            LocalDateTime ts = parseWhen(whenIso);
+//            if (ts == null) ts = LocalDateTime.now();
+//
+//            // ایندکس برای ریپلای/ادیت/ری‌اکشن‌های بعدی
+//            msgIndex.put(msgId, m);
+//
+//            // آپدیت لیست چت‌ها (پریویو)
+//            boolean incoming = true; // از سرور آمده → ورودی
+//            updateChatListPreview(chatId, chatType, incoming, content, type);
+//
+//            // اگر در چت فعلی نیستیم، فقط پریویو آپدیت شد؛ برگرد
+//            if (!isCurrent) return;
+//
+//            // اضافه کردن حباب بدون رفرش
+//            addBubble(false, senderName, type, content, ts, msgId,
+//                    fwdFrom, fwdBy, replyTo, edited, reacts);
+//
+//            // خوانده شد (در صورت نیاز)
+//            if (currentChat != null) markAsRead(currentChat);
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
+
+
     public void onRealTimeNewMessage(JSONObject m) {
         try {
             String chatIdStr = str(m,"receiver_id");
@@ -1804,15 +2240,20 @@ public class ChatPageController {
             String msgId = str(m,"message_id");
             if (!hasVal(msgId)) return;
 
-            // ✅ اگر قبلاً همین پیام داخل UI اضافه شده، دیگه دوباره نساز
+            // اگر قبلاً تو UI هست، دوباره نساز
             if (messageNodes.containsKey(msgId)) return;
 
+            String senderId   = str(m,"sender_id");
             String senderName = hasVal(str(m,"sender_name")) ? str(m,"sender_name")
-                    : (hasVal(str(m,"sender_id")) ? shortId(str(m,"sender_id")) : "Unknown");
+                    : (hasVal(senderId) ? shortId(senderId) : "Unknown");
 
             String type    = hasVal(str(m,"message_type")) ? str(m,"message_type") : "TEXT";
-            String content = str(m,"content");
+            String content = str(m,"content");          // برای IMAGE = کپشن
             String whenIso = str(m,"send_at");
+
+            // 👇 جدید: URL ها برای عکس/صدا
+            String fileUrl  = str(m,"file_url");
+            String thumbUrl = str(m,"thumb_url");
 
             String fwdFrom = str(m,"forwarded_from");
             String fwdBy   = str(m,"forwarded_by");
@@ -1823,27 +2264,35 @@ public class ChatPageController {
             LocalDateTime ts = parseWhen(whenIso);
             if (ts == null) ts = LocalDateTime.now();
 
-            // ایندکس برای ریپلای/ادیت/ری‌اکشن‌های بعدی
+            // اندیس پیام برای ریپلای/ادیت
             msgIndex.put(msgId, m);
 
-            // آپدیت لیست چت‌ها (پریویو)
-            boolean incoming = true; // از سرور آمده → ورودی
-            updateChatListPreview(chatId, chatType, incoming, content, type);
+            // تشخیص خروجی/ورودی
+            String myId = (Session.currentUser != null && Session.currentUser.has("internal_uuid"))
+                    ? Session.currentUser.getString("internal_uuid") : "";
+            boolean outgoing = hasVal(senderId) && senderId.equalsIgnoreCase(myId);
 
-            // اگر در چت فعلی نیستیم، فقط پریویو آپدیت شد؛ برگرد
+            // آپدیت لیست چت‌ها (پریویوِ کوتاه)
+            String previewText = switch (type.toUpperCase()) {
+                case "IMAGE" -> (hasVal(content) ? "🖼️ Photo — " + content : "🖼️ Photo");
+                case "AUDIO" -> "🎵 Audio";
+                default      -> content;
+            };
+            updateChatListPreview(chatId, chatType, !outgoing, previewText, type);
+
             if (!isCurrent) return;
 
-            // اضافه کردن حباب بدون رفرش
-            addBubble(false, senderName, type, content, ts, msgId,
-                    fwdFrom, fwdBy, replyTo, edited, reacts);
+            // 👇 امضای جدیدِ addBubble (با fileUrl/thumbUrl)
+            addBubble(outgoing, senderName, type, content, ts, msgId,
+                    fwdFrom, fwdBy, replyTo, edited, reacts, fileUrl, thumbUrl);
 
-            // خوانده شد (در صورت نیاز)
             if (currentChat != null) markAsRead(currentChat);
 
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
+
 
     private void updateChatListPreview(UUID chatId, String type, boolean incoming, String content, String messageType) {
         var mc = MainController.getInstance();

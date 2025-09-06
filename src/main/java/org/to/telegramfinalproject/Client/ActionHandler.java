@@ -64,6 +64,10 @@ public class ActionHandler {
     }
 
 
+    public static ActionHandler getInstance() {
+        return instance;
+    }
+
     public ActionHandler(PrintWriter out, BufferedReader in, DataOutputStream outBin, Scanner scanner) {
         this.out = out;
         this.in  = in;
@@ -4301,7 +4305,7 @@ public class ActionHandler {
 
             JSONObject header = new JSONObject()
                     .put("message_id", messageId.toString())
-                    .put("sender_id", TelegramClient.loggedInUserId.toString())
+                    .put("sender_id", Session.getUserUUID())
                     .put("receiver_type", receiverType)      // private|group|channel
                     .put("receiver_id", receiverId.toString())
                     .put("message_type", type.toUpperCase()) // IMAGE | AUDIO

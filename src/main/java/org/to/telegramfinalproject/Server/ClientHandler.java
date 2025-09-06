@@ -1605,6 +1605,14 @@ public class ClientHandler implements Runnable {
                                     obj.put("forwarded_by",   JSONObject.NULL);
                                 }
 
+                                String mt = m.getMessage_type();
+                                if (mt != null && !mt.equalsIgnoreCase("TEXT")) {
+                                    String fileUrl = MessageDatabase.getFirstAttachmentUrlByType(m.getMessage_id(), mt);
+                                    if (fileUrl != null && !fileUrl.isBlank()) {
+                                        obj.put("file_url", fileUrl);
+                                    }
+                                }
+
                                 JSONArray reactionsArr = new JSONArray();
                                 try {
                                     List<String> reactions = MessageReactionDatabase.getReactions(m.getMessage_id());
