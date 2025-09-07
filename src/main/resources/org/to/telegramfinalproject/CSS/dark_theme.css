@@ -1284,17 +1284,83 @@
 .link-btn:hover {
     -fx-underline: true;
 }
-/* ===== Dark theme overrides ===== */
-.root.dark .tf-title      { -fx-text-fill: #f3f4f6; }
-.root.dark .tf-caption    { -fx-text-fill: #b8bdc7; }
-.root.dark .tf-item-desc  { -fx-text-fill: #9ca3af; }
 
-/* TitledPane header/content */
-.root.dark .titled-pane > .title {
-    -fx-background-color: #2b2f33;
-    -fx-text-fill: #f3f4f6;
-}
-.root.dark .titled-pane > *.content {
-    -fx-background-color: #1f2327;
+.overlay-background {
+    -fx-background-color: rgba(0,0,0,0.4);
 }
 
+.tf-root {
+    -fx-background-color: #1f2a36;
+    -fx-background-radius: 10;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 10, 0, 0, 4);
+}
+
+.tf-toolbar {
+    -fx-padding: 8 12 8 12;
+}
+
+.tf-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #229ED9; /* Telegram blue */
+}
+
+.tf-caption {
+    -fx-font-size: 12px;
+    -fx-text-fill: #aaa;
+}
+
+.tf-section {
+    -fx-spacing: 8;
+    -fx-padding: 8 0 8 0;
+}
+
+/* ScrollPane backgrounds */
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+.tf-sections {
+    -fx-background-color: #1f2a36; /* same as .tf-root */
+}
+
+/* Section + item text colors */
+.tf-section-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #ffffff;
+    -fx-padding: 4 0 2 0;
+    -fx-border-color: #333;
+    -fx-border-width: 0 0 1 0;
+}
+
+.tf-item-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-text-fill: #f5f5f5;
+}
+
+.tf-item-desc {
+    -fx-font-size: 12px;
+    -fx-text-fill: #cccccc;
+}
+
+.tf-status {
+    -fx-font-size: 11px;
+    -fx-padding: 2 6 2 6;
+    -fx-background-radius: 6;
+}
+.tf-status-available {
+    -fx-text-fill: #a5d6a7;
+    -fx-background-color: #1b5e20;
+}
+.tf-status-progress {
+    -fx-text-fill: #ffb74d;
+    -fx-background-color: #e65100;
+}

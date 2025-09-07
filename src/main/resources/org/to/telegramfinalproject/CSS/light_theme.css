@@ -1262,38 +1262,82 @@
 .link-btn:hover {
     -fx-underline: true;
 }
-/* ===== Base (shared) ===== */
-.tf-root { -fx-background-color: transparent; }
 
-.tf-toolbar { -fx-padding: 10 12; -fx-alignment: CENTER_LEFT; }
-.tf-title   { -fx-font-size: 18px; -fx-font-weight: 700; }
-.tf-caption { -fx-opacity: .75; }
-
-.tf-section { -fx-padding: 10 12 14 12; }
-.tf-item-desc { -fx-wrap-text: true; -fx-font-size: 13px; -fx-line-spacing: 1; }
-
-/* TitledPane (Accordion items) */
-.titled-pane > .title {
-    -fx-padding: 10 12;
-    -fx-background-radius: 10;
-}
-.titled-pane > *.content {
-    -fx-background-radius: 10;
-    -fx-background-insets: 0;
-    -fx-padding: 8 4 12 4;
+.overlay-background {
+    -fx-background-color: rgba(0,0,0,0.4);
 }
 
-/* ===== Light theme overrides ===== */
-.root.light .tf-title      { -fx-text-fill: #111111; }
-.root.light .tf-caption    { -fx-text-fill: #555555; }
-.root.light .tf-item-desc  { -fx-text-fill: #444444; }
-
-/* TitledPane header/content */
-.root.light .titled-pane > .title {
-    -fx-background-color: #f1f1f1;
-    -fx-text-fill: #111111;
-}
-.root.light .titled-pane > *.content {
+.tf-root {
     -fx-background-color: #ffffff;
+    -fx-background-radius: 10;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 4);
 }
 
+.tf-toolbar {
+    -fx-padding: 8 12 8 12;
+}
+
+.tf-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #229ED9; /* Telegram blue */
+}
+
+.tf-caption {
+    -fx-font-size: 12px;
+    -fx-text-fill: #888;
+}
+
+
+/* ScrollPane backgrounds */
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+.tf-sections {
+    -fx-background-color: transparent;
+}
+
+.tf-section {
+    -fx-spacing: 8;
+    -fx-padding: 8 0 8 0;
+}
+
+.tf-section-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2c2c2c;
+    -fx-padding: 4 0 2 0;
+    -fx-border-color: #ddd;
+    -fx-border-width: 0 0 1 0;
+}
+
+.tf-item-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+}
+
+.tf-item-desc {
+    -fx-font-size: 12px;
+    -fx-text-fill: #555;
+}
+
+.tf-status {
+    -fx-font-size: 11px;
+    -fx-padding: 2 6 2 6;
+    -fx-background-radius: 6;
+}
+.tf-status-available {
+    -fx-text-fill: #2e7d32;
+    -fx-background-color: #e8f5e9;
+}
+.tf-status-progress {
+    -fx-text-fill: #e65100;
+    -fx-background-color: #fff3e0;
+}
