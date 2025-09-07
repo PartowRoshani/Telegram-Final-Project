@@ -7,6 +7,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Circle;
 import org.to.telegramfinalproject.Client.AvatarLocalResolver;
+import org.to.telegramfinalproject.Models.ChatEntry;
 
 import java.util.Objects;
 
@@ -139,6 +140,12 @@ public class ChatItemController {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private String safeTitle(ChatEntry e) {
+        if (e.getName() != null && !e.getName().isBlank()) return e.getName();
+        if (e.getDisplayId() != null && !e.getDisplayId().isBlank()) return e.getDisplayId();
+        return "Unknown";
     }
 
 }

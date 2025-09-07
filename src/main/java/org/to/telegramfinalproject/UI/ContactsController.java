@@ -90,10 +90,9 @@ public class ContactsController {
                             return new ArrayList<>(Session.contactEntries);
                         }
 
-                        // در غیر این صورت از سرور می‌گیریم (اختیاری)
-                        // اگر API «view_contacts» داری، اینجا بفرست:
+
                         JSONObject req = new JSONObject()
-                                .put("action", "view_contacts")  // 🔧 اگر نام اکشن‌ات فرق دارد، تغییر بده
+                                .put("action", "view_contacts")
                                 .put("user_id", Session.getUserUUID());
 
                         JSONObject res = ActionHandler.sendWithResponse(req);
@@ -122,7 +121,6 @@ public class ContactsController {
 
                             fetched.add(new ContactEntry(contactId, userId, contactDisplay, profileName, imageUrl, isBlocked, lastSeen));
                         }
-                        // اگر می‌خواهی تو سشن هم نگه داری:
                         if (Session.contactEntries == null) Session.contactEntries = new ArrayList<>();
                         Session.contactEntries.clear();
                         Session.contactEntries.addAll(fetched);
@@ -161,7 +159,6 @@ public class ContactsController {
             item.getStyleClass().add("contact-item");
             item.setCursor(Cursor.HAND);
 
-            // آواتار
             ImageView avatar = new ImageView(loadAvatarSafe(c.imageUrl));
             avatar.setFitWidth(58);
             avatar.setFitHeight(58);
@@ -183,13 +180,24 @@ public class ContactsController {
 
     private Image loadAvatarSafe(String urlOrResource) {
         try {
-            if (urlOrResource != null && urlOrResource.startsWith("/")) {
-                return new Image(Objects.requireNonNull(getClass().getResourceAsStream(urlOrResource)));
+            if (urlOrResource != null) {
+                // حالت Resource داخلی
+                if (urlOrResource.startsWith("/")) {
+                    return new Image(Objects.requireNonNull(
+                            getClass().getResourceAsStream(urlOrResource)));
+                }
+                // حالت URL وب یا مسیر فایل
+                if (urlOrResource.startsWith("http://") ||
+                        urlOrResource.startsWith("https://") ||
+                        urlOrResource.startsWith("file:")) {
+                    return new Image(urlOrResource, true); // true = لود async
+                }
             }
-            // اگر URL وب هم داری، می‌تونی مستقیم Image(url) بسازی
+            // fallback به پیش‌فرض
             return new Image(Objects.requireNonNull(
                     getClass().getResourceAsStream("/org/to/telegramfinalproject/Avatars/default_user_profile.png")));
-        } catch (Exception ignore) {
+        } catch (Exception e) {
+            // هر مشکلی → پیش‌فرض
             return new Image(Objects.requireNonNull(
                     getClass().getResourceAsStream("/org/to/telegramfinalproject/Avatars/default_user_profile.png")));
         }
