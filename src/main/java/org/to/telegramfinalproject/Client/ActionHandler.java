@@ -1,6 +1,9 @@
 package org.to.telegramfinalproject.Client;
 
 import javafx.application.Platform;
+import javafx.scene.Node;
+import javafx.scene.control.Label;
+import javafx.scene.layout.HBox;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Database.PrivateChatDatabase;
@@ -9,6 +12,7 @@ import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Models.ContactEntry;
 import org.to.telegramfinalproject.Models.SearchRequestModel;
 import org.to.telegramfinalproject.Models.SearchResultModel;
+import org.to.telegramfinalproject.UI.ChatPageController;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -4233,38 +4237,38 @@ public class ActionHandler {
         }
     }
 
-
-    public void sendMessageInteractive(UUID receiverId, String receiverType) {
-        Scanner sc = new Scanner(System.in);
-
-        System.out.print("Type (TEXT / IMAGE / AUDIO): ");
-        String type = sc.nextLine().trim().toUpperCase();
-        while (!Set.of("TEXT","IMAGE","AUDIO").contains(type)) {
-            System.out.print("❌ Invalid. Try (TEXT / IMAGE / AUDIO): ");
-            type = sc.nextLine().trim().toUpperCase();
-        }
-
-        System.out.print("Text (optional for media; empty = no caption): ");
-        String text = sc.nextLine();
-
-        if ("TEXT".equals(type)) {
-            sendTextMessage(receiverId, receiverType, text);
-        } else {
-            System.out.print("File path: ");
-            String path = sc.nextLine().trim();
-            File f = new File(path);
-            if (!f.isFile()) {
-                System.out.println("❌ File not found");
-                return;
-            }
-            try {
-                sendMediaMessage(receiverId, receiverType, type, f, text);
-            } catch (Exception e) {
-                e.printStackTrace();
-                System.out.println("❌ Media send failed: " + e.getMessage());
-            }
-        }
-    }
+//
+//    public void sendMessageInteractive(UUID receiverId, String receiverType) {
+//        Scanner sc = new Scanner(System.in);
+//
+//        System.out.print("Type (TEXT / IMAGE / AUDIO): ");
+//        String type = sc.nextLine().trim().toUpperCase();
+//        while (!Set.of("TEXT","IMAGE","AUDIO").contains(type)) {
+//            System.out.print("❌ Invalid. Try (TEXT / IMAGE / AUDIO): ");
+//            type = sc.nextLine().trim().toUpperCase();
+//        }
+//
+//        System.out.print("Text (optional for media; empty = no caption): ");
+//        String text = sc.nextLine();
+//
+//        if ("TEXT".equals(type)) {
+//            sendTextMessage(receiverId, receiverType, text);
+//        } else {
+//            System.out.print("File path: ");
+//            String path = sc.nextLine().trim();
+//            File f = new File(path);
+//            if (!f.isFile()) {
+//                System.out.println("❌ File not found");
+//                return;
+//            }
+//            try {
+//                sendMediaMessage(receiverId, receiverType, type, f, text);
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//                System.out.println("❌ Media send failed: " + e.getMessage());
+//            }
+//        }
+//    }
 
     private void sendTextMessage(UUID receiverId, String receiverType, String content) {
         JSONObject req = new JSONObject()
@@ -4282,36 +4286,117 @@ public class ActionHandler {
         }
     }
 
+//
+//    public void sendMediaMessage(UUID receiverId, String receiverType, String type /* IMAGE/AUDIO */, File file, String caption) {
+//        if (file == null) {
+//            System.out.println("❌ File is null");
+//            return;
+//        }
+//        if (!file.exists()) {
+//            System.out.println("❌ File not found: " + file.getAbsolutePath());
+//            return;
+//        }
+//        if (file.isDirectory()) {
+//            System.out.println("❌ Path is a directory, expected a file: " + file.getAbsolutePath());
+//            return;
+//        }
+//
+//        final UUID messageId = UUID.randomUUID();
+//
+//        try {
+//            String mime = detectMime(file, type.toUpperCase());
+//            if (mime == null) mime = type.equalsIgnoreCase("IMAGE") ? "image/*" : "audio/*";
+//
+//            JSONObject header = new JSONObject()
+//                    .put("message_id", messageId.toString())
+//                    .put("sender_id", Session.getUserUUID())
+//                    .put("receiver_type", receiverType)      // private|group|channel
+//                    .put("receiver_id", receiverId.toString())
+//                    .put("message_type", type.toUpperCase()) // IMAGE | AUDIO
+//                    .put("file_name", file.getName())
+//                    .put("mime_type", mime)
+//                    .put("text", caption == null ? "" : caption);
+//
+//            byte[] headerBytes = header.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+//            long contentLen = file.length();
+//
+//            BlockingQueue<JSONObject> q = new LinkedBlockingQueue<>(1);
+//            TelegramClient.pendingResponses.put(messageId.toString(), q);
+//
+//            try {
+//
+//                outBin.write("MEDIA\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+//                outBin.flush();
+//
+//                // 2) binary frame: magic + headerLen + header + contentLen + content
+//                outBin.writeInt(0x4D444D31);                 // "MDM1"
+//                outBin.writeInt(headerBytes.length);         // headerLen (int)
+//                outBin.write(headerBytes);                   // header
+//                outBin.writeLong(contentLen);                // contentLen (long)
+//
+//                try (InputStream fis = new BufferedInputStream(new FileInputStream(file))) {
+//                    byte[] buf = new byte[8192];
+//                    int n;
+//                    while ((n = fis.read(buf)) != -1) {
+//                        outBin.write(buf, 0, n);
+//                    }
+//                }
+//                outBin.flush();
+//
+//                JSONObject ack = q.poll(20, java.util.concurrent.TimeUnit.SECONDS);
+//                if (ack == null) {
+//                    System.out.println("❌ Media ACK timeout for " + messageId);
+//                    return;
+//                }
+//
+//                String status = ack.optString("status", "error");
+//                if ("success".equalsIgnoreCase(status)) {
+//                    System.out.println("✅ Media sent. id=" + ack.optString("message_id") +
+//                            " url=" + ack.optString("file_url"));
+//                } else {
+//                    System.out.println("❌ Media failed: " + ack.optString("message"));
+//                }
+//
+//            } finally {
+//                TelegramClient.pendingResponses.remove(messageId.toString());
+//            }
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            System.out.println("❌ sendMediaMessage error: " + e.getMessage());
+//        }
+//    }
 
-    public void sendMediaMessage(UUID receiverId, String receiverType, String type /* IMAGE/AUDIO */, File file, String caption) {
-        if (file == null) {
-            System.out.println("❌ File is null");
-            return;
-        }
-        if (!file.exists()) {
-            System.out.println("❌ File not found: " + file.getAbsolutePath());
-            return;
-        }
-        if (file.isDirectory()) {
-            System.out.println("❌ Path is a directory, expected a file: " + file.getAbsolutePath());
-            return;
-        }
 
-        final UUID messageId = UUID.randomUUID();
+
+    // اورلود پیشنهادی: messageId از بیرون دریافت می‌شود
+    public void sendMediaMessage(
+            UUID messageId,            // 👈 از بیرون می‌آید (برای Pending)
+            UUID receiverId,
+            String receiverType,       // "private" | "group" | "channel"
+            String type,               // "IMAGE" | "AUDIO"
+            File file,
+            String caption
+    ) {
+        if (file == null || !file.exists() || file.isDirectory()) {
+            Platform.runLater(() -> ChatPageController.get().updatePendingStatus(
+                    messageId.toString(), "Failed (file)"));
+            return;
+        }
 
         try {
             String mime = detectMime(file, type.toUpperCase());
             if (mime == null) mime = type.equalsIgnoreCase("IMAGE") ? "image/*" : "audio/*";
 
             JSONObject header = new JSONObject()
-                    .put("message_id", messageId.toString())
-                    .put("sender_id", Session.getUserUUID())
-                    .put("receiver_type", receiverType)      // private|group|channel
-                    .put("receiver_id", receiverId.toString())
-                    .put("message_type", type.toUpperCase()) // IMAGE | AUDIO
-                    .put("file_name", file.getName())
-                    .put("mime_type", mime)
-                    .put("text", caption == null ? "" : caption);
+                    .put("message_id",   messageId.toString())
+                    .put("sender_id",    Session.getUserUUID())  // همون UUID کاربر
+                    .put("receiver_type",receiverType)
+                    .put("receiver_id",  receiverId.toString())
+                    .put("message_type", type.toUpperCase())
+                    .put("file_name",    file.getName())
+                    .put("mime_type",    mime)
+                    .put("text",         caption == null ? "" : caption);
 
             byte[] headerBytes = header.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
             long contentLen = file.length();
@@ -4320,15 +4405,13 @@ public class ActionHandler {
             TelegramClient.pendingResponses.put(messageId.toString(), q);
 
             try {
-
                 outBin.write("MEDIA\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
                 outBin.flush();
 
-                // 2) binary frame: magic + headerLen + header + contentLen + content
-                outBin.writeInt(0x4D444D31);                 // "MDM1"
-                outBin.writeInt(headerBytes.length);         // headerLen (int)
-                outBin.write(headerBytes);                   // header
-                outBin.writeLong(contentLen);                // contentLen (long)
+                outBin.writeInt(0x4D444D31);          // "MDM1"
+                outBin.writeInt(headerBytes.length);
+                outBin.write(headerBytes);
+                outBin.writeLong(contentLen);
 
                 try (InputStream fis = new BufferedInputStream(new FileInputStream(file))) {
                     byte[] buf = new byte[8192];
@@ -4342,15 +4425,23 @@ public class ActionHandler {
                 JSONObject ack = q.poll(20, java.util.concurrent.TimeUnit.SECONDS);
                 if (ack == null) {
                     System.out.println("❌ Media ACK timeout for " + messageId);
+                    Platform.runLater(() -> ChatPageController.get().updatePendingStatus(
+                            messageId.toString(), "Failed (timeout)"));
                     return;
                 }
 
                 String status = ack.optString("status", "error");
                 if ("success".equalsIgnoreCase(status)) {
-                    System.out.println("✅ Media sent. id=" + ack.optString("message_id") +
-                            " url=" + ack.optString("file_url"));
+                    // سرور شما فیلد نمایش را با نام display_path می‌فرستد (نه file_url)
+                    String url = ack.optString("display_path", ack.optString("file_url", ""));
+                    System.out.println("✅ Media sent. id=" + ack.optString("message_id") + " url=" + url);
+
+                    // بابل Pending را بردار (بلافاصله؛ پیام واقعی هم بعداً با real-time می‌آید)
+                    Platform.runLater(() -> ChatPageController.get().removePendingBubble(messageId.toString()));
                 } else {
                     System.out.println("❌ Media failed: " + ack.optString("message"));
+                    Platform.runLater(() -> ChatPageController.get().updatePendingStatus(
+                            messageId.toString(), "Failed to send"));
                 }
 
             } finally {
@@ -4360,6 +4451,8 @@ public class ActionHandler {
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("❌ sendMediaMessage error: " + e.getMessage());
+            Platform.runLater(() -> ChatPageController.get().updatePendingStatus(
+                    messageId.toString(), "Error"));
         }
     }
 
@@ -4628,6 +4721,9 @@ public class ActionHandler {
 
         } catch (Exception ignore) {}
     }
+
+
+
 
 
 
