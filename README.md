@@ -1,4 +1,4 @@
-# Telegram-Clone Project
+<img width="2093" height="1122" alt="Screenshot 2025-09-08 005216" src="https://github.com/user-attachments/assets/1989ca43-a9b9-4f61-8203-12d1f86682eb" /># Telegram-Clone Project
 
 ## Introduction
 This is the final project of our [**Advanced Programming**](https://github.com/Advanced-Programming-1403) course at Shahid Beheshti University.  
@@ -76,9 +76,16 @@ Implemented with **PostgreSQL**. Main tables include:
 ---
 
 ## Presentation
-[This]() is the link to the slides used for the project presentation.  
+<img width="2093" height="1122" alt="Screenshot 2025-09-08 005216" src="https://github.com/user-attachments/assets/b370b2bb-f84a-400d-81c4-f945c8c1e489" />
+
+<img width="2239" height="1357" alt="Screenshot 2025-09-08 004526" src="https://github.com/user-attachments/assets/70ea1746-0e2e-45d2-a5d2-33c6e15f8dd3" />
+
+<img width="2248" height="1429" alt="Screenshot 2025-09-08 004157" src="https://github.com/user-attachments/assets/61f1fc0c-452c-42da-bf0e-aa68aee06047" />
+
+<img width="2147" height="1248" alt="Screenshot 2025-09-08 005228" src="https://github.com/user-attachments/assets/73874dec-ac9c-4948-a421-379cc1583720" />
 
 ---
+
 
 ## How to Run the Code
 1. Clone the repository.  
