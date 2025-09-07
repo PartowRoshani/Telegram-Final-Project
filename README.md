@@ -28,7 +28,7 @@ Here is a list of concepts that were practiced and implemented throughout the pr
 - **Gradle** as the build system  
 
 ---
-## Detabase design
+## Database design
 ![photo_2025-09-07_20-10-33](https://github.com/user-attachments/assets/64f786c4-91a6-4a7c-955f-e6b646baa5e8)
 
 ---
