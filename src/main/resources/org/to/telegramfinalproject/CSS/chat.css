@@ -78,3 +78,19 @@
 .button.footer-link-btn.danger {
     -fx-text-fill: #D32F2F;
 }
+
+
+/* فونت‌های ایموجی روی همهٔ سیستم‌ها */
+.emoji-label {
+    -fx-font-family: "Segoe UI Emoji", "Segoe UI Symbol",
+                     "Apple Color Emoji", "Noto Color Emoji",
+                     "Arial Unicode MS";
+    -fx-font-size: 13px;
+}
+
+/* اگر بخواهی فقط داخل صفحهٔ چت اعمال شود */
+.chat-root .emoji-label {
+    -fx-font-family: "Segoe UI Emoji", "Segoe UI Symbol",
+                     "Apple Color Emoji", "Noto Color Emoji",
+                     "Arial Unicode MS";
+}

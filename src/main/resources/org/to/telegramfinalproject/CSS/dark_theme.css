@@ -1284,3 +1284,17 @@
 .link-btn:hover {
     -fx-underline: true;
 }
+/* ===== Dark theme overrides ===== */
+.root.dark .tf-title      { -fx-text-fill: #f3f4f6; }
+.root.dark .tf-caption    { -fx-text-fill: #b8bdc7; }
+.root.dark .tf-item-desc  { -fx-text-fill: #9ca3af; }
+
+/* TitledPane header/content */
+.root.dark .titled-pane > .title {
+    -fx-background-color: #2b2f33;
+    -fx-text-fill: #f3f4f6;
+}
+.root.dark .titled-pane > *.content {
+    -fx-background-color: #1f2327;
+}
+

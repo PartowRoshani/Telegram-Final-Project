@@ -1262,3 +1262,38 @@
 .link-btn:hover {
     -fx-underline: true;
 }
+/* ===== Base (shared) ===== */
+.tf-root { -fx-background-color: transparent; }
+
+.tf-toolbar { -fx-padding: 10 12; -fx-alignment: CENTER_LEFT; }
+.tf-title   { -fx-font-size: 18px; -fx-font-weight: 700; }
+.tf-caption { -fx-opacity: .75; }
+
+.tf-section { -fx-padding: 10 12 14 12; }
+.tf-item-desc { -fx-wrap-text: true; -fx-font-size: 13px; -fx-line-spacing: 1; }
+
+/* TitledPane (Accordion items) */
+.titled-pane > .title {
+    -fx-padding: 10 12;
+    -fx-background-radius: 10;
+}
+.titled-pane > *.content {
+    -fx-background-radius: 10;
+    -fx-background-insets: 0;
+    -fx-padding: 8 4 12 4;
+}
+
+/* ===== Light theme overrides ===== */
+.root.light .tf-title      { -fx-text-fill: #111111; }
+.root.light .tf-caption    { -fx-text-fill: #555555; }
+.root.light .tf-item-desc  { -fx-text-fill: #444444; }
+
+/* TitledPane header/content */
+.root.light .titled-pane > .title {
+    -fx-background-color: #f1f1f1;
+    -fx-text-fill: #111111;
+}
+.root.light .titled-pane > *.content {
+    -fx-background-color: #ffffff;
+}
+

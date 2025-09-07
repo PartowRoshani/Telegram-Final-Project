@@ -256,7 +256,6 @@ public class EditProfileController {
         }
 
         if (!anyError) {
-            // 1) اگر صفحه‌ی MyProfile باز است
             var mp = MyProfileController.getInstance();
             if (mp != null) {
                 mp.setProfileData(

@@ -1537,6 +1537,35 @@ public class MessageDatabase {
 
 
 
+    public static String getFirstAttachmentUrlByType(UUID messageId, String messageType) {
+        final String sql = """
+        SELECT file_url
+        FROM message_attachments
+        WHERE message_id = ?
+          AND (file_type = ? OR ? IS NULL)
+        ORDER BY attachment_id
+        LIMIT 1
+    """;
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, messageId);
+            // اگر messageType خالی بود، با NULL بفرست که شرط OR ? IS NULL برقرار شه
+            String mt = (messageType == null || messageType.isBlank()) ? null : messageType.toUpperCase();
+            ps.setString(2, mt);
+            if (mt == null) ps.setNull(3, Types.VARCHAR); else ps.setString(3, mt);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString("file_url") : null;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+
+
+
 
 
 
