@@ -63,7 +63,7 @@ public class NewChannelController {
 
         createButton.setOnAction(e -> onCreateChannel());
 
-        // محدودیت توضیح
+        // Limit description
         final int MAX_LENGTH = 255;
         channelDescField.addEventFilter(javafx.scene.input.KeyEvent.KEY_TYPED, e -> {
             if (channelDescField.getText().length() >= MAX_LENGTH) e.consume();
@@ -79,7 +79,7 @@ public class NewChannelController {
         });
         descCounter.setText("0 / 255");
 
-        // پاک کردن استایل خطا هنگام تایپ
+        // Reset error when user types again
         channelNameField.textProperty().addListener((obs, ov, nv) -> {
             if (!nv.trim().isEmpty()) {
                 channelNameField.getStyleClass().remove("error");

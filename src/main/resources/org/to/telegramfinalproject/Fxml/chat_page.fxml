@@ -50,25 +50,57 @@
             <contextMenu>
                 <ContextMenu fx:id="chatMoreMenu">
                     <items>
-                        <MenuItem fx:id="archiveItem" text="Archive chat">
+                        <!-- Private -->
+                        <MenuItem fx:id="archiveItem" text="Archive chat" visible="false">
                             <graphic>
                                 <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
-                                    <image><Image url="@/org/to/telegramfinalproject/Icons/archived_chats_dark.png"/>
-                                    </image>
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/archived_chats_dark.png"/></image>
                                 </ImageView>
                             </graphic>
                         </MenuItem>
-                        <MenuItem fx:id="viewProfileItem" text="View profile">
+                        <MenuItem fx:id="viewProfileItem" text="View profile" visible="false">
                             <graphic>
                                 <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
                                     <image><Image url="@/org/to/telegramfinalproject/Icons/view_profile_dark.png"/></image>
                                 </ImageView>
                             </graphic>
                         </MenuItem>
-                        <MenuItem fx:id="deleteChatItem" text="Delete chat" style="-fx-text-fill: red;">
+                        <MenuItem fx:id="deleteChatItem" text="Delete chat" style="-fx-text-fill: red;" visible="false">
                             <graphic>
                                 <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
                                     <image><Image url="@/org/to/telegramfinalproject/Icons/delete_red.png"/></image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+
+                        <!-- Group -->
+                        <MenuItem fx:id="viewGroupItem" text="View group info" visible="false">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/group_dark.png"/></image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+                        <MenuItem fx:id="leaveGroupItem" text="Leave group" style="-fx-text-fill: red;" visible="false">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/log_out.png"/></image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+
+                        <!-- Channel -->
+                        <MenuItem fx:id="viewChannelItem" text="View channel info" visible="false">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/group_dark.png"/></image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+                        <MenuItem fx:id="leaveChannelItem" text="Leave channel" style="-fx-text-fill: red;" visible="false">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/log_out.png"/></image>
                                 </ImageView>
                             </graphic>
                         </MenuItem>

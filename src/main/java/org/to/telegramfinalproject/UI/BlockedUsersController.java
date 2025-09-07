@@ -51,7 +51,7 @@ public class BlockedUsersController {
         ThemeManager.getInstance().darkModeProperty().addListener((obs, oldVal, newVal) -> updateBackIcon(newVal));
         updateBackIcon(ThemeManager.getInstance().isDarkMode());
 
-        // اسکرول نرم
+        // Smooth scroll feel
         blockedList.getStylesheets().add(
                 getClass().getResource("/org/to/telegramfinalproject/CSS/scrollpane.css").toExternalForm()
         );

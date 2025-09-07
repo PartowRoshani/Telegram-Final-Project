@@ -1132,3 +1132,59 @@
     -fx-border-radius: 50%;
     -fx-border-width: 1;
 }
+
+.member-row {
+    -fx-alignment: CENTER_LEFT;
+}
+
+.member-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.profile-card {
+    -fx-background-radius: 12;
+    -fx-background-color: #1f2a36; /* dark gray card */
+    -fx-padding: 16;
+}
+
+.profile-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e8f1f8; /* light text */
+}
+
+
+.member-row {
+    -fx-padding: 6 0;
+}
+
+.member-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e8f1f8; /* Telegram light text */
+}
+
+.member-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #8ea1b2; /* grayish */
+}
+
+.member-role {
+    -fx-font-size: 12px;
+    -fx-text-fill: #4fa8f0; /* blue */
+    -fx-font-weight: bold;
+}
+
+/* Group name (bold, light text) */
+.info-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e8f1f8; /* light gray/white */
+}
+
+/* Members count (blue link style like Telegram dark mode) */
+.info-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: #4fa8f0; /* same Telegram blue */
+}

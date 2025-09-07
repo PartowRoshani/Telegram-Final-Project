@@ -954,28 +954,38 @@ public class ChatPageController {
     }
 
     private void configureHeaderActions(ChatEntry entry) {
-        chatMoreMenu.getItems().clear();
+        // Hide everything by default
+        archiveItem.setVisible(false);
+        viewProfileItem.setVisible(false);
+        deleteChatItem.setVisible(false);
+        viewGroupItem.setVisible(false);
+        leaveGroupItem.setVisible(false);
+        viewChannelItem.setVisible(false);
+        leaveChannelItem.setVisible(false);
 
         switch (entry.getType().toLowerCase(Locale.ROOT)) {
             case "private" -> {
+                archiveItem.setVisible(true);
+                viewProfileItem.setVisible(true);
+                deleteChatItem.setVisible(true);
+
                 archiveItem.setOnAction(e -> toggleArchive(entry));
                 viewProfileItem.setOnAction(e -> openInfoScene(entry));
                 deleteChatItem.setOnAction(e -> deleteChatButton(entry));
-                chatMoreMenu.getItems().addAll(archiveItem, viewProfileItem, deleteChatItem);
             }
             case "group" -> {
-                MenuItem viewGroup = new MenuItem("View group info");
-                viewGroup.setOnAction(e -> openInfoScene(entry));
-                MenuItem leaveGroup = new MenuItem("Leave group");
-                leaveGroup.setOnAction(e -> leaveGroupButton(entry));
-                chatMoreMenu.getItems().addAll(viewGroup, leaveGroup);
+                viewGroupItem.setVisible(true);
+                leaveGroupItem.setVisible(true);
+
+                viewGroupItem.setOnAction(e -> openInfoScene(entry));
+                leaveGroupItem.setOnAction(e -> leaveGroupButton(entry));
             }
             case "channel" -> {
-                MenuItem viewChannel = new MenuItem("View channel info");
-                viewChannel.setOnAction(e -> openInfoScene(entry));
-                MenuItem leaveChannel = new MenuItem("Leave channel");
-                leaveChannel.setOnAction(e -> leaveChannelButton(entry));
-                chatMoreMenu.getItems().addAll(viewChannel, leaveChannel);
+                viewChannelItem.setVisible(true);
+                leaveChannelItem.setVisible(true);
+
+                viewChannelItem.setOnAction(e -> openInfoScene(entry));
+                leaveChannelItem.setOnAction(e -> leaveChannelButton(entry));
             }
         }
 
@@ -1027,7 +1037,8 @@ public class ChatPageController {
             }
             case "group" -> {
                 req.put("action", "view_group")
-                        .put("group_id", entry.getId().toString());
+                        .put("group_id", entry.getId().toString())
+                        .put("viewer_id", Session.getUserUUID());
             }
             case "channel" -> {
                 req.put("action", "view_channel")
@@ -3035,6 +3046,14 @@ public class ChatPageController {
         }
         if (deleteChatItem != null && deleteChatItem.getGraphic() instanceof ImageView iv) {
             iv.setImage(loadIcon("delete_red.png")); // stays red in both themes
+        }
+
+        if (viewGroupItem != null && viewGroupItem.getGraphic() instanceof ImageView iv) {
+            iv.setImage(loadIcon("group" + suffix));
+        }
+
+        if (viewChannelItem != null && viewChannelItem.getGraphic() instanceof ImageView iv) {
+            iv.setImage(loadIcon("group" + suffix));
         }
     }
 

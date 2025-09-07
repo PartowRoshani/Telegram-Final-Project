@@ -679,4 +679,83 @@ public class GroupDatabase {
 //        return result;
 //    }
 
+    public static JSONObject getGroupInfo(UUID groupId, UUID viewerUuid) throws SQLException {
+        JSONObject result = new JSONObject();
+
+        try (Connection conn = ConnectionDb.connect()) {
+            // === Group header (name, member count, etc.)
+            String groupQuery = """
+            SELECT g.internal_uuid, g.group_id, g.group_name, g.image_url,
+                   COUNT(m.user_id) as member_count
+            FROM groups g
+            LEFT JOIN group_members m ON g.internal_uuid = m.group_id
+            WHERE g.internal_uuid = ?
+            GROUP BY g.internal_uuid, g.group_id, g.group_name, g.image_url
+        """;
+
+            try (PreparedStatement ps = conn.prepareStatement(groupQuery)) {
+                ps.setObject(1, groupId); // ✅ compare UUID with UUID
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) {
+                    result.put("internal_uuid", rs.getString("internal_uuid"));
+                    result.put("group_id", rs.getString("group_id")); // varchar handle
+                    result.put("group_name", rs.getString("group_name"));
+                    result.put("member_count", rs.getInt("member_count"));
+                    result.put("image_url", rs.getString("image_url"));
+                } else {
+                    return null; // no such group
+                }
+            }
+
+            // === Members (id, name, role, status, image)
+            JSONArray membersArr = new JSONArray();
+
+            String membersQuery = """
+            SELECT u.internal_uuid, u.profile_name, u.user_id, u.image_url,
+                   gm.role, u.status, u.last_seen
+            FROM group_members gm
+            JOIN users u ON gm.user_id = u.internal_uuid
+            WHERE gm.group_id = ?
+        """;
+
+            try (PreparedStatement ps = conn.prepareStatement(membersQuery)) {
+                ps.setObject(1, groupId); // ✅ gm.group_id is UUID
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    JSONObject member = new JSONObject();
+                    member.put("user_id", rs.getString("internal_uuid"));
+                    member.put("profile_name", rs.getString("profile_name"));
+                    member.put("username", rs.getString("user_id"));
+                    member.put("image_url", rs.getString("image_url"));
+                    member.put("role", rs.getString("role"));
+                    member.put("status", rs.getString("status"));
+                    member.put("last_seen", rs.getString("last_seen"));
+                    membersArr.put(member);
+                }
+            }
+
+            result.put("members", membersArr);
+
+            // === Viewer role (to decide if they can delete group, etc.)
+            String roleQuery = """
+            SELECT role
+            FROM group_members
+            WHERE group_id = ? AND user_id = ?
+        """;
+
+            try (PreparedStatement ps = conn.prepareStatement(roleQuery)) {
+                ps.setObject(1, groupId);
+                ps.setObject(2, viewerUuid);
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) {
+                    result.put("my_role", rs.getString("role"));
+                } else {
+                    result.put("my_role", ""); // not a member
+                }
+            }
+        }
+
+        return result;
+    }
+
 }
