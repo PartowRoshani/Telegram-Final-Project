@@ -364,10 +364,31 @@ public class SidebarMenuController {
         }
     }
 
-    private void openTelegramFeatures() { System.out.println("Opening Telegram Features..."); }
-    private void openTelegramQnA() { System.out.println("Opening Telegram Q&A..."); }
+    private void openTelegramFeatures() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                    "/org/to/telegramfinalproject/Fxml/telegram_features.fxml"));
+            Node featuresOverlay = loader.load();
 
+            MainController.getInstance().showOverlay(featuresOverlay);
 
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void openTelegramQnA() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                    "/org/to/telegramfinalproject/Fxml/telegram_qna.fxml"));
+            Node qnaOverlay = loader.load();
+
+            MainController.getInstance().showOverlay(qnaOverlay);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     public void setUserFromSession(JSONObject user) {
         if (user == null) return;

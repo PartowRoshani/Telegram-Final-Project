@@ -110,8 +110,10 @@ public class NewGroupController {
         new Thread(() -> {
             JSONObject resp = ActionHandler.sendWithResponse(req);
             if (resp == null || !"success".equalsIgnoreCase(resp.optString("status"))) {
-                Platform.runLater(() -> showToast("Create failed: " +
-                        (resp == null ? "no response" : resp.optString("message",""))));
+                Platform.runLater(() -> {
+                    groupIdField.getStyleClass().add("error");
+                    groupIdLabel.getStyleClass().add("error");
+                });
                 return;
             }
 
@@ -182,7 +184,4 @@ public class NewGroupController {
         a.initOwner(overlayRoot.getScene().getWindow());
         a.show();
     }
-
-
-
 }

@@ -3005,7 +3005,29 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "view_group": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
 
+                        try {
+                            UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+                            UUID viewerId = UUID.fromString(requestJson.getString("viewer_id"));
+
+                            // Query group details
+                            JSONObject groupData = GroupDatabase.getGroupInfo(groupId, viewerId);
+
+                            if (groupData == null) {
+                                response = new ResponseModel("error", "Group not found.");
+                            } else {
+                                response = new ResponseModel("success", "Group info fetched.", groupData);
+                            }
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error processing group info: " + e.getMessage());
+                        }
+                        break;
+                    }
 
 
                     default:

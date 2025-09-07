@@ -35,6 +35,13 @@ public class AddMembersController {
     private String groupDisplayId;
     private File groupImageFile;
 
+    public enum Mode {
+        CREATE,   // from New Group
+        ADD       // from Group Info
+    }
+
+    private Mode mode = Mode.CREATE; // default
+
     // انتخاب‌ها
     private final Set<Contact> selectedContacts = new HashSet<>();
     // همه‌ی کانتکت‌ها
@@ -42,7 +49,7 @@ public class AddMembersController {
 
     @FXML
     public void initialize() {
-        // اسکرول نرم
+        // Smooth scroll feel
         contactsScroll.getStylesheets().add(
                 getClass().getResource("/org/to/telegramfinalproject/CSS/scrollpane.css").toExternalForm()
         );
@@ -81,21 +88,28 @@ public class AddMembersController {
         renderContacts(allContacts);
     }
 
-    // این متد را NewGroupController بعد از ساخت گروه صدا بزند
+    // Called when creating a new group from sidebar
     public void setGroupInfo(UUID internalId, String groupName, String displayId, File groupImageFile) {
         this.groupInternalId = internalId;
         this.groupName = groupName;
         this.groupDisplayId = displayId;
         this.groupImageFile = groupImageFile;
+        this.mode = Mode.CREATE;
+        updateActionButtonText();
     }
 
-    // — اگر هنوز امضای قدیمی را صدا می‌زنی، موقتاً این اوِرلود هست (displayId را می‌گیرد اما internal_id لازم است) —
-    public void setGroupInfo(String groupName, String groupId, File groupImageFile) {
-        // ⚠️ فقط برای سازگاری موقت؛ حتماً NewGroupController را طوری به‌روزرسانی کن
-        // که internal_id را بدهد (امضای بالایی).
+    // Called when adding to an existing group
+    public void setGroupForAdd(UUID internalId, String groupName) {
+        this.groupInternalId = internalId;
         this.groupName = groupName;
-        this.groupDisplayId = groupId;
-        this.groupImageFile = groupImageFile;
+        this.mode = Mode.ADD;
+        updateActionButtonText();
+    }
+
+    private void updateActionButtonText() {
+        if (createButton != null) {
+            createButton.setText(mode == Mode.CREATE ? "Create" : "Add");
+        }
     }
 
     private void loadContactsFromSession() {
