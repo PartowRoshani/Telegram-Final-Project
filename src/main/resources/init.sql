@@ -91,20 +91,6 @@ CREATE TABLE channel_subscribers (
 );
 
 
---(Bouns)
-CREATE TABLE IF NOT EXISTS channel_admins (
-    channel_id VARCHAR(70) REFERENCES channels(channel_id),
-    user_id UUID REFERENCES users(internal_uuid),
-    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    added_by UUID REFERENCES users(internal_uuid),
-    role VARCHAR(20) DEFAULT 'admin',              --owner, admin
-    can_post_messages BOOLEAN DEFAULT TRUE,
-    can_edit_setting BOOLEAN DEFAULT FALSE,          -- profile, bio, name, etc.
-    can_delete_messages BOOLEAN DEFAULT FALSE,
-    can_delete_members BOOLEAN DEFAULT FALSE,
-    can_add_members BOOLEAN DEFAULT TRUE,
-    PRIMARY KEY (channel_id, user_id)
-    );
 
 CREATE TABLE IF NOT EXISTS message_receipts (
     message_id UUID REFERENCES messages(message_id) ON DELETE CASCADE,
