@@ -12,10 +12,12 @@ import javafx.scene.layout.*;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Client.ActionHandler;
 import org.to.telegramfinalproject.Client.AvatarLocalResolver;
+import org.to.telegramfinalproject.Client.Session;
 import org.to.telegramfinalproject.Models.ChatEntry;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.UUID;
 
 public class GroupInfoController {
 
@@ -54,6 +56,10 @@ public class GroupInfoController {
         infoMoreButton.setOnAction(e -> {
             if (infoMoreMenu != null) infoMoreMenu.show(infoMoreButton, javafx.geometry.Side.BOTTOM, 0, 0);
         });
+
+        if (manageGroupItem != null) {
+            manageGroupItem.setOnAction(e -> openManageGroupScene());
+        }
 
         deleteGroupItem.setOnAction(e -> handleDeleteGroup());
 
@@ -100,15 +106,26 @@ public class GroupInfoController {
         groupName.setText(data.optString("group_name", entry.getName()));
         memberCount.setText(data.optInt("member_count", 0) + " members");
 
-        // show/hide Delete button if user is owner
-        String myRole = data.optString("my_role", "member");
-        if ("owner".equalsIgnoreCase(myRole)) {
-            deleteGroupItem.setVisible(true);
-        } else {
-            deleteGroupItem.setVisible(false);
+        // --- Role-based UI ---
+        String myRole = data.optString("my_role", "member").toLowerCase();
+
+        // Delete group → only owner
+        deleteGroupItem.setVisible("owner".equals(myRole));
+
+        // Add member (button + menu item) → owner or admin
+        boolean canAdd = "owner".equals(myRole) || "admin".equals(myRole);
+        addMemberButton.setVisible(canAdd);
+        addMemberButton.setManaged(canAdd);
+        if (addMemberItem != null) {
+            addMemberItem.setVisible(canAdd);
         }
 
-        // Group picture
+        // More menu (3-dot) → hide entirely for plain members
+        boolean showMore = "owner".equals(myRole) || "admin".equals(myRole);
+        infoMoreButton.setVisible(showMore);
+        infoMoreButton.setManaged(showMore);
+
+        // --- Group picture ---
         String imgUrl = data.optString("image_url", "");
         if (!imgUrl.isBlank()) {
             try {
@@ -122,7 +139,7 @@ public class GroupInfoController {
             );
         }
 
-        // Members
+        // --- Members list ---
         membersList.getChildren().clear();
         var arr = data.optJSONArray("members");
         if (arr != null) {
@@ -191,6 +208,66 @@ public class GroupInfoController {
         membersList.getChildren().add(row);
     }
 
+    private void openManageGroupScene() {
+        new Thread(() -> {
+            try {
+                JSONObject req = new JSONObject()
+                        .put("action", "view_group")
+                        .put("group_id", groupId)
+                        .put("viewer_id", Session.getUserUUID());
+
+                JSONObject resp = ActionHandler.sendWithResponse(req);
+
+                if (resp == null || !"success".equalsIgnoreCase(resp.optString("status"))) {
+                    Platform.runLater(() -> MainController.getInstance().showAlert(
+                            "Error",
+                            resp != null ? resp.optString("message") : "Server not responding.",
+                            Alert.AlertType.ERROR
+                    ));
+                    return;
+                }
+
+                JSONObject data = resp.optJSONObject("data");
+                if (data == null) {
+                    Platform.runLater(() -> MainController.getInstance().showAlert(
+                            "Error",
+                            "Malformed server response.",
+                            Alert.AlertType.ERROR
+                    ));
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    try {
+                        FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                                "/org/to/telegramfinalproject/Fxml/manage_group.fxml"));
+                        Node overlay = loader.load();
+
+                        ManageGroupController controller = loader.getController();
+                        controller.setGroupData(data); // pass the full JSON
+
+                        MainController.getInstance().showOverlay(overlay);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        MainController.getInstance().showAlert(
+                                "Error",
+                                "Could not load Manage Group scene.",
+                                Alert.AlertType.ERROR
+                        );
+                    }
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                Platform.runLater(() -> MainController.getInstance().showAlert(
+                        "Error",
+                        "Error while fetching group info: " + e.getMessage(),
+                        Alert.AlertType.ERROR
+                ));
+            }
+        }).start();
+    }
+
     private void openAddMemberScene() {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(
@@ -198,8 +275,7 @@ public class GroupInfoController {
             Node overlay = loader.load();
 
             AddMembersController controller = loader.getController();
-            // 👇 Pass group id so AddMember scene knows which group to add to
-            controller.setGroupForAdd(groupId, groupName);
+            controller.setGroupForAdd(UUID.fromString(groupId), String.valueOf(groupName));
 
             MainController.getInstance().showOverlay(overlay);
         } catch (IOException e) {

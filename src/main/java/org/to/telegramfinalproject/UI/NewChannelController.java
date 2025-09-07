@@ -135,7 +135,8 @@ public class NewChannelController {
                 if (resp == null || !"success".equalsIgnoreCase(resp.optString("status"))) {
                     Platform.runLater(() -> {
                         createButton.setDisable(false);
-                        showToast("Create failed: " + (resp == null ? "no response" : resp.optString("message","")));
+                        channelIdField.getStyleClass().add("error");
+                        channelIdLabel.getStyleClass().add("error");
                     });
                     return;
                 }

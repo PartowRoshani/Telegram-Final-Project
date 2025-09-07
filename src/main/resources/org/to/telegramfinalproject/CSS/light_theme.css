@@ -1178,3 +1178,87 @@
     -fx-font-size: 13px;
     -fx-text-fill: #4fa8f0; /* Telegram blue */
 }
+
+/* Inputs */
+.input-field, .input-area {
+    -fx-background-color: transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-border-color: #d0d0d0;         /* light underline */
+    -fx-text-fill: #2c2c2c;            /* dark text */
+    -fx-padding: 4 0 4 0;
+    -fx-font-size: 14px;
+}
+.input-area {
+    -fx-font-size: 12px;
+}
+
+/* Info rows */
+.info-row-label {
+    -fx-font-size: 14px;
+    -fx-text-fill: #2c2c2c;
+}
+.info-row-value {
+    -fx-font-size: 14px;
+    -fx-text-fill: #0078d7;           /* Telegram blue */
+    -fx-font-weight: bold;
+}
+
+/* Buttons */
+.primary-btn {
+    -fx-background-color: #0078d7;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 6;
+    -fx-padding: 6 14;
+}
+.secondary-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: #8ea1b2;
+    -fx-border-radius: 6;
+    -fx-text-fill: #2c2c2c;
+    -fx-padding: 6 14;
+}
+.circle-pic-btn {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.manage-link-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #0078d7; /* Telegram blue */
+    -fx-underline: false;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-padding: 0 4 0 4;
+}
+
+.manage-link-btn:hover {
+    -fx-underline: true;
+}
+
+/* Shared */
+.member-row {
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 6 0;
+}
+
+.member-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.member-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #8ea1b2;
+}
+
+.link-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-accent;
+    -fx-cursor: hand;
+    -fx-padding: 0 6 0 6;
+}
+
+.link-btn:hover {
+    -fx-underline: true;
+}

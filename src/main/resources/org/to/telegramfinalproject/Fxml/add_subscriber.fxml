@@ -19,7 +19,7 @@
 
         <!-- ===== Header ===== -->
         <HBox alignment="CENTER_LEFT" spacing="10" styleClass="contacts-header">
-            <Label text="Add Members" styleClass="contacts-title"/>
+            <Label text="Add Subscribers" styleClass="contacts-title"/>
             <!-- Member count -->
             <Label fx:id="memberCountLabel" text="0 / 200000" styleClass="member-count"/>
             <Pane HBox.hgrow="ALWAYS"/> <!-- pushes elements to right -->
