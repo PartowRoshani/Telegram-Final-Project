@@ -34,7 +34,6 @@ public class ChangeCredentialsController {
     private boolean passwordVisible = false;
     private boolean confirmVisible = false;
 
-    // ↓↓↓ متدی که از CheckPasswordController مقدار می‌گیرد
     private String currentPassword;
     public void setCurrentPassword(String p) { this.currentPassword = p; }
 
@@ -44,7 +43,6 @@ public class ChangeCredentialsController {
         togglePasswordBtn.setOnAction(e -> togglePasswordVisibility());
         toggleConfirmBtn.setOnAction(e -> toggleConfirmVisibility());
 
-        // «ذخیره و بستن» مثل ادیت پروفایل
         saveButton.setOnAction(e -> saveAndClose());
         closeButton.setOnAction(e -> saveAndClose());
         cancelButton.setOnAction(e -> saveAndClose());
@@ -78,7 +76,6 @@ public class ChangeCredentialsController {
         Platform.runLater(() -> usernameField.requestFocus());
     }
 
-    // ← از CheckPasswordController بلافاصله بعد از load صدا بزن
     public void prefillFromSession() {
         var u = Session.currentUser;
         if (u == null) return;
@@ -112,12 +109,10 @@ public class ChangeCredentialsController {
         toggleConfirmBtn.setText(confirmVisible ? "👁" : "👁");
     }
 
-    // ارسال تغییرات (در صورت پر بودن/تغییر) و بستن
     private void saveAndClose() {
         boolean anyError = false;
         boolean sentSomething = false;
 
-        // 1) یوزرنیم
         var cu = Session.currentUser;
         String oldUsername = cu != null ? cu.optString("user_id",
                 cu.optString("username",
@@ -129,7 +124,7 @@ public class ChangeCredentialsController {
 
             JSONObject req = new JSONObject()
                     .put("action", "update_username")
-                    .put("current_password", currentPassword) // با اینکه سرور فعلاً چک نمی‌کند، می‌فرستیم
+                    .put("current_password", currentPassword)
                     .put("new_username", newUsername);
 
             JSONObject resp = ActionHandler.sendWithResponse(req);
@@ -150,7 +145,7 @@ public class ChangeCredentialsController {
             if (confirm.isEmpty() || !confirm.equals(newPwd)) {
                 addError(confirmPasswordField, confirmPasswordLabel);
                 addError(visibleConfirmPasswordField, confirmPasswordLabel);
-                return; // نذار بسته شه تا کاربر درست کنه
+                return;
             }
 
             sentSomething = true;
@@ -168,7 +163,6 @@ public class ChangeCredentialsController {
             }
         }
 
-        // اگر چیزی نفرستادیم یا همه‌چیز OK بود → ببند و رفرش Settings
         if (!sentSomething || !anyError) {
             var sc = SettingsController.getInstance();
             if (sc != null) sc.populateFromSession();

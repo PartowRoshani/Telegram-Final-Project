@@ -337,12 +337,10 @@ public class ChatPageController {
         // Menu item actions
         viewProfileItem.setOnAction(e -> {
             System.out.println("Viewing profile of " + chatName);
-            // TODO: open profile UI
         });
 
         deleteChatItem.setOnAction(e -> {
             System.out.println("Deleting chat with " + chatName);
-            // TODO: delete logic
         });
 
         if (archiveItem != null) {
@@ -511,7 +509,6 @@ public class ChatPageController {
             Platform.runLater(() -> {
                 if (currentChat == null || !currentChat.getId().equals(chatId)) return;
 
-                // حباب outgoing
                 addBubble(
                         true,                 // outgoing
                         "You",                // display name
@@ -594,7 +591,7 @@ public class ChatPageController {
     private HBox addPendingMediaBubble(String messageId, File file, String type, String caption) {
         HBox root = new HBox(8);
         root.setFillHeight(true);
-        root.setAlignment(Pos.CENTER_RIGHT); // چون outgoing است
+        root.setAlignment(Pos.CENTER_RIGHT);
 
         // preview
         if ("IMAGE".equalsIgnoreCase(type)) {
@@ -1032,7 +1029,6 @@ public class ChatPageController {
                 if (archiveItem != null) archiveItem.setDisable(false);
 
                 if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
-                    // 1) جابه‌جایی در Session
                     if (!currentlyArchived) {
                         Session.moveToArchived(entry);
                         if (archiveItem != null) archiveItem.setText("Unarchive chat");
@@ -1361,7 +1357,7 @@ public class ChatPageController {
         String rel = pathOrUrl.startsWith("/") ? pathOrUrl.substring(1) : pathOrUrl;
 
         java.nio.file.Path p = java.nio.file.Paths.get(UPLOADS_DIR, rel.replace("/", java.io.File.separator));
-        java.net.URI uri = p.toUri();               // می‌شود file:///C:/Users/.../uploads/images/...
+        java.net.URI uri = p.toUri();
         return uri.toString();
 
 
@@ -1683,10 +1679,7 @@ public class ChatPageController {
             }
         }
     }
-    // imports لازم:
-// import javafx.scene.media.Media;
-// import javafx.scene.media.MediaPlayer;
-// import javafx.util.Duration;
+
 
 
     private Node buildAudioNodeLocal(String localPathOrUri, String caption) {
@@ -1708,14 +1701,12 @@ public class ChatPageController {
         }
         root.getChildren().add(right);
 
-        // مسیر را به file URI تبدیل کن
         String playable = toFileUri(localPathOrUri);
         if (playable == null) {
             btn.setDisable(true); seek.setDisable(true); time.setText("no audio");
             return root;
         }
 
-        // قبل از ساخت Media، وجود فایل را چک کن
         try {
             java.net.URI uri = java.net.URI.create(playable);
             java.nio.file.Path p = java.nio.file.Paths.get(uri);
@@ -1724,7 +1715,7 @@ public class ChatPageController {
                 System.err.println("Audio file not found: " + p);
                 return root;
             }
-        } catch (Exception ignore) { /* اگر نشد، ادامه می‌دهیم */ }
+        } catch (Exception ignore) {  }
 
         MediaPlayer[] holder = new MediaPlayer[1];
         try {
@@ -1782,7 +1773,7 @@ public class ChatPageController {
         if (pathOrUri.startsWith("file:/")) return pathOrUri;
 
         java.io.File f = new java.io.File(pathOrUri);
-        return f.toURI().toString();   // -> file:///C:/... یا file:///home/...
+        return f.toURI().toString();
     }
 
 
@@ -2057,7 +2048,7 @@ public class ChatPageController {
                     org.to.telegramfinalproject.Models.ContactEntry ce =
                             new org.to.telegramfinalproject.Models.ContactEntry(
                                     other,                                 // contact_id (UUID)
-                                    currentChat.getDisplayId(),            // contact_display_id / user_id دیدنی
+                                    currentChat.getDisplayId(),            // contact_display_id / user_id
                                     currentChat.getDisplayId(),
                                     nz(chatTitle.getText()),
                                     currentChat.getImageUrl(),
@@ -2139,8 +2130,8 @@ public class ChatPageController {
 
             org.json.JSONObject req = new org.json.JSONObject()
                     .put("action", "toggle_block")
-                    .put("user_id", viewerUuid)        // internal_uuid خودت
-                    .put("target_id", other.toString()); // internal_uuid طرف مقابل
+                    .put("user_id", viewerUuid)
+                    .put("target_id", other.toString());
 
             org.json.JSONObject res = org.to.telegramfinalproject.Client.ActionHandler.sendWithResponse(req);
             boolean ok = res != null && "success".equalsIgnoreCase(res.optString("status"));
@@ -2546,7 +2537,6 @@ public class ChatPageController {
         org.json.JSONObject cu = org.to.telegramfinalproject.Client.Session.currentUser;
         if (cu == null) return new java.util.ArrayList<>();
 
-        // دو منبع معمول در Session: chat_list و active_chat_list
         org.json.JSONArray[] sources = new org.json.JSONArray[]{
                 cu.optJSONArray("chat_list"),
                 cu.optJSONArray("active_chat_list")
@@ -2704,121 +2694,7 @@ public class ChatPageController {
             return profileName + (userId != null && !userId.isBlank() ? "  [" + userId + "]" : "");
         }
     }
-//    private void onLeaveGroupMenuClicked(ChatEntry entry) {
-//        if (entry == null || !"group".equalsIgnoreCase(entry.getType())) {
-//            alert(Alert.AlertType.INFORMATION, "This action is only available for groups.");
-//            return;
-//        }
-//
-//        String myUuidStr = Session.getUserUUID();
-//        if (myUuidStr == null || myUuidStr.isBlank()) {
-//            alert(Alert.AlertType.ERROR, "Cannot determine your identity.");
-//            return;
-//        }
-//        if (entry.isOwner()) {
-//            // 1. گرفتن لیست ادمین‌ها
-//            JSONObject req = new JSONObject()
-//                    .put("action", "view_group_admins")
-//                    .put("group_id", entry.getId().toString());
-//
-//            JSONObject res = ActionHandler.sendWithResponse(req);
-//            if (res == null || !"success".equalsIgnoreCase(res.optString("status"))) {
-//                alert(Alert.AlertType.ERROR, "Failed to fetch admins.");
-//                return;
-//            }
-//
-//            JSONArray admins = res.getJSONObject("data").optJSONArray("admins");
-//            if (admins == null || admins.isEmpty()) {
-//                alert(Alert.AlertType.WARNING, "No other admins available. Promote someone first.");
-//                return;
-//            }
-//
-//            String myUuid = Session.getUserUUID();
-//            List<JSONObject> candidates = new ArrayList<>();
-//            for (int i = 0; i < admins.length(); i++) {
-//                JSONObject a = admins.getJSONObject(i);
-//                String uuid = a.optString("internal_uuid");
-//                if (uuid != null && uuid.equals(myUuid)) continue; // حذف Owner
-//                candidates.add(a);
-//            }
-//
-//            if (candidates.isEmpty()) {
-//                alert(Alert.AlertType.WARNING, "No other admins available.");
-//                return;
-//            }
-//
-//            // 2. نمایش لیست در یک Dialog ساده
-//            Dialog<JSONObject> dialog = new Dialog<>();
-//            dialog.setTitle("Transfer Ownership");
-//            dialog.setHeaderText("Select a new owner before leaving");
-//            dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-//
-//            ListView<JSONObject> listView = new ListView<>();
-//            listView.getItems().addAll(candidates);
-//            listView.setCellFactory(v -> new ListCell<>() {
-//                @Override protected void updateItem(JSONObject item, boolean empty) {
-//                    super.updateItem(item, empty);
-//                    if (empty || item == null) {
-//                        setText(null);
-//                    } else {
-//                        setText(item.optString("profile_name", "Unknown")
-//                                + " (" + item.optString("user_id") + ")");
-//                    }
-//                }
-//            });
-//
-//            dialog.getDialogPane().setContent(listView);
-//            Node okBtn = dialog.getDialogPane().lookupButton(ButtonType.OK);
-//            okBtn.setDisable(true);
-//
-//            listView.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
-//                okBtn.setDisable(sel == null);
-//            });
-//
-//            dialog.setResultConverter(bt ->
-//                    bt == ButtonType.OK ? listView.getSelectionModel().getSelectedItem() : null);
-//
-//            Optional<JSONObject> pick = dialog.showAndWait();
-//            if (pick.isEmpty()) return;
-//
-//            JSONObject selected = pick.get();
-//            String newOwnerId = selected.optString("internal_uuid");
-//
-//            JSONObject promoteReq = new JSONObject()
-//                    .put("action", "transfer_group_ownership")
-//                    .put("group_id", entry.getId().toString())
-//                    .put("new_owner_user_id", newOwnerId);
-//
-//            JSONObject promoteRes = ActionHandler.sendWithResponse(promoteReq);
-//            if (promoteRes == null || !"success".equalsIgnoreCase(promoteRes.optString("status"))) {
-//                alert(Alert.AlertType.ERROR, "Ownership transfer failed.");
-//                return;
-//            }
-//
-//            // 4. بعد از انتقال، خروج از گروه
-//            JSONObject leaveReq = new JSONObject()
-//                    .put("action", "leave_chat")
-//                    .put("user_id", myUuid)
-//                    .put("chat_id", entry.getId().toString())
-//                    .put("chat_type", "group");
-//
-//            JSONObject leaveRes = ActionHandler.sendWithResponse(leaveReq);
-//            if (leaveRes != null && "success".equalsIgnoreCase(leaveRes.optString("status"))) {
-//                alert(Alert.AlertType.INFORMATION, "Ownership transferred and you left the group.");
-//                MainController.getInstance().refreshChatListUI();
-//                AppRouter.showMain();
-//            } else {
-//                alert(Alert.AlertType.ERROR, "Leave failed.");
-//            }
-//            return;
-//        }
-//
-//
-//
-//        if (confirm("Leave Group", "Are you sure you want to leave this group?")) {
-//            sendLeaveRequest(entry.getId(), myUuidStr);
-//        }
-//    }
+
 
     private void onLeaveGroupMenuClicked(ChatEntry entry) {
         if (entry == null || !"group".equalsIgnoreCase(entry.getType())) {

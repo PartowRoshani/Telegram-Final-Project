@@ -121,8 +121,7 @@ public class ChatItemController {
 
     // ChatItemController.java
     @FXML private ImageView avatarImage;
-    // اگر نوع چت نیاز داری برای دیفالت‌ها (private|group|channel)
-    private String chatType; // اگر داری از setChatData بگیرش و نگه دار
+    private String chatType;
 
     public void updateAvatar(String url) {
         try {
