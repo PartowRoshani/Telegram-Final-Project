@@ -1,0 +1,1461 @@
+/* ===== Dark Theme Root ===== */
+.root {
+    -fx-background-color: #0f1c26;  /* overall dark base */
+    -fx-text-fill: #e8f1f8;
+}
+
+/* Sidebar buttons */
+.sidebar-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-pref-width: 230;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 8 0 8 16;
+}
+.sidebar-btn:hover {
+    -fx-background-color: #2f3e50;
+    -fx-cursor: hand;
+}
+
+/* Telegram-style toggle switch */
+.telegram-toggle {
+    -fx-background-color: #555;
+    -fx-background-radius: 15;
+    -fx-padding: 2;
+    -fx-pref-width: 40;
+    -fx-pref-height: 20;
+    -fx-alignment: center-left;
+    -fx-cursor: hand;
+}
+.telegram-toggle.on {
+    -fx-background-color: #4fa8f0;
+}
+.toggle-thumb {
+    -fx-background-color: white;
+    -fx-background-radius: 50%;
+    -fx-pref-width: 16;
+    -fx-pref-height: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 3, 0, 0, 1);
+}
+
+/* Separator */
+.thin-separator {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+.thin-separator .line {
+    -fx-border-color: #2e3948; /* Telegram's subtle dark line */
+    -fx-border-width: 0.5px;
+}
+
+/* Theme background & text */
+#sidebarRoot {
+    -fx-background-color: #1b2735; /* dark theme */
+}
+.button, .label {
+    -fx-text-fill: white;
+}
+
+/* Thin Telegram-like SplitPane divider (dark) */
+.split-pane:horizontal > .split-pane-divider {
+    -fx-background-color: transparent; /* no big solid block */
+    -fx-border-color: #cccccc; /* the visible thin line */
+    -fx-border-width: 0 1px 0 1px; /* 1px vertical line */
+    -fx-padding: 0 0 0 0.5px; /* big invisible hitbox for the mouse */
+}
+
+.placeholder-label {
+    -fx-text-fill: #aaa;              /* text color */
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-background-color: #2a2a2a;    /* bubble background */
+    -fx-padding: 8 10 8 10;         /* top/right/bottom/left spacing */
+    -fx-background-radius: 20;        /* rounded corners */
+}
+
+/* ===== Chat page (dark) ===== */
+.chat-root { -fx-background-color: #0f1c26; }
+
+/* Header bar */
+.chat-header {
+    -fx-background-color: #0f1c26;
+    -fx-border-color: #2e3948;
+    -fx-border-width: 0 0 1 0;
+}
+.chat-title  { -fx-text-fill: #e8f1f8; -fx-font-size: 14px; -fx-font-weight: bold; }
+.chat-status { -fx-text-fill: #8ea1b2; -fx-font-size: 12px; }
+
+/* Icon-only buttons */
+.icon-btn {
+    -fx-background-color: transparent;
+    -fx-padding: 6 8 6 8;
+    -fx-cursor: hand;
+}
+.icon-btn:hover {
+    -fx-background-color: rgba(255,255,255,0.06);
+    -fx-background-radius: 6;
+}
+
+/* Messages area */
+.chat-scroll { -fx-background-color: transparent; }
+
+/* Input bar */
+.chat-input-bar {
+    -fx-background-color: #15222d;
+    -fx-border-color: #2e3948;
+    -fx-border-width: 1 0 0 0;
+}
+
+/* Send button (telegram-ish blue) */
+.send-btn {
+    -fx-background-color: #2ca4ff;
+    -fx-background-radius: 18;
+    -fx-padding: 8 12 8 12;
+    -fx-cursor: hand;
+}
+.send-btn:hover { -fx-background-color: #1996f3; }
+
+/* Active/empty states (matches controller’s styleClass) */
+.send-btn.send-empty {
+    -fx-opacity: 0.5; /* look inactive */
+}
+.send-btn.send-ready {
+    -fx-opacity: 1.0; /* fully active */
+}
+.send-btn:disabled {
+    -fx-opacity: 0.4;
+    -fx-cursor: default;
+}
+
+/* Input bubble */
+.msg-input {
+    -fx-background-color: #1b2b39;   /* dark bluish background */
+    -fx-control-inner-background: #1b2b39;
+    -fx-text-fill: #e8f1f8;
+    -fx-prompt-text-fill: #8ea1b2;
+    -fx-background-radius: 18;
+    -fx-padding: 6 12 6 12;
+    -fx-border-color: transparent;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+.msg-input .scroll-pane {
+    -fx-vbar-policy: never;
+    -fx-hbar-policy: never;
+    -fx-background-color: transparent;
+}
+.msg-input .scroll-pane .corner {
+    -fx-background-color: transparent;
+}
+
+/* Context menu */
+.context-menu {
+    -fx-background-color: #1b2735;
+    -fx-background-radius: 6;
+    -fx-padding: 4;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 8, 0, 0, 2);
+}
+
+.menu-item {
+    -fx-font-size: 13px;
+    -fx-text-fill: #e8f1f8;
+    -fx-padding: 6 12;
+}
+
+.menu-item:focused {
+    -fx-background-color: rgba(255,255,255,0.08);
+    -fx-background-radius: 4;
+}
+
+
+/* ===== Search panel (dark) ===== */
+.chat-search-pane { -fx-background-color: #1b2735; }
+.chat-search-bar { -fx-background-color: transparent; -fx-padding: 8 10; }
+.search-placeholder { -fx-text-fill: #8ea1b2; -fx-font-size: 13px; }
+
+/* ===== Global search bar ===== */
+.global-search-pane {
+    -fx-background-color: #1b2b39;
+    -fx-background-radius: 15;
+    -fx-text-fill: #e8f1f8;
+    -fx-prompt-text-fill: #8ea1b2;
+}
+
+/* ===== Chat list ===== */
+.chat-list { -fx-background-color: #0f1c26; }
+.chat-list .label { -fx-text-fill: #e8f1f8; }
+
+/* ===== Sidebar / Left Pane ===== */
+.sidebar-pane {
+    -fx-background-color: #1b2735; /* Telegram dark */
+}
+
+.sidebar-topbar {
+    -fx-background-color: transparent;
+}
+
+.menu-btn {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+}
+
+.global-search {
+    -fx-background-color: #2a3a4a;
+    -fx-background-radius: 15;
+    -fx-text-fill: #e8f1f8;
+    -fx-prompt-text-fill: #8ea1b2;
+    -fx-border-color: transparent;
+}
+
+/* Chat list */
+.chat-list {
+    -fx-background-color: #0f1c26;
+}
+
+.chat-scroll {
+    -fx-background-color: transparent;
+}
+
+/* ===== Search Panel ===== */
+.chat-search-pane {
+    -fx-background-color: #1b2735;
+}
+
+.search-label {
+    -fx-text-fill: #8ea1b2;
+    -fx-font-size: 11px;
+    -fx-padding: 10 0 5 10;
+}
+
+.search-separator {
+    -fx-background-color: #2e3948;
+}
+
+.search-scope-bar {
+    -fx-padding: 8 10;
+    -fx-border-color: #2e3948;
+    -fx-border-width: 0 0 1 0;
+}
+
+.search-scope {
+    -fx-text-fill: #8ea1b2;
+    -fx-font-size: 11px;
+}
+
+.close-btn {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-text-fill: #e8f1f8;
+}
+
+/* ===== Right Chat Panel ===== */
+.chat-display {
+    -fx-background-color: #0f1c26;
+}
+
+/* ===== Overlay ===== */
+.overlay {
+    -fx-background-color: rgba(0,0,0,0.3);
+}
+
+/* Chat item container */
+.chat-item {
+    -fx-background-color: #0f1c26;
+    -fx-padding: 10;
+    -fx-border-color: #2e3948;
+    -fx-border-width: 0 0 1 0;
+}
+
+.chat-item:hover {
+    -fx-background-color: #223446;
+    -fx-cursor: hand;
+}
+
+/* Chat details */
+.chat-name {
+    -fx-font-size: 14;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e8f1f8;
+}
+
+.chat-last-message {
+    -fx-text-fill: #8ea1b2;
+    -fx-font-size: 12;
+}
+
+/* Time + unread */
+.chat-time {
+    -fx-font-size: 11;
+    -fx-text-fill: #8ea1b2;
+}
+
+/* Unread counter (same for both modes) */
+.unread-count {
+    -fx-background-color: #2196f3; /* blue bubble */
+    -fx-text-fill: white !important;          /* always white */
+    -fx-font-size: 10px;
+    -fx-padding: 3 6;
+    -fx-background-radius: 10;
+    -fx-font-weight: bold;
+}
+
+/* === Global Search List (Dark) === */
+.global-search-list {
+    -fx-background-color: #1b2735;              /* uniform dark background */
+    -fx-control-inner-background: #1b2735;
+    -fx-control-inner-background-alt: #1b2735;  /* disable stripes */
+}
+
+.global-search-list .virtual-flow,
+.global-search-list .clipped-container,
+.global-search-list .sheet {
+    -fx-background-color: #1b2735;              /* internal containers same */
+}
+
+.global-search-list .list-cell {
+    -fx-padding: 8 10;
+    -fx-background-color: #1b2735;              /* solid dark rows */
+    -fx-border-color: #2e3948;                  /* subtle divider */
+    -fx-border-width: 0 0 0.5 0;
+    -fx-alignment: CENTER_LEFT;
+    -fx-text-fill: #e8f1f8;                     /* light text */
+}
+
+.global-search-list .list-cell:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.08); /* lighter on hover */
+}
+
+.global-search-list .list-cell:selected {
+    -fx-background-color: #2a3a4a;              /* darker blue-gray on select */
+}
+
+/* Titles & subtitles */
+.global-search-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e8f1f8;
+}
+.global-search-subtitle {
+    -fx-font-size: 12px;
+    -fx-text-fill: #8ea1b2;                     /* muted gray-blue */
+}
+
+/* Search header */
+.search-header {
+    -fx-padding: 8 12;
+    -fx-background-color: #1b2735;
+    -fx-border-color: #2e3948;
+    -fx-border-width: 0 0 1 0;
+}
+.search-header-label {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e8f1f8;
+}
+
+/* No results */
+.no-results-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #8ea1b2;
+}
+
+/* Avatar placeholders */
+.global-search-avatar {
+    -fx-background-radius: 50%;
+    -fx-background-color: #444;
+    -fx-min-width: 36;
+    -fx-min-height: 36;
+}
+
+/* Close button */
+.search-close-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #e8f1f8;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+}
+.search-close-btn:hover {
+    -fx-text-fill: #2ca4ff;
+}
+
+
+/* ===== Overlay ===== */
+.overlay-root {
+    -fx-alignment: CENTER;
+}
+
+.overlay-background {
+    -fx-background-color: transparent;
+    -fx-pref-width: 100%;
+    -fx-pref-height: 100%;
+}
+
+/* ===== Profile Card ===== */
+.profile-card {
+    -fx-background-color: #0f1c26;
+    -fx-background-radius: 10;
+    -fx-padding: 16;
+    -fx-max-width: 320;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.6), 12, 0, 0, 4);
+}
+
+/* ===== Header ===== */
+.profile-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #eee;
+}
+.icon-button {
+    -fx-background-color: transparent;
+    -fx-padding: 4;
+    -fx-cursor: hand;
+    -fx-text-fill: #fff;
+}
+
+/* ===== Text Styles ===== */
+.profile-name {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #eee;
+}
+
+.profile-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #2196f3; /* online */
+}
+
+.profile-bio {
+    -fx-font-size: 13px;
+    -fx-text-fill: #bbb;
+}
+
+.profile-id {
+    -fx-font-size: 13px;
+    -fx-text-fill: #999;
+}
+
+/* Section separators */
+.section-separator {
+    -fx-background-color: #223446;
+    -fx-pref-height: 2;
+}
+
+/* Info text */
+.profile-info-main {
+    -fx-font-size: 14px;
+    -fx-text-fill: #eee;
+}
+
+.profile-info-sub {
+    -fx-font-size: 11px;
+    -fx-text-fill: #999;
+}
+
+/* ===== Edit Profile Card ===== */
+.edit-profile-card {
+    -fx-background-color: #0f1c26;
+    -fx-background-radius: 10;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.6), 10, 0, 0, 4);
+}
+
+/* ===== Header ===== */
+.edit-profile-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #eee;
+}
+
+.edit-icon-button {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-text-fill: #eee;
+    -fx-font-size: 14px;
+    -fx-padding: 4;
+}
+
+/* ===== Profile Picture ===== */
+.edit-profile-picture {
+    -fx-background-radius: 50%;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 4, 0, 0, 1);
+}
+
+/* ===== Inputs ===== */
+.edit-profile-input {
+    -fx-background-color: #1e2a35;   /* darker background */
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-border-color: #2e3c48;
+    -fx-border-width: 1;
+    -fx-padding: 6 10 6 10;
+    -fx-font-size: 13px;
+    -fx-text-fill: #eee;
+}
+
+.edit-profile-input:focused {
+    -fx-border-color: #42a5f5;       /* bright blue focus */
+    -fx-background-color: #253443;
+}
+
+.edit-input-description {
+    -fx-font-size: 11px;
+    -fx-text-fill: #aaa;
+}
+
+/* ===== Section Separators ===== */
+.edit-section-separator {
+    -fx-background-color: #333;
+    -fx-pref-height: 1;
+}
+
+.profile-info-label {
+    -fx-font-size: 14px;
+    -fx-text-fill: #bbb;   /* lighter gray for labels */
+    -fx-font-weight: normal;
+}
+
+.camera-button {
+    -fx-background-color: #0088cc;
+    -fx-background-radius: 50%;
+    -fx-cursor: hand;
+    -fx-padding: 4;
+    -fx-border-color: white;   /* white border to stand out */
+    -fx-border-width: 2;
+    -fx-border-radius: 50%;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.25), 4, 0, 0, 1);
+}
+
+.camera-button:hover {
+    -fx-background-color: #0077b6;
+}
+
+.contacts-card {
+    -fx-background-color: #1f2a36;
+    -fx-background-radius: 8;
+    -fx-padding: 12;
+}
+
+.contacts-header {
+    -fx-padding: 8 0 8 0;
+}
+.contacts-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #fff;
+}
+.icon-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #fff;
+}
+
+.contact-item {
+    -fx-padding: 8 12;
+    -fx-background-color: #1e2a35;
+    -fx-background-radius: 6;
+
+    /* Add subtle shadow like light theme */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 4, 0.2, 0, 1);
+}
+
+.contact-item:hover {
+    -fx-background-color: #253544; /* subtle hover */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 6, 0.3, 0, 1); /* stronger on hover */
+}
+
+.contact-name {
+    -fx-font-size: 14px;
+    -fx-text-fill: #eee;
+}
+.contact-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #999;
+}
+
+.footer-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #1e90ff;
+    -fx-font-weight: bold;
+}
+
+.overlay-background {
+    -fx-background-color: rgba(0, 0, 0, 0.4); /* semi-transparent black */
+    -fx-pref-width: 100%;
+    -fx-pref-height: 100%;
+}
+
+.contacts-search-box {
+    -fx-background-color: #253544;
+    -fx-background-radius: 10;
+    -fx-padding: 6 10;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 8, 0.3, 0, 1);
+    -fx-alignment: center-left;
+}
+
+.contacts-search {
+    -fx-background-color: #253544;
+    -fx-border-color: #253544;
+    -fx-prompt-text-fill: #777; /* Placeholder text */
+    -fx-text-fill: #eee;        /* Actual user text (light so it’s visible) */
+    -fx-font-size: 13px;
+}
+
+.search-icon {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-opacity: 0.7;
+}
+.search-icon:hover {
+    -fx-opacity: 1;
+}
+
+.no-contacts-label {
+    -fx-text-fill: #aaa;
+    -fx-font-size: 13px;
+}
+
+.contacts-scroll {
+    -fx-background-color: transparent; /* outer scroll */
+}
+
+.contacts-scroll > .viewport {
+    -fx-background-color: #1f2a36; /* matches contacts-card */
+}
+
+.contacts-list {
+    -fx-background-color: #1f2a36;
+}
+
+/* ===== Group Card ===== */
+.group-card {
+    -fx-background-color: #1f2a36;
+    -fx-background-radius: 8;
+    -fx-padding: 16;
+}
+
+.group-name-label {
+    -fx-text-fill: #1e90ff;   /* same blue as light theme */
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.group-input {
+    -fx-background-color: transparent;
+    -fx-border-color: #444;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 4 2;
+    -fx-text-fill: #eee;
+    -fx-prompt-text-fill: #777;
+}
+
+.group-camera-button {
+    -fx-background-color: #3390ec;
+    -fx-background-radius: 50%;
+    -fx-cursor: hand;
+}
+
+.footer-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #3390ec;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+/* Group name field normal */
+.group-name-field {
+    -fx-background-color: transparent;
+    -fx-border-color: #1e90ff;
+    -fx-border-width: 0 0 2 0; /* underline only */
+    -fx-text-fill: #fff;
+    -fx-prompt-text-fill: #777;
+    -fx-focus-color: transparent; /* prevent default blue glow */
+    -fx-faint-focus-color: transparent;
+}
+
+/* Error state for group name */
+.group-name-label.error {
+    -fx-text-fill: #e74c3c; /* red */
+}
+
+.group-name-field.error {
+    -fx-border-color: #e74c3c;
+    -fx-border-width: 0 0 2 0; /* only underline */
+    -fx-focus-color: transparent; /* remove default blue glow */
+}
+
+/* Member count label */
+.member-count {
+    -fx-font-size: 12px;
+    -fx-text-fill: #aaa; /* lighter gray for dark background */
+}
+
+/* Pane holding selected members */
+.selected-members-pane {
+    -fx-background-color: transparent;
+    -fx-padding: 6;
+    -fx-hgap: 6;
+    -fx-vgap: 6;
+}
+
+/* Footer */
+.contacts-footer {
+    -fx-background-color: transparent;
+    -fx-padding: 8 12;
+}
+
+/* Chip for selected members */
+.member-chip {
+    -fx-background-color: #253544;  /* dark bluish bubble */
+    -fx-background-radius: 16;
+    -fx-padding: 4 8;
+    -fx-spacing: 6;
+    -fx-alignment: center;
+}
+.member-chip:hover {
+    -fx-background-color: #31475b;  /* lighter on hover */
+}
+
+.desc-counter {
+    -fx-font-size: 11px;
+    -fx-text-fill: #aaa;   /* slightly lighter gray for dark background */
+    -fx-alignment: CENTER_RIGHT;
+}
+
+/* ===== TextArea Scrollbar Styling ===== */
+.text-area .scroll-pane .scroll-bar:vertical {
+    -fx-pref-width: 6px;       /* super thin */
+    -fx-background-color: transparent;
+    -fx-opacity: 0;            /* hidden by default */
+    -fx-padding: 0;
+}
+
+.text-area .scroll-pane:hover .scroll-bar:vertical {
+    -fx-opacity: 0.6;          /* appear on hover */
+    -fx-transition: opacity 0.3s ease;
+}
+
+.text-area .scroll-pane .thumb {
+    -fx-background-color: rgba(120,120,120,0.5); /* subtle gray */
+    -fx-background-radius: 2;
+}
+
+.text-area .scroll-pane .scroll-bar:horizontal {
+    -fx-opacity: 0;  /* hide horizontal completely */
+    -fx-max-height: 0;
+}
+
+/* Channel description text area */
+.channel-desc-area {
+    -fx-background-color: #1f2a36;   /* dark background */
+    -fx-text-fill: #eee;             /* text color */
+    -fx-control-inner-background: #1f2a36; /* inner background */
+    -fx-prompt-text-fill: #888;      /* placeholder */
+    -fx-border-color: #444;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+/* Fix for the inner content region */
+.channel-desc-area .content {
+    -fx-background-color: #1f2a36;
+}
+
+.settings-card {
+    -fx-background-color: #1f2a36;
+    -fx-background-radius: 8;
+    -fx-padding: 12;
+}
+
+.settings-avatar {
+    -fx-fit-width: 56px;
+    -fx-fit-height: 56px;
+}
+
+.settings-name {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #ffffff;
+}
+
+.settings-id {
+    -fx-font-size: 13px;
+    -fx-text-fill: #aaaaaa;
+}
+
+.settings-option {
+    -fx-background-color: transparent;
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 14px;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.settings-option:hover {
+    -fx-background-color: #253544;
+}
+
+.settings-menu {
+    -fx-background-color: transparent;
+    -fx-font-size: 18px;
+    -fx-text-fill: #eeeeee;
+}
+
+.settings-header {
+    -fx-padding: 8 12;
+    -fx-border-color: -fx-box-border;
+    -fx-border-width: 0 0 1 0; /* bottom border only */
+}
+
+.settings-title {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #fff;
+}
+
+.icon-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.icon-button:hover {
+    -fx-background-color: rgba(0,0,0,0.05);
+    -fx-background-radius: 50%;
+}
+
+/* Profile header */
+.profile-header {
+    -fx-padding: 12 16;
+}
+
+.profile-avatar {
+    -fx-background-radius: 50%;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 4, 0.3, 0, 1);
+}
+
+.profile-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #fff;
+}
+
+.profile-id {
+    -fx-font-size: 12px;
+    -fx-text-fill: #aaa;
+}
+
+/* Hide MenuButton text & arrow */
+.icon-button > .label {
+    -fx-padding: 0;
+    -fx-text-fill: transparent;
+}
+
+.icon-button > .arrow-button,
+.icon-button > .arrow {
+    -fx-padding: 0;
+    -fx-shape: null;  /* removes arrow shape */
+    -fx-background-color: transparent;
+    -fx-opacity: 0;
+}
+
+.icon-image {
+    -fx-smooth: true;       /* keeps scaling smooth */
+    -fx-opacity: 0.8;       /* slightly dim until hover */
+}
+
+.icon-image:hover {
+    -fx-opacity: 1.0;       /* brighten on hover */
+}
+
+/* Container for all settings buttons */
+.settings-options {
+    -fx-background-color: transparent;
+    -fx-spacing: 4;
+    -fx-padding: 8 0 8 0;
+    -fx-border-color: #2a3b47;
+    -fx-border-width: 0 0 0 0;   /* thin top border */
+}
+
+/* Settings action buttons */
+.settings-option {
+    -fx-background-color: transparent;
+    -fx-text-fill: #ddd;
+    -fx-font-size: 14px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 10 14;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+
+    /* space between icon and text */
+    -fx-graphic-text-gap: 10px;
+}
+
+/* Hover effect */
+.settings-option:hover {
+    -fx-background-color: #2c3e50;
+}
+
+/* Pressed effect */
+.settings-option:pressed {
+    -fx-background-color: #1f2a36;
+}
+
+/* Card */
+.privacy-card {
+    -fx-background-color: #1f2a36;
+    -fx-background-radius: 10;
+    -fx-padding: 16;
+}
+
+/* Header */
+.privacy-header {
+    -fx-padding: 8 12 8 12;
+}
+.privacy-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+/* Section Titles */
+.section-title {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #bbbbbb;
+}
+
+/* Items */
+.privacy-item {
+    -fx-padding: 4 0 4 0;
+}
+.item-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #aaa;
+}
+.privacy-input {
+    -fx-background-color: #2a3b47;
+    -fx-text-fill: white;
+    -fx-background-radius: 6;
+    -fx-padding: 4;
+}
+
+/* Buttons */
+.action-button {
+    -fx-background-color: #3a86ff;
+    -fx-text-fill: white;
+    -fx-background-radius: 6;
+    -fx-padding: 6 12;
+}
+.manage-button {
+    -fx-background-color: #1f2a36;
+    -fx-text-fill: #3a86ff;
+    -fx-font-size: 12px;
+}
+
+.privacy-section {
+    -fx-spacing: 8;
+    -fx-padding: 10 0 10 0;
+    -fx-background-color: transparent;
+    -fx-border-color: #2f2f2f;
+    -fx-border-width: 0 0 0 0;
+}
+
+.privacy-form {
+    -fx-spacing: 8;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 8 0 8 0;
+}
+
+.privacy-form .label {
+    -fx-font-size: 12px;
+    -fx-text-fill: white;
+}
+
+/* Error state (same for both themes) */
+.password-label.error {
+    -fx-text-fill: red;
+}
+
+.password-field.error {
+    -fx-text-fill: red;
+}
+
+.text-field.error {
+    -fx-text-fill: red;
+}
+
+.toggle-visibility-btn {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-padding: 0 6 0 6;
+    -fx-font-size: 14px;
+}
+
+.blocked-card {
+    -fx-background-color: #1f2a36;
+    -fx-background-radius: 10;
+    -fx-padding: 12;
+}
+
+.blocked-header {
+    -fx-padding: 8;
+}
+.blocked-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+.blocked-count {
+    -fx-font-size: 13px;
+    -fx-text-fill: #999;
+    -fx-padding: 4 0;
+}
+
+.blocked-list {
+    -fx-background-color: #253544;
+}
+
+.blocked-row {
+    -fx-padding: 8;
+    -fx-background-color: transparent;
+}
+.blocked-row:hover {
+    -fx-background-color: #253544;
+}
+
+.blocked-name {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+.blocked-id {
+    -fx-font-size: 12px;
+    -fx-text-fill: #aaa;
+}
+
+.unblock-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #3a86ff;
+    -fx-cursor: hand;
+}
+
+.unblock-button:hover {
+    -fx-text-fill: #66aaff;
+}
+
+.blocked-info-label {
+    -fx-background-color: #2c3e50;   /* darker banner background */
+    -fx-text-fill: #bbb;             /* lighter muted text */
+    -fx-font-size: 12px;
+    -fx-wrap-text: true;
+    -fx-padding: 5;
+    -fx-background-radius: 4;
+}
+
+.blocked-list .thumb {
+    -fx-background-color: rgba(200, 200, 200, 0.5); /* lighter for dark bg */
+}
+
+/* Each list cell */
+.blocked-list .list-cell {
+    -fx-background-color: #1f2a36;
+    -fx-text-fill: #eeeeee;
+    -fx-padding: 8 12;
+    -fx-border-color: #2f2f2f;
+    -fx-border-width: 0 0 1 0;
+}
+
+.blocked-list .list-cell:hover {
+    -fx-background-color: #2a3a4a;
+}
+
+/* Error label */
+.label.error-label {
+    -fx-text-fill: red;
+}
+
+/* Error input */
+.error-input {
+    -fx-border-color: red;
+    -fx-border-radius: 6;
+}
+
+/* === User Info (Dark) === */
+.user-info-card {
+    -fx-background-color: #1f1f1f;
+    -fx-background-radius: 8;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 12, 0, 0, 3);
+}
+.user-info-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f2f2f2;
+}
+.user-info-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #fff;
+}
+.user-info-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #aaa;
+}
+.user-info-main {
+    -fx-font-size: 13px;
+    -fx-text-fill: #f0f0f0;
+}
+.user-info-sub {
+    -fx-font-size: 11px;
+    -fx-text-fill: #999;
+}
+.user-info-separator {
+    -fx-background-color: #333;
+}
+
+/* === Shared buttons === */
+.danger-button {
+    -fx-background-color: #e74c3c;
+    -fx-text-fill: white;
+    -fx-background-radius: 6;
+    -fx-padding: 4 12;
+}
+.danger-button:hover {
+    -fx-background-color: #c0392b;
+}
+
+/* === Profile image === */
+.profile-picture {
+    -fx-background-color: #2c2c2c;
+    -fx-background-radius: 50%;
+    -fx-border-color: #444;
+    -fx-border-radius: 50%;
+    -fx-border-width: 1;
+}
+
+.member-row {
+    -fx-alignment: CENTER_LEFT;
+}
+
+.member-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.profile-card {
+    -fx-background-radius: 12;
+    -fx-background-color: #1f2a36; /* dark gray card */
+    -fx-padding: 16;
+}
+
+.profile-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e8f1f8; /* light text */
+}
+
+
+.member-row {
+    -fx-padding: 6 0;
+}
+
+.member-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e8f1f8; /* Telegram light text */
+}
+
+.member-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #8ea1b2; /* grayish */
+}
+
+.member-role {
+    -fx-font-size: 12px;
+    -fx-text-fill: #4fa8f0; /* blue */
+    -fx-font-weight: bold;
+}
+
+/* Group name (bold, light text) */
+.info-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e8f1f8; /* light gray/white */
+}
+
+/* Members count (blue link style like Telegram dark mode) */
+.info-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: #4fa8f0; /* same Telegram blue */
+}
+
+/* Inputs */
+.input-field, .input-area {
+    -fx-background-color: transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-border-color: #444;           /* subtle underline */
+    -fx-text-fill: #e6e6e6;           /* light text */
+    -fx-padding: 4 0 4 0;
+    -fx-font-size: 14px;
+}
+.input-area {
+    -fx-font-size: 12px;
+}
+
+/* Info rows */
+.info-row-label {
+    -fx-font-size: 14px;
+    -fx-text-fill: #e6e6e6;
+}
+.info-row-value {
+    -fx-font-size: 14px;
+    -fx-text-fill: #4fa8f0;          /* Telegram blue */
+    -fx-font-weight: bold;
+}
+
+/* Buttons */
+.primary-btn {
+    -fx-background-color: #4fa8f0;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 6;
+    -fx-padding: 6 14;
+}
+.secondary-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: #8ea1b2;
+    -fx-border-radius: 6;
+    -fx-text-fill: #e6e6e6;
+    -fx-padding: 6 14;
+}
+.circle-pic-btn {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.manage-link-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #4fa8f0; /* brighter blue for dark mode */
+    -fx-underline: false;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-padding: 0 4 0 4;
+}
+
+.manage-link-btn:hover {
+    -fx-underline: true;
+}
+.manage-link-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #4fa8f0; /* brighter blue for dark mode */
+    -fx-underline: false;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-padding: 0 4 0 4;
+}
+
+.manage-link-btn:hover {
+    -fx-underline: true;
+}
+
+/* Shared */
+.member-row {
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 6 0;
+}
+
+.member-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.member-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #8ea1b2;
+}
+
+.link-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-accent;
+    -fx-cursor: hand;
+    -fx-padding: 0 6 0 6;
+}
+
+.link-btn:hover {
+    -fx-underline: true;
+}
+
+.overlay-background {
+    -fx-background-color: rgba(0,0,0,0.4);
+}
+
+.tf-root {
+    -fx-background-color: #1f2a36;
+    -fx-background-radius: 10;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 10, 0, 0, 4);
+}
+
+.tf-toolbar {
+    -fx-padding: 8 12 8 12;
+}
+
+.tf-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #229ED9; /* Telegram blue */
+}
+
+.tf-caption {
+    -fx-font-size: 12px;
+    -fx-text-fill: #aaa;
+}
+
+.tf-section {
+    -fx-spacing: 8;
+    -fx-padding: 8 0 8 0;
+}
+
+/* ScrollPane backgrounds */
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+.tf-sections {
+    -fx-background-color: #1f2a36; /* same as .tf-root */
+}
+
+/* Section + item text colors */
+.tf-section-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #ffffff;
+    -fx-padding: 4 0 2 0;
+    -fx-border-color: #333;
+    -fx-border-width: 0 0 0 0;
+}
+
+.tf-item-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-text-fill: #f5f5f5;
+}
+
+.tf-item-desc {
+    -fx-font-size: 12px;
+    -fx-text-fill: #cccccc;
+}
+
+.tf-status {
+    -fx-font-size: 11px;
+    -fx-padding: 2 6 2 6;
+    -fx-background-radius: 6;
+}
+.tf-status-available {
+    -fx-text-fill: #a5d6a7;
+    -fx-background-color: #1b5e20;
+}
+.tf-status-progress {
+    -fx-text-fill: #ffb74d;
+    -fx-background-color: #e65100;
+}
+
+/* Permissions card checkboxes */
+.check-box {
+    -fx-font-size: 13px;
+    -fx-text-fill: -fx-text-base-color;
+}
+
+/* === Permissions overlay === */
+.permissions-card {
+    -fx-background-color: #1f1f1f;
+    -fx-background-radius: 12;
+    -fx-padding: 16;
+}
+
+/* Checkboxes */
+.permissions-card .check-box {
+    -fx-text-fill: #e0e0e0;
+}
+
+.permissions-card .check-box:selected .box {
+    -fx-background-color: #3390ec;
+    -fx-border-color: #3390ec;
+}
+
+.permissions-card .check-box .box {
+    -fx-background-color: #2c2c2c;
+    -fx-border-color: #555;
+    -fx-border-radius: 4;
+}
+
+/* Buttons */
+.permissions-card .button {
+    -fx-font-size: 13px;
+    -fx-background-radius: 6;
+}
+
+.permissions-card .button.primary-btn {
+    -fx-background-color: #3390ec;
+    -fx-text-fill: white;
+}
+
+.permissions-card .button.secondary-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: #555;
+    -fx-text-fill: #aaa;
+}
+
+.channel-info-card {
+    -fx-background-color: #2a2a2a;
+}
+
+.channel-title {
+    -fx-text-fill: #f5f5f5;
+}
+
+.channel-subcount {
+    -fx-text-fill: #aaaaaa;
+}
+
+.channel-buttons .button {
+    -fx-background-color: #3c3c3c;
+    -fx-text-fill: #f5f5f5;
+}
+
+.options-button {
+    -fx-text-fill: #dddddd;
+}
+
+.subscriber-item,
+.admin-item {
+    -fx-text-fill: #e0e0e0;
+}
+
+.info-description {
+    -fx-font-size: 12px;
+    -fx-text-fill: #777;
+}
+
+/* Dark theme: Channel Manage styles */
+.description-input {
+    -fx-background-color: #1f2a36;     /* darker to match card */
+    -fx-control-inner-background: #1f2a36;
+    -fx-border-color: #444444;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 6;
+    -fx-font-size: 13px;
+    -fx-text-fill: #dddddd;            /* normal text */
+    -fx-prompt-text-fill: #888888;     /* dimmed placeholder text */
+}
+
+.description-input:focused {
+    -fx-border-color: #4a90e2; /* Telegram blue */
+    -fx-effect: dropshadow(gaussian, rgba(74,144,226,0.5), 6, 0.4, 0, 0);
+}

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.*?>
+
+<StackPane fx:id="overlayRoot" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.NewChannelController"
+           styleClass="overlay-root">
+
+    <!-- Dimmed background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Channel card -->
+    <VBox fx:id="newChannelCard"
+          styleClass="group-card"
+          spacing="16"
+          alignment="CENTER"
+          prefWidth="400" maxWidth="400"
+          prefHeight="380" maxHeight="380">
+
+        <!-- Header Row: Picture + Name -->
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <!-- Channel Picture -->
+            <Button fx:id="cameraButton"
+                    prefWidth="64" prefHeight="64"
+                    styleClass="group-camera-button">
+                <graphic>
+                    <ImageView fx:id="cameraIcon"
+                               fitWidth="28" fitHeight="28"
+                               preserveRatio="true"/>
+                </graphic>
+            </Button>
+
+            <!-- Channel Name -->
+            <VBox spacing="4" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
+                <Label fx:id="channelNameLabel" text="Channel name" styleClass="group-name-label"/>
+                <TextField fx:id="channelNameField"
+                           promptText="Enter channel name"
+                           styleClass="group-name-field"
+                           HBox.hgrow="ALWAYS"/>
+            </VBox>
+        </HBox>
+
+        <!-- ID -->
+        <VBox spacing="4" alignment="CENTER_LEFT">
+            <Label fx:id="channelIdLabel" text="Channel ID" styleClass="group-name-label"/>
+            <TextField fx:id="channelIdField"
+                       promptText="Enter channel ID"
+                       styleClass="group-name-field"
+                       HBox.hgrow="ALWAYS"/>
+        </VBox>
+
+        <!-- Channel Description -->
+        <VBox spacing="4" alignment="CENTER_LEFT">
+            <Label fx:id="channelDescLabel" text="Description (optional)" styleClass="group-name-label"/>
+            <TextArea fx:id="channelDescField"
+                      promptText="Enter description"
+                      styleClass="channel-desc-area"
+                      prefRowCount="3"
+                      wrapText="true"/>
+            <Label fx:id="descCounter" text="0 / 255" styleClass="desc-counter"/>
+        </VBox>
+
+        <!-- Footer: Cancel + Create -->
+        <HBox alignment="CENTER_RIGHT" spacing="16">
+            <Button fx:id="cancelButton" text="Cancel" styleClass="footer-button"/>
+            <Button fx:id="createButton" text="Create" styleClass="footer-button"/>
+        </HBox>
+    </VBox>
+</StackPane>

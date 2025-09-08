@@ -1,0 +1,96 @@
+#joinAction, #addContactAction {
+    -fx-background-color: transparent, transparent, transparent, transparent;
+    -fx-background-insets: 0,0,0,0;
+    -fx-background-radius: 0,0,0,0;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-text-fill: #1e88e5;   /* آبی لینک */
+    -fx-font-weight: 700;
+    -fx-font-size: 12px;
+    -fx-padding: 12 0 12 0;
+    -fx-cursor: hand;
+    -fx-effect: null;
+}
+
+#joinAction:hover, #addContactAction:hover {
+    -fx-underline: true;
+}
+
+#joinAction:focused, #addContactAction:focused {
+    -fx-underline: true;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+#joinAction:armed, #addContactAction:armed {
+    -fx-opacity: .85;
+}
+
+/* ظرف بنر پایین */
+.chat-footer-banner {
+    -fx-background-color: transparent;
+}
+
+/* دکمهٔ لینک‌مانند (مشترک) */
+.footer-link-btn {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 0;
+    -fx-padding: 6 0 6 0;          /* نازک مثل لینک */
+    -fx-border-color: transparent;
+    -fx-font-size: 14px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #1a73e8;        /* پیش‌فرض آبی (برای Join/Add) */
+}
+
+/* کانتینر بنر پایین چت */
+.chat-footer-banner {
+    -fx-background-color: transparent;
+    -fx-alignment: center;
+}
+
+/* متن آبی برای حالت Read-only */
+.chat-footer-banner .banner-text-blue {
+    -fx-text-fill: #1E88E5; /* آبی */
+    -fx-font-weight: 700;
+    -fx-background-color: transparent;
+}
+
+
+
+.button.footer-link-btn {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 0;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 6 12;
+    -fx-font-weight: 700;
+    -fx-cursor: hand;
+    -fx-effect: null;
+    -fx-text-fill: #1E88E5; /* پیش‌فرض آبی */
+}
+.button.footer-link-btn:hover {
+    -fx-underline: true;
+}
+
+/* نسخه‌ی قرمز برای UNBLOCK */
+.button.footer-link-btn.danger {
+    -fx-text-fill: #D32F2F;
+}
+
+
+/* فونت‌های ایموجی روی همهٔ سیستم‌ها */
+.emoji-label {
+    -fx-font-family: "Segoe UI Emoji", "Segoe UI Symbol",
+                     "Apple Color Emoji", "Noto Color Emoji",
+                     "Arial Unicode MS";
+    -fx-font-size: 13px;
+}
+
+/* اگر بخواهی فقط داخل صفحهٔ چت اعمال شود */
+.chat-root .emoji-label {
+    -fx-font-family: "Segoe UI Emoji", "Segoe UI Symbol",
+                     "Apple Color Emoji", "Noto Color Emoji",
+                     "Arial Unicode MS";
+}

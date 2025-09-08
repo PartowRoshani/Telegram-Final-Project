@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
+
+<?import java.net.URL?>
+<VBox xmlns="http://javafx.com/javafx/17"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.to.telegramfinalproject.UI.ChatPageController"
+      spacing="0"
+      styleClass="chat-root">
+    <stylesheets>
+        <URL value="@/org/to/telegramfinalproject/CSS/chat.css"/>
+    </stylesheets>
+
+    <!-- HEADER: avatar + name/status (left) | search + more (right) -->
+    <HBox fx:id="chatHeader" spacing="10" styleClass="chat-header">
+        <padding><Insets top="8" right="12" bottom="8" left="12"/></padding>
+
+        <!-- Avatar -->
+        <ImageView fx:id="userAvatar" fitWidth="36" fitHeight="36" preserveRatio="true"/>
+
+        <!-- Title + status -->
+        <VBox alignment="CENTER_LEFT">
+            <Label fx:id="chatTitle" text="User name" styleClass="chat-title"/>
+            <Label fx:id="chatStatus" text="last seen recently" styleClass="chat-status"/>
+        </VBox>
+
+        <Region HBox.hgrow="ALWAYS"/>
+
+        <!-- Search-in-chat -->
+        <Button fx:id="searchInChatButton" styleClass="icon-btn" onAction="#openSearchPanel">
+            <graphic>
+                <ImageView fx:id="searchIcon" fitWidth="20" fitHeight="20" preserveRatio="true">
+                    <image><Image url="@/org/to/telegramfinalproject/Icons/search_light.png"/></image>
+                </ImageView>
+            </graphic>
+        </Button>
+
+        <!-- More / overflow -->
+        <Button fx:id="chatMoreButton" styleClass="icon-btn">
+            <graphic>
+                <ImageView fx:id="moreIcon" fitWidth="18" fitHeight="18" preserveRatio="true">
+                    <image><Image url="@/org/to/telegramfinalproject/Icons/more_light.png"/></image>
+                </ImageView>
+            </graphic>
+            <contextMenu>
+                <ContextMenu fx:id="chatMoreMenu">
+                    <items>
+                        <!-- Private -->
+                        <MenuItem fx:id="archiveItem" text="Archive chat" visible="false">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/archived_chats_dark.png"/></image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+                        <MenuItem fx:id="viewProfileItem" text="View profile" visible="false">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/view_profile_dark.png"/></image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+                        <MenuItem fx:id="deleteChatItem" text="Delete chat" style="-fx-text-fill: red;" visible="false">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/delete_red.png"/></image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+
+                        <!-- Group -->
+                        <MenuItem fx:id="viewGroupItem" text="View group info" visible="false">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/group_dark.png"/></image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+                        <MenuItem fx:id="leaveGroupItem" text="Leave group" style="-fx-text-fill: red;" visible="false">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/log_out.png"/></image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+
+                        <!-- Channel -->
+                        <MenuItem fx:id="viewChannelItem" text="View channel info" visible="false">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/group_dark.png"/></image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+                        <MenuItem fx:id="leaveChannelItem" text="Leave channel" style="-fx-text-fill: red;" visible="false">
+                            <graphic>
+                                <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <image><Image url="@/org/to/telegramfinalproject/Icons/log_out.png"/></image>
+                                </ImageView>
+                            </graphic>
+                        </MenuItem>
+                    </items>
+                </ContextMenu>
+            </contextMenu>
+        </Button>
+    </HBox>
+
+    <!-- MESSAGES -->
+    <ScrollPane fx:id="messageScrollPane"
+                fitToWidth="true"
+                vbarPolicy="AS_NEEDED"
+                hbarPolicy="NEVER"
+                VBox.vgrow="ALWAYS"
+                styleClass="chat-scroll">
+        <content>
+            <VBox fx:id="messageContainer" spacing="10">
+                <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+            </VBox>
+        </content>
+    </ScrollPane>
+
+    <!-- ===== FOOTER: فقط یکی از این پنل‌ها نمایش داده می‌شود ===== -->
+
+    <!-- حالت عادی: کامپوزر پیام -->
+    <VBox fx:id="composerPane" spacing="0" visible="true" managed="true">
+        <HBox spacing="8" styleClass="chat-input-bar">
+            <padding><Insets top="8" right="12" bottom="8" left="12"/></padding>
+
+            <!-- Attachment -->
+            <Button fx:id="attachmentButton" styleClass="icon-btn">
+                <graphic>
+                    <ImageView fx:id="attachmentIcon" fitWidth="20" fitHeight="20" preserveRatio="true">
+                        <image><Image url="@/org/to/telegramfinalproject/Icons/attachment_light.png"/></image>
+                    </ImageView>
+                </graphic>
+            </Button>
+
+            <!-- Expanding input -->
+            <TextArea fx:id="messageInput"
+                      HBox.hgrow="ALWAYS"
+                      promptText="Write a message..."
+                      styleClass="msg-input"
+                      wrapText="true"
+                      prefRowCount="1"
+                      minHeight="40"
+                      maxHeight="120"
+                      VBox.vgrow="NEVER"/>
+
+            <!-- Send -->
+            <Button fx:id="sendButton" styleClass="send-btn">
+                <graphic>
+                    <ImageView fx:id="sendIcon" fitWidth="20" fitHeight="20" preserveRatio="true">
+                        <image><Image url="@/org/to/telegramfinalproject/Icons/send_cyan2.png"/></image>
+                    </ImageView>
+                </graphic>
+            </Button>
+        </HBox>
+    </VBox>
+
+    <VBox fx:id="joinPane" alignment="CENTER" visible="false" managed="false" styleClass="chat-input-bar">
+        <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
+        <Button fx:id="joinButton" id="joinAction"
+                text="JOIN CHANNEL" onAction="#onJoinClicked"/>
+    </VBox>
+
+    <VBox fx:id="addContactPane" alignment="CENTER" visible="false" managed="false" styleClass="chat-input-bar">
+        <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
+        <Button fx:id="addContactButton" id="addContactAction"
+                text="ADD CONTACT" onAction="#onAddContactClicked"/>
+    </VBox>
+
+    <VBox fx:id="readOnlyPane" spacing="0" alignment="CENTER"
+          visible="false" managed="false" styleClass="chat-footer-banner" >
+        <padding><Insets top="10" right="12" bottom="10" left="12"/></padding>
+        <Label fx:id="readOnlyLabel"
+               text="You are not allowed to send messages."
+               styleClass="footer-link-btn"/>
+
+    </VBox>
+
+    <VBox fx:id="blockedPane" spacing="0" alignment="CENTER"
+          visible="false" managed="false" styleClass="chat-footer-banner">
+        <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
+
+        <Button
+                fx:id="unblockBtn"
+                id="unblockAction"
+                text="UNBLOCK"
+                onAction="#onUnblockClicked"
+                styleClass="footer-link-btn danger"
+                style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-background-radius: 0; -fx-border-color: transparent; -fx-border-width: 0; -fx-text-fill: #D32F2F; -fx-font-weight: 700; -fx-padding: 6 12; -fx-effect: null;"/>
+
+    </VBox>
+
+
+
+</VBox>

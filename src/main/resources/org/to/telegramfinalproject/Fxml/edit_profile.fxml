@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<StackPane styleClass="overlay-root" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/8" fx:controller="org.to.telegramfinalproject.UI.EditProfileController">
+   <children>
+   
+       <!-- Background (click to close) -->
+       <Pane fx:id="overlayBackground" styleClass="overlay-background" />
+   
+       <!-- Profile edit card -->
+       <VBox fx:id="editCard" maxHeight="520" maxWidth="400" prefHeight="520" prefWidth="400" spacing="16" styleClass="edit-profile-card">
+      <children>
+      
+              <!-- ===== Header: Back + Title + Close ===== -->
+              <HBox alignment="CENTER_LEFT" spacing="10">
+         <children>
+                     <!-- Back button -->
+                     <Button fx:id="backButton" styleClass="edit-icon-button" />
+         
+                     <!-- Title -->
+                     <Label styleClass="edit-profile-title" text="Edit Profile" HBox.hgrow="ALWAYS" />
+         
+                     <!-- Spacer pushes close button to the right -->
+                     <Pane HBox.hgrow="ALWAYS" />
+         
+                     <!-- Close button -->
+                     <Button fx:id="closeButton" styleClass="edit-icon-button" text="✕" />
+         </children>
+              </HBox>
+
+          <!-- ===== Profile picture with camera overlay + name/status ===== -->
+          <VBox alignment="CENTER" spacing="2">
+
+              <!-- Profile picture + camera button -->
+              <StackPane alignment="CENTER">
+                  <!-- Profile Picture -->
+                  <ImageView fx:id="profileImageView"
+                             fitWidth="100" fitHeight="100"
+                             preserveRatio="true"
+                             styleClass="edit-profile-picture"/>
+
+                  <!-- Camera Button pinned bottom-center -->
+                  <Button fx:id="cameraButton"
+                          prefWidth="32" prefHeight="32"
+                          styleClass="camera-button"
+                          StackPane.alignment="BOTTOM_CENTER"
+                          translateX="30" translateY="5"> <!-- pushes down so it overlaps -->
+                      <graphic>
+                          <ImageView fx:id="cameraIcon"
+                                     fitWidth="16" fitHeight="16"
+                                     preserveRatio="true"/>
+                      </graphic>
+                  </Button>
+              </StackPane>
+
+              <!-- Name + Status -->
+              <Label fx:id="profileName" text="User Name" styleClass="profile-name"/>
+              <Label fx:id="profileStatus" text="online" styleClass="profile-status"/>
+
+          </VBox>
+
+
+          <Separator styleClass="edit-section-separator" />
+      
+              <!-- ===== Bio (full width field + description) ===== -->
+          <VBox spacing="4">
+              <children>
+                  <HBox alignment="CENTER_LEFT" spacing="10">
+                      <children>
+                          <Label styleClass="profile-info-label" text="Bio" />
+                          <TextField fx:id="bioField" prefHeight="25.0" prefWidth="152.0" styleClass="edit-profile-input" HBox.hgrow="ALWAYS" />
+                      </children>
+                  </HBox>
+                  <Label styleClass="edit-input-description" text="Any details such as age, occupation, or city." />
+              </children>
+          </VBox>
+      
+              <Separator styleClass="section-separator" />
+      
+              <!-- ===== Name row (Label left, editable field right) ===== -->
+              <VBox spacing="4">
+         <children>
+                     <HBox alignment="CENTER_LEFT" spacing="10">
+                        <children>
+                            <Label styleClass="profile-info-label" text="Name" />
+                            <TextField fx:id="nameField" prefHeight="25.0" prefWidth="152.0" styleClass="edit-profile-input" HBox.hgrow="ALWAYS" />
+                        </children>
+                     </HBox>
+                     <Label styleClass="edit-input-description" text="This is your profile name. It will be visible to your contacts." />
+         </children>
+              </VBox>
+      
+              <Separator styleClass="section-separator" />
+      
+              <!-- ===== Username row (Label left, editable field right) ===== -->
+              <VBox spacing="4">
+         <children>
+                     <HBox alignment="CENTER_LEFT" spacing="10">
+                        <children>
+                            <Label styleClass="profile-info-label" text="Username" />
+                            <TextField fx:id="usernameField" prefHeight="25.0" prefWidth="153.0" styleClass="edit-profile-input" HBox.hgrow="ALWAYS" />
+                        </children>
+                     </HBox>
+                     <Label styleClass="edit-input-description" text="Username lets people contact you." />
+         </children>
+              </VBox>
+      </children>
+       </VBox>
+   </children>
+</StackPane>

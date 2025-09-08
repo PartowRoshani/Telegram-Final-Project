@@ -1,0 +1,39 @@
+.scroll-pane > .viewport {
+    -fx-background-color: transparent; /* No background behind content */
+}
+
+.scroll-pane .scroll-bar {
+    -fx-background-color: transparent; /* Remove background bar */
+    -fx-opacity: 0; /* Initially hidden */
+    -fx-padding: 0;
+    -fx-pref-width: 6px; /* Thinner scrollbar */
+    -fx-background-insets: 0;
+    -fx-background-radius: 3px;
+    -fx-transition: opacity 0.3s ease;
+}
+
+.scroll-pane:hover .scroll-bar {
+    -fx-opacity: 0.6; /* Show on hover */
+}
+
+.scroll-pane .thumb {
+    -fx-background-color: rgba(100, 100, 100, 0.5); /* Semi-transparent thumb */
+    -fx-background-radius: 3px;
+}
+
+
+.blocked-list .scroll-bar {
+    -fx-background-color: transparent;
+    -fx-opacity: 0;
+    -fx-pref-width: 6px;
+    -fx-background-radius: 3px;
+}
+
+.blocked-list:hover .scroll-bar {
+    -fx-opacity: 0.6;
+}
+
+.blocked-list .thumb {
+    -fx-background-color: rgba(100, 100, 100, 0.5);
+    -fx-background-radius: 3px;
+}

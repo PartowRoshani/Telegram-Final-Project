@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
+
+<?import javafx.scene.shape.Circle?>
+<HBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.to.telegramfinalproject.UI.ChatItemController"
+      spacing="10" alignment="CENTER_LEFT"
+      styleClass="chat-item">
+
+    <!-- Avatar container with fixed size -->
+    <StackPane fx:id="avatarContainer"
+               prefWidth="40" prefHeight="40"
+               minWidth="40" minHeight="40"
+               maxWidth="40" maxHeight="40"
+               alignment="CENTER">
+
+        <!-- User profile image -->
+        <ImageView fx:id="profileImageUser"
+                   fitWidth="60" fitHeight="60"
+                   preserveRatio="true"
+                   visible="true" managed="true"/>
+
+        <!-- System avatar (circle + icon) -->
+        <StackPane fx:id="systemAvatar"
+                   prefWidth="40" prefHeight="40"
+                   visible="false" managed="false"
+                   alignment="CENTER">
+
+            <Circle fx:id="systemCircle"
+                    radius="20"
+                    fill="gray"/>
+
+            <ImageView fx:id="profileImageSystem"
+                       fitWidth="28" fitHeight="28"
+                       preserveRatio="true"/>
+        </StackPane>
+    </StackPane>
+
+    <!-- Chat Details -->
+    <VBox alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
+        <Label fx:id="chatName" styleClass="chat-name"/>
+        <Label fx:id="lastMessage" styleClass="chat-last-message"/>
+    </VBox>
+
+    <!-- Time + Unread -->
+    <VBox alignment="CENTER_RIGHT" spacing="5">
+        <Label fx:id="chatTime" styleClass="chat-time"/>
+        <Label fx:id="unreadCount" styleClass="unread-count"/>
+    </VBox>
+</HBox>

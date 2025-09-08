@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<?import javafx.scene.image.Image?>
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.UserInfoController"
+           styleClass="overlay-root">
+
+    <!-- Dimmed background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Profile card -->
+    <VBox fx:id="profileCard" styleClass="profile-card" spacing="16"
+          prefWidth="360" maxWidth="360"
+          prefHeight="480" maxHeight="480">
+
+        <!-- ===== Header: User Info (left) + actions (right) ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="User Info" styleClass="user-info-title" HBox.hgrow="ALWAYS"/>
+            <Pane HBox.hgrow="ALWAYS"/> <!-- pushes buttons to right -->
+
+            <!-- More / overflow -->
+            <Button fx:id="infoMoreButton" styleClass="icon-button">
+                <graphic>
+                    <ImageView fx:id="moreIcon" fitWidth="18" fitHeight="18" preserveRatio="true">
+                        <image>
+                            <Image url="@/org/to/telegramfinalproject/Icons/more_dark.png"/>
+                        </image>
+                    </ImageView>
+                </graphic>
+                <contextMenu>
+                    <ContextMenu fx:id="infoMoreMenu">
+                        <items>
+                            <MenuItem fx:id="blockItem" text="Block" style="-fx-text-fill: red;">
+                                <graphic>
+                                    <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/block_red.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </MenuItem>
+                            <MenuItem fx:id="unblockItem" text="Unblock" visible="false" style="-fx-text-fill: red;">
+                                <graphic>
+                                    <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/block_red.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </MenuItem>
+                            <MenuItem fx:id="deleteChatItem" text="Delete chat" style="-fx-text-fill: red;">
+                                <graphic>
+                                    <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/delete_red.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </MenuItem>
+                        </items>
+                    </ContextMenu>
+                </contextMenu>
+            </Button>
+
+            <!-- Close -->
+            <Button fx:id="closeButton" styleClass="icon-button" text="✕"/>
+        </HBox>
+
+
+        <!-- Profile: picture + name/status -->
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <ImageView fx:id="profileImage" fitWidth="80" fitHeight="80" preserveRatio="true"
+                       styleClass="profile-picture"/>
+            <VBox alignment="CENTER_LEFT" spacing="4">
+                <Label fx:id="profileName" text="User Name" styleClass="profile-name"/>
+                <Label fx:id="profileStatus" text="last seen recently" styleClass="profile-status"/>
+            </VBox>
+        </HBox>
+
+        <Separator styleClass="section-separator"/>
+
+        <!-- Info blocks -->
+        <HBox alignment="TOP_LEFT">
+            <Pane prefWidth="30"/> <!-- left spacer -->
+
+            <VBox spacing="16" styleClass="info-blocks">
+
+                <!-- Bio -->
+                <HBox spacing="10" alignment="TOP_LEFT" fx:id="bioBlock">
+                    <!-- Icon -->
+                    <ImageView fx:id="bioIcon" fitWidth="16" fitHeight="16" preserveRatio="true"
+                               styleClass="info-icon">
+                        <image>
+                            <Image url="@/org/to/telegramfinalproject/Icons/bio_dark.png"/>
+                        </image>
+                    </ImageView>
+
+                    <!-- Texts -->
+                    <VBox spacing="2">
+                        <Label fx:id="userBio" wrapText="true" styleClass="profile-info-main"/>
+                        <Label text="Bio" styleClass="profile-info-sub"/>
+                    </VBox>
+                </HBox>
+
+                <!-- Username -->
+                <HBox spacing="10" alignment="TOP_LEFT" fx:id="usernameBlock">
+                    <!-- Icon -->
+                    <ImageView fx:id="usernameIcon" fitWidth="16" fitHeight="16" preserveRatio="true"
+                               styleClass="info-icon">
+                        <image>
+                            <Image url="@/org/to/telegramfinalproject/Icons/username_dark.png"/>
+                        </image>
+                    </ImageView>
+
+                    <!-- Texts -->
+                    <VBox spacing="2">
+                        <Label fx:id="userId" styleClass="profile-info-main"/>
+                        <Label text="Username" styleClass="profile-info-sub"/>
+                    </VBox>
+                </HBox>
+
+            </VBox>
+        </HBox>
+
+        <Separator styleClass="section-separator"/>
+    </VBox>
+</StackPane>

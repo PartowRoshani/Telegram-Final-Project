@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.ManageGroupController"
+           styleClass="overlay-root">
+
+    <!-- Background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Card -->
+    <VBox fx:id="manageGroupCard" styleClass="profile-card" spacing="16"
+          prefWidth="360" maxWidth="360"
+          prefHeight="520" maxHeight="520">
+
+        <!-- ===== Header ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Edit group" styleClass="profile-title" HBox.hgrow="ALWAYS"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Button fx:id="closeButton" styleClass="icon-button" text="✕"/>
+        </HBox>
+
+        <!-- ===== Group picture + name + description ===== -->
+        <VBox alignment="CENTER" spacing="12">
+            <!-- Group picture -->
+            <Button fx:id="changePicButton" styleClass="circle-pic-btn">
+                <graphic>
+                    <ImageView fx:id="groupImage" fitWidth="80" fitHeight="80" preserveRatio="true">
+                        <image>
+                            <Image url="@/org/to/telegramfinalproject/Avatars/default_group_profile.png"/>
+                        </image>
+                    </ImageView>
+                </graphic>
+            </Button>
+
+            <!-- Group name -->
+            <TextField fx:id="groupNameField" promptText="Group name" styleClass="input-field"/>
+
+            <!-- Group ID -->
+            <TextField fx:id="groupIdField" promptText="Group ID (unique)" styleClass="input-field"/>
+        </VBox>
+
+
+        <!-- ===== Options ===== -->
+        <VBox spacing="10" styleClass="info-blocks" VBox.vgrow="ALWAYS">
+            <!-- Administrators -->
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <Label text="Administrators" styleClass="info-row-label"/>
+                <Pane HBox.hgrow="ALWAYS"/>
+                <Label fx:id="adminCount" text="0" styleClass="info-row-value"/>
+                <Button fx:id="manageAdminsButton" text="Manage" styleClass="manage-link-btn"/>
+            </HBox>
+
+            <!-- Members -->
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <Label text="Members" styleClass="info-row-label"/>
+                <Pane HBox.hgrow="ALWAYS"/>
+                <Label fx:id="memberCount" text="0" styleClass="info-row-value"/>
+                <Button fx:id="manageMembersButton" text="Manage" styleClass="manage-link-btn"/>
+            </HBox>
+        </VBox>
+
+        <!-- ===== Footer ===== -->
+        <HBox spacing="10" alignment="CENTER_RIGHT">
+            <Button fx:id="cancelButton" text="Cancel" styleClass="secondary-btn"/>
+            <Button fx:id="saveButton" text="Save" styleClass="primary-btn"/>
+        </HBox>
+    </VBox>
+</StackPane>

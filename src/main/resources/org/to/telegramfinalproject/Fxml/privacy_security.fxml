@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.image.Image?>
+
+<StackPane fx:id="overlayRoot"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.PrivacySecurityController"
+           styleClass="overlay-root">
+
+    <!-- Dimmed Background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Main Card -->
+    <VBox fx:id="privacyCard"
+          styleClass="privacy-card"
+          spacing="16"
+          prefWidth="360" maxWidth="360"
+          prefHeight="480" maxHeight="480">
+
+        <!-- ===== Header: Back + Title + Close ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="10" styleClass="privacy-header">
+            <!-- Back button -->
+            <Button fx:id="backButton" styleClass="edit-icon-button"/>
+
+            <!-- Title -->
+            <Label fx:id="privacyTitle" text="Privacy and Security" styleClass="privacy-title" HBox.hgrow="ALWAYS"/>
+
+            <Pane HBox.hgrow="ALWAYS"/>
+
+            <!-- Close button -->
+            <Button fx:id="closeButton" styleClass="edit-icon-button" text="✕"/>
+        </HBox>
+
+
+        <Separator/>
+
+        <!-- ===== Security Section ===== -->
+        <VBox spacing="8" styleClass="privacy-section">
+            <Label text="Security" styleClass="section-title"/>
+
+            <!-- Username & Password -->
+            <HBox alignment="CENTER_LEFT" spacing="8" styleClass="privacy-item">
+
+                <!-- Icon -->
+                <ImageView fx:id="usernameIcon" fitWidth="18" fitHeight="18" preserveRatio="true">
+                    <image>
+                        <Image url="@/org/to/telegramfinalproject/Icons/username_dark.png"/>
+                    </image>
+                </ImageView>
+
+                <Label text="Username &amp; Password" styleClass="item-label"/>
+                <Pane HBox.hgrow="ALWAYS"/>
+                <Button fx:id="changeCredentialsButton" text="Change" styleClass="manage-button"/>
+            </HBox>
+        </VBox>
+
+        <Separator/>
+
+        <!-- ===== Privacy Section ===== -->
+        <VBox spacing="8" styleClass="privacy-section">
+            <Label text="Privacy" styleClass="section-title"/>
+
+            <!-- Blocked Users -->
+            <HBox alignment="CENTER_LEFT" spacing="8" styleClass="privacy-item">
+
+                <!-- Icon -->
+                <ImageView fx:id="blockIcon" fitWidth="18" fitHeight="18" preserveRatio="true">
+                    <image>
+                        <Image url="@/org/to/telegramfinalproject/Icons/hand_dark.png"/>
+                    </image>
+                </ImageView>
+
+                <Label text="Blocked Users" styleClass="item-label"/>
+                <Pane HBox.hgrow="ALWAYS"/>
+                <Button fx:id="blockedUsersButton" text="Manage" styleClass="manage-button"/>
+            </HBox>
+        </VBox>
+    </VBox>
+</StackPane>

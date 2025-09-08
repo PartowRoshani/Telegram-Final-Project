@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<?import javafx.scene.image.Image?>
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.GroupInfoController"
+           styleClass="overlay-root">
+
+    <!-- Background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Group card -->
+    <VBox fx:id="groupCard" styleClass="profile-card" spacing="16"
+          prefWidth="360" maxWidth="360"
+          prefHeight="500" maxHeight="500">
+
+        <!-- ===== Header: Title + More + Close ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Group Info" styleClass="profile-title" HBox.hgrow="ALWAYS"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+
+            <!-- More -->
+            <Button fx:id="infoMoreButton" styleClass="icon-button">
+                <graphic>
+                    <ImageView fx:id="moreIcon" fitWidth="18" fitHeight="18" preserveRatio="true"/>
+                </graphic>
+                <contextMenu>
+                    <ContextMenu fx:id="infoMoreMenu">
+                        <items>
+                            <!-- Add Member -->
+                            <MenuItem fx:id="addMemberItem" text="Add member">
+                                <graphic>
+                                    <ImageView fx:id="addMemberIcon" fitWidth="16" fitHeight="16" preserveRatio="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/add_member_dark.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </MenuItem>
+
+                            <!-- Manage Group -->
+                            <MenuItem fx:id="manageGroupItem" text="Manage group">
+                                <graphic>
+                                    <ImageView fx:id="manageChannelIcon" fitWidth="16" fitHeight="16" preserveRatio="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/manage_dark.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </MenuItem>
+
+                            <!-- Delete Chat (owner only) -->
+                            <MenuItem fx:id="deleteGroupItem" text="Delete chat" style="-fx-text-fill: red;" visible="false">
+                                <graphic>
+                                    <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/delete_red.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </MenuItem>
+                        </items>
+                    </ContextMenu>
+                </contextMenu>
+            </Button>
+
+            <!-- Close -->
+            <Button fx:id="closeButton" styleClass="icon-button" text="✕"/>
+        </HBox>
+
+        <!-- ===== Group picture + name + members count ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <!-- Group picture -->
+            <ImageView fx:id="groupImage" fitWidth="60" fitHeight="60" preserveRatio="true"
+                       styleClass="profile-picture"/>
+
+            <!-- Name + members stacked -->
+            <VBox alignment="CENTER_LEFT" spacing="4">
+                <Label fx:id="groupName" text="Group name" styleClass="info-title"/>
+                <Label fx:id="memberCount" text="0 members" styleClass="info-subtitle"/>
+            </VBox>
+        </HBox>
+
+        <Separator styleClass="section-separator"/>
+
+        <!-- ===== Members list ===== -->
+        <VBox spacing="8" styleClass="info-blocks" VBox.vgrow="ALWAYS">
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <ImageView fx:id="membersIcon" fitWidth="26" fitHeight="26" preserveRatio="true">
+                    <image>
+                        <Image url="@/org/to/telegramfinalproject/Icons/group_member_dark.png"/>
+                    </image>
+                </ImageView>
+                <Label fx:id="membersHeader" text="0 MEMBERS" styleClass="profile-info-sub"/>
+                <Pane HBox.hgrow="ALWAYS"/>
+                <Button fx:id="addMemberButton" styleClass="icon-button">
+                    <graphic>
+                        <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                            <image>
+                                <Image url="@/org/to/telegramfinalproject/Icons/add_member_dark.png"/>
+                            </image>
+                        </ImageView>
+                    </graphic>
+                </Button>
+            </HBox>
+
+            <ScrollPane fx:id="membersScroll" fitToWidth="true" styleClass="member-scroll" VBox.vgrow="ALWAYS">
+                <content>
+                    <VBox fx:id="membersList" spacing="10"/>
+                </content>
+            </ScrollPane>
+        </VBox>
+
+    </VBox>
+</StackPane>

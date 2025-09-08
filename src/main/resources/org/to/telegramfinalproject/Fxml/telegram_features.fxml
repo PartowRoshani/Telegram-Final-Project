@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:id="rootOverlay"
+           fx:controller="org.to.telegramfinalproject.UI.TelegramFeaturesController"
+           styleClass="overlay-root">
+
+    <!-- Background (click to close) -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Content card -->
+    <BorderPane fx:id="contentCard"
+                styleClass="tf-root"
+                maxWidth="700" maxHeight="520">
+
+        <!-- Header -->
+        <top>
+            <HBox spacing="10" styleClass="tf-toolbar">
+                <children>
+                    <Label text="Telegram Features" styleClass="tf-title"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                </children>
+            </HBox>
+        </top>
+
+        <!-- Scrollable content -->
+        <center>
+            <ScrollPane fx:id="featureScroll" fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
+                <content>
+                    <VBox spacing="24" styleClass="tf-sections">
+                        <padding>
+                            <Insets top="8" right="16" bottom="8" left="16"/>
+                        </padding>
+
+                        <!-- Section 1 -->
+                        <VBox spacing="8" styleClass="tf-section">
+                            <Label text="1) Account &amp; Authentication" styleClass="tf-section-title"/>
+                            <VBox spacing="12">
+                                <VBox>
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Register, Login &amp; Logout" styleClass="tf-item-title"/>
+                                        <Label text="Available" styleClass="tf-status tf-status-available"/>
+                                    </HBox>
+                                    <Label text="Create account, sign in/out, and manage sessions (devices, multi-login prevention)." wrapText="true" styleClass="tf-item-desc"/>
+                                </VBox>
+
+                                <VBox>
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Profile &amp; Presence" styleClass="tf-item-title"/>
+                                        <Label text="Available" styleClass="tf-status tf-status-available"/>
+                                    </HBox>
+                                    <Label text="Bio, photo, display name, user id, online / last seen." wrapText="true" styleClass="tf-item-desc"/>
+                                </VBox>
+                            </VBox>
+                        </VBox>
+
+                        <Separator/>
+
+                        <!-- Section 2 -->
+                        <VBox spacing="8" styleClass="tf-section">
+                            <Label text="2) Contacts" styleClass="tf-section-title"/>
+                            <VBox spacing="12">
+                                <VBox>
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Add / Remove Contacts" styleClass="tf-item-title"/>
+                                        <Label text="Available" styleClass="tf-status tf-status-available"/>
+                                    </HBox>
+                                    <Label text="Add, remove, and browse contacts with full profile view." wrapText="true" styleClass="tf-item-desc"/>
+                                </VBox>
+
+                                <VBox>
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Block / Unblock" styleClass="tf-item-title"/>
+                                        <Label text="Available" styleClass="tf-status tf-status-available"/>
+                                    </HBox>
+                                    <Label text="Manage private chat access and visibility." wrapText="true" styleClass="tf-item-desc"/>
+                                </VBox>
+                            </VBox>
+                        </VBox>
+
+                        <Separator/>
+
+                        <!-- Section 3 -->
+                        <VBox spacing="8" styleClass="tf-section">
+                            <Label text="3) Chats" styleClass="tf-section-title"/>
+                            <VBox spacing="12">
+                                <VBox>
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Private Chats" styleClass="tf-item-title"/>
+                                        <Label text="Available" styleClass="tf-status tf-status-available"/>
+                                    </HBox>
+                                    <Label text="Create or open private chats (get_or_create_private_chat)." wrapText="true" styleClass="tf-item-desc"/>
+                                </VBox>
+
+                                <VBox>
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Groups" styleClass="tf-item-title"/>
+                                        <Label text="Available" styleClass="tf-status tf-status-available"/>
+                                    </HBox>
+                                    <Label text="Create groups, add members, roles &amp; permissions, ownership transfer." wrapText="true" styleClass="tf-item-desc"/>
+                                </VBox>
+
+                                <VBox>
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Channels" styleClass="tf-item-title"/>
+                                        <Label text="Available" styleClass="tf-status tf-status-available"/>
+                                    </HBox>
+                                    <Label text="Create channels, manage subscribers, admins, and ownership." wrapText="true" styleClass="tf-item-desc"/>
+                                </VBox>
+
+                                <VBox>
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Saved Messages" styleClass="tf-item-title"/>
+                                        <Label text="Available" styleClass="tf-status tf-status-available"/>
+                                    </HBox>
+                                    <Label text="Personal cloud chat to keep your own notes and files." wrapText="true" styleClass="tf-item-desc"/>
+                                </VBox>
+
+                                <VBox>
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Archive Chats" styleClass="tf-item-title"/>
+                                        <Label text="In Progress" styleClass="tf-status tf-status-progress"/>
+                                    </HBox>
+                                    <Label text="Move chats in/out of Archive for better organization." wrapText="true" styleClass="tf-item-desc"/>
+                                </VBox>
+                            </VBox>
+                        </VBox>
+
+                        <Separator/>
+
+                        <!-- Section 4 -->
+                        <VBox spacing="8" styleClass="tf-section">
+                            <Label text="4) Messaging" styleClass="tf-section-title"/>
+                            <VBox spacing="12">
+                                <VBox>
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Reply" styleClass="tf-item-title"/>
+                                        <Label text="Available" styleClass="tf-status tf-status-available"/>
+                                    </HBox>
+                                    <Label text="Quote and reply to a specific message." wrapText="true" styleClass="tf-item-desc"/>
+                                </VBox>
+
+                                <VBox>
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Forward" styleClass="tf-item-title"/>
+                                        <Label text="Available" styleClass="tf-status tf-status-available"/>
+                                    </HBox>
+                                    <Label text="Send a message to another chat with source attribution." wrapText="true" styleClass="tf-item-desc"/>
+                                </VBox>
+                            </VBox>
+                        </VBox>
+
+                    </VBox>
+                </content>
+            </ScrollPane>
+        </center>
+
+        <padding>
+            <Insets top="8" right="8" bottom="8" left="8"/>
+        </padding>
+    </BorderPane>
+</StackPane>

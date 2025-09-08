@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<StackPane fx:id="mainRoot"
+           xmlns="http://javafx.com/javafx/8"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="org.to.telegramfinalproject.UI.MainController">
+
+    <children>
+        <!-- SplitPane: left (chat list / search) + right (chat panel) -->
+        <SplitPane fx:id="mainSplitPane"
+                   dividerPositions="0.32"
+                   orientation="HORIZONTAL"
+                   prefHeight="700" prefWidth="1100"
+                   styleClass="thin-splitpane">
+            <items>
+
+                <!-- LEFT: Sidebar -->
+                <VBox fx:id="leftPane" minWidth="72" styleClass="sidebar-pane">
+
+                    <!-- Top bar (always visible) -->
+                    <HBox spacing="10" styleClass="search-bar-container">
+                        <padding>
+                            <Insets bottom="10" left="10" right="10" top="10"/>
+                        </padding>
+                        <children>
+                            <Button fx:id="menuButton"
+                                    minHeight="29.0" minWidth="40"
+                                    onAction="#toggleSidebar"
+                                    prefHeight="29.0" prefWidth="40.0"
+                                    styleClass="menu-btn">
+                                <graphic>
+                                    <ImageView fx:id="menuIcon" fitHeight="24" fitWidth="17"
+                                               preserveRatio="true" smooth="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/menu_dark.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </Button>
+
+                            <HBox spacing="5" alignment="CENTER" HBox.hgrow="ALWAYS">
+                                <TextField fx:id="searchBar"
+                                           promptText="Search"
+                                           HBox.hgrow="ALWAYS"
+                                           maxWidth="Infinity"
+                                           styleClass="global-search"/>
+                            </HBox>
+
+                        </children>
+                    </HBox>
+
+                    <!-- Content area (chat list vs search) -->
+                    <StackPane VBox.vgrow="ALWAYS">
+
+                        <!-- Chat list (default) -->
+                        <ScrollPane fx:id="scrollPane" fitToWidth="true" hbarPolicy="NEVER"
+                                    vbarPolicy="AS_NEEDED"
+                                    visible="true" managed="true"
+                                    styleClass="chat-scroll">
+                            <content>
+                                <VBox fx:id="chatListContainer" spacing="5"
+                                      styleClass="chat-list">
+                                    <padding>
+                                        <Insets bottom="10" left="10" right="10" top="10"/>
+                                    </padding>
+                                </VBox>
+                            </content>
+                        </ScrollPane>
+
+                        <!-- Search in chat -->
+                        <VBox fx:id="chatSearchPane"
+                              visible="false" managed="false"
+                              styleClass="chat-search-pane">
+
+                            <Label text="Search messages in" styleClass="search-label"/>
+                            <Separator styleClass="search-separator" prefHeight="0.5"/>
+
+                            <HBox spacing="10" alignment="CENTER_LEFT" styleClass="search-scope-bar">
+                                <ImageView fx:id="searchChatAvatar" fitWidth="32" fitHeight="32" preserveRatio="true"/>
+                                <VBox alignment="CENTER_LEFT">
+                                    <Label text="This chat" styleClass="search-scope"/>
+                                </VBox>
+                                <Region HBox.hgrow="ALWAYS"/>
+                                <Button text="✕" onAction="#closeSearchPanel" styleClass="close-btn"/>
+                            </HBox>
+
+                            <VBox alignment="CENTER" spacing="10" prefHeight="300">
+                                <ImageView fx:id="searchIconLarge" fitWidth="64" fitHeight="64" preserveRatio="true"/>
+                                <Label text="Search for messages" styleClass="search-placeholder"/>
+                            </VBox>
+
+                            <ListView fx:id="chatSearchResults" visible="false" managed="false"/>
+                        </VBox>
+
+                        <!-- Global Search Panel -->
+                        <VBox fx:id="globalSearchPane" visible="false" managed="false" styleClass="global-search-pane">
+
+                            <!-- Header -->
+                            <HBox alignment="CENTER_LEFT">
+                                <Label text="  Search results" styleClass="search-results-title"/>
+                                <Region HBox.hgrow="ALWAYS"/>
+                                <Button text="✕" onAction="#closeGlobalSearch" styleClass="search-close-btn"/>
+                            </HBox>
+
+                            <!-- Search results -->
+                            <ScrollPane fx:id="globalSearchScroll"
+                                        fitToWidth="true"
+                                        hbarPolicy="NEVER"
+                                        vbarPolicy="AS_NEEDED"
+                                        styleClass="chat-scroll">
+                                <content>
+                                    <VBox fx:id="globalSearchResultsContainer" spacing="5"
+                                          styleClass="global-search-list">
+                                        <!-- One search result item -->
+                                        <HBox spacing="10" alignment="CENTER_LEFT" styleClass="search-result-item">
+                                            <!-- Avatar -->
+                                            <StackPane>
+                                                <ImageView fx:id="searchResultAvatar"
+                                                           fitWidth="40" fitHeight="40"
+                                                           preserveRatio="true"
+                                                           smooth="true"
+                                                           cache="true"
+                                                           styleClass="avatar"/>
+                                            </StackPane>
+
+                                            <!-- Texts -->
+                                            <VBox spacing="2">
+                                                <Label fx:id="searchResultTitle" styleClass="global-search-title"/>
+                                                <Label fx:id="searchResultSubtitle" styleClass="global-search-subtitle"/>
+                                            </VBox>
+                                        </HBox>
+                                    </VBox>
+                                </content>
+                            </ScrollPane>
+
+                            <!-- No Results Placeholder -->
+                            <VBox fx:id="noResultsBox" alignment="CENTER" spacing="10" visible="false" managed="false">
+                                <ImageView fx:id="noResultIcon" fitWidth="64" fitHeight="64" preserveRatio="true">
+                                    <image>
+                                        <Image url="@/org/to/telegramfinalproject/Icons/no_result_dark.png"/>
+                                    </image>
+                                </ImageView>
+                                <Label text="No results found" styleClass="no-results-label"/>
+                            </VBox>
+                        </VBox>
+                    </StackPane>
+                </VBox>
+
+                <!-- RIGHT: Chat panel -->
+                <StackPane fx:id="chatDisplayArea" minWidth="360" styleClass="chat-display">
+                    <children>
+                        <Label fx:id="placeholderLabel" alignment="CENTER"
+                               prefHeight="21.0" prefWidth="248.0"
+                               styleClass="placeholder-label"
+                               text="Select a chat to start messaging">
+                            <font><Font size="15"/></font>
+                        </Label>
+                    </children>
+                </StackPane>
+            </items>
+        </SplitPane>
+
+        <!-- ===== Overlay background for sidebar only ===== -->
+        <Pane fx:id="overlay"
+              mouseTransparent="true"
+              onMouseClicked="#closeSidebar"
+              styleClass="overlay"
+              visible="false"/>
+
+        <!-- ===== Overlay layer for profile/settings/etc. ===== -->
+        <StackPane fx:id="overlayLayer"
+                   pickOnBounds="false"/>
+    </children>
+</StackPane>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.geometry.Insets?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.AddAdminsController"
+           styleClass="overlay-root">
+
+    <!-- Background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Card -->
+    <VBox fx:id="addAdminsCard" styleClass="profile-card" spacing="12"
+          prefWidth="340" maxWidth="340"
+          prefHeight="480" maxHeight="480">
+
+        <!-- Header -->
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Add Admins" styleClass="profile-title" HBox.hgrow="ALWAYS"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Button fx:id="closeButton" styleClass="icon-button" text="✕"/>
+        </HBox>
+
+        <Separator styleClass="section-separator"/>
+
+        <!-- Members list -->
+        <ScrollPane fx:id="membersScroll" fitToWidth="true" VBox.vgrow="ALWAYS"
+                    styleClass="member-scroll">
+            <content>
+                <VBox fx:id="membersList" spacing="10">
+                    <padding>
+                        <Insets top="10" right="10" bottom="10" left="10"/>
+                    </padding>
+                </VBox>
+            </content>
+        </ScrollPane>
+
+        <Separator styleClass="section-separator"/>
+
+        <!-- Footer -->
+        <HBox spacing="10" alignment="CENTER_RIGHT">
+            <Button fx:id="closeFooterButton" text="Close" styleClass="secondary-btn"/>
+        </HBox>
+    </VBox>
+</StackPane>

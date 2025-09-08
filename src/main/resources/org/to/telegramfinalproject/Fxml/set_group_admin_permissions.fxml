@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.SetGroupAdminPermissionsController"
+           styleClass="overlay-root">
+
+    <!-- Background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Card -->
+    <VBox fx:id="permissionsCard" styleClass="profile-card" spacing="16"
+          prefWidth="320" maxWidth="320"
+          prefHeight="350" maxHeight="350">
+
+        <!-- Header -->
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Set Admin Permissions" styleClass="profile-title" HBox.hgrow="ALWAYS"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Button fx:id="closeButton" styleClass="icon-button" text="✕"/>
+        </HBox>
+
+        <Separator/>
+
+        <!-- Permissions list -->
+        <VBox spacing="8">
+            <CheckBox fx:id="canAddMember" text="Can add members"/>
+            <CheckBox fx:id="canRemoveMember" text="Can remove members"/>
+            <CheckBox fx:id="canAddAdmin" text="Can add admins"/>
+            <CheckBox fx:id="canRemoveAdmin" text="Can remove admins"/>
+            <CheckBox fx:id="canEditGroup" text="Can edit group"/>
+        </VBox>
+
+        <Pane VBox.vgrow="ALWAYS"/>
+
+        <Separator/>
+
+        <!-- Footer -->
+        <HBox alignment="CENTER_RIGHT" spacing="10">
+            <Button fx:id="cancelButton" text="Cancel" styleClass="secondary-btn"/>
+            <Button fx:id="saveButton" text="Save" styleClass="primary-btn"/>
+        </HBox>
+    </VBox>
+</StackPane>

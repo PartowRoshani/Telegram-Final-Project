@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.ManageMembersController"
+           styleClass="overlay-root">
+
+    <!-- Background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Card -->
+    <VBox fx:id="membersCard" styleClass="profile-card" spacing="12"
+          prefWidth="360" maxWidth="360"
+          prefHeight="520" maxHeight="520">
+
+        <!-- ===== Header ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Members" styleClass="profile-title" HBox.hgrow="ALWAYS"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Button fx:id="closeButton" styleClass="icon-button" text="✕"/>
+        </HBox>
+
+        <Separator styleClass="section-separator"/>
+
+        <!-- ===== Members List ===== -->
+        <ScrollPane fx:id="membersScroll" fitToWidth="true" styleClass="member-scroll" VBox.vgrow="ALWAYS">
+            <content>
+                <VBox fx:id="membersList" spacing="10"/>
+            </content>
+        </ScrollPane>
+
+        <Separator styleClass="section-separator"/>
+
+        <!-- ===== Footer ===== -->
+        <HBox spacing="12" alignment="CENTER_RIGHT">
+            <Button fx:id="addMembersButton" text="Add members" styleClass="secondary-btn"/>
+            <Button fx:id="closeFooterButton" text="Close" styleClass="primary-btn"/>
+        </HBox>
+
+    </VBox>
+</StackPane>
