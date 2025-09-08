@@ -1337,7 +1337,7 @@
     -fx-text-fill: #ffffff;
     -fx-padding: 4 0 2 0;
     -fx-border-color: #333;
-    -fx-border-width: 0 0 1 0;
+    -fx-border-width: 0 0 0 0;
 }
 
 .tf-item-title {
@@ -1363,4 +1363,50 @@
 .tf-status-progress {
     -fx-text-fill: #ffb74d;
     -fx-background-color: #e65100;
+}
+
+/* Permissions card checkboxes */
+.check-box {
+    -fx-font-size: 13px;
+    -fx-text-fill: -fx-text-base-color;
+}
+
+/* === Permissions overlay === */
+.permissions-card {
+    -fx-background-color: #1f1f1f;
+    -fx-background-radius: 12;
+    -fx-padding: 16;
+}
+
+/* Checkboxes */
+.permissions-card .check-box {
+    -fx-text-fill: #e0e0e0;
+}
+
+.permissions-card .check-box:selected .box {
+    -fx-background-color: #3390ec;
+    -fx-border-color: #3390ec;
+}
+
+.permissions-card .check-box .box {
+    -fx-background-color: #2c2c2c;
+    -fx-border-color: #555;
+    -fx-border-radius: 4;
+}
+
+/* Buttons */
+.permissions-card .button {
+    -fx-font-size: 13px;
+    -fx-background-radius: 6;
+}
+
+.permissions-card .button.primary-btn {
+    -fx-background-color: #3390ec;
+    -fx-text-fill: white;
+}
+
+.permissions-card .button.secondary-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: #555;
+    -fx-text-fill: #aaa;
 }

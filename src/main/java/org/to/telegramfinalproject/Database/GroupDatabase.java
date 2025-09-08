@@ -758,4 +758,27 @@ public class GroupDatabase {
         return result;
     }
 
+    public static JSONObject getAdminPermissions(UUID groupId, UUID adminId) throws SQLException {
+        String sql = """
+        SELECT permissions
+        FROM group_members
+        WHERE group_id = ? AND user_id = ? AND role = 'admin'
+    """;
+
+        try (Connection conn = ConnectionDb.connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, groupId);
+            ps.setObject(2, adminId);
+
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                String jsonStr = rs.getString("permissions");
+                if (jsonStr != null && !jsonStr.isBlank()) {
+                    return new JSONObject(jsonStr);
+                }
+            }
+        }
+        return null; // not found or no permissions
+    }
+
 }

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.ManageAdminsController"
+           styleClass="overlay-root">
+
+    <!-- Background -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Card -->
+    <VBox fx:id="adminsCard" styleClass="profile-card" spacing="12"
+          prefWidth="360" maxWidth="360"
+          prefHeight="500" maxHeight="500">
+
+        <!-- Header -->
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Administrators" styleClass="profile-title" HBox.hgrow="ALWAYS"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Button fx:id="closeButton" styleClass="icon-button" text="✕"/>
+        </HBox>
+
+        <Separator styleClass="section-separator"/>
+
+        <!-- Scroll list -->
+        <ScrollPane fx:id="adminsScroll" fitToWidth="true" styleClass="member-scroll" VBox.vgrow="ALWAYS">
+            <content>
+                <VBox fx:id="adminsList" spacing="10"/>
+            </content>
+        </ScrollPane>
+
+        <Separator styleClass="section-separator"/>
+
+        <!-- Footer -->
+        <HBox spacing="10" alignment="CENTER_RIGHT">
+            <Button fx:id="addAdminButton" text="Add admin" styleClass="secondary-btn" HBox.hgrow="ALWAYS"/>
+            <Button fx:id="closeFooterButton" text="Close" styleClass="primary-btn"/>
+        </HBox>
+    </VBox>
+</StackPane>

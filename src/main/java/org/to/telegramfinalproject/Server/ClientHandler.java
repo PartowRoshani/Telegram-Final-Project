@@ -3029,6 +3029,38 @@ public class ClientHandler implements Runnable {
                         break;
                     }
 
+                    case "get_group_admin_permissions": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+
+                        try {
+                            UUID groupId = UUID.fromString(requestJson.getString("group_id"));
+                            UUID adminId = UUID.fromString(requestJson.getString("admin_id"));
+
+                            // Only owner/admins can view
+                            String myRole = GroupDatabase.getGroupRole(groupId, currentUser.getInternal_uuid());
+                            if (!"owner".equalsIgnoreCase(myRole) && !"admin".equalsIgnoreCase(myRole)) {
+                                response = new ResponseModel("error", "You are not authorized to view admin permissions.");
+                                break;
+                            }
+
+                            JSONObject perms = GroupDatabase.getAdminPermissions(groupId, adminId);
+
+                            if (perms != null) {
+                                JSONObject data = new JSONObject().put("permissions", perms);
+                                response = new ResponseModel("success", "Permissions fetched successfully.", data);
+                            } else {
+                                response = new ResponseModel("error", "Admin permissions not found.");
+                            }
+
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error fetching admin permissions: " + e.getMessage());
+                        }
+                        break;
+                    }
+
 
                     default:
                         response = new ResponseModel("error", "Unknown action: " + action);
