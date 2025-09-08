@@ -1392,3 +1392,19 @@
     -fx-font-size: 12px;
     -fx-text-fill: #777;
 }
+
+/* Light theme: Channel Manage styles */
+.description-input {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d0d0;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 6;
+    -fx-font-size: 13px;
+    -fx-text-fill: #333333;
+}
+
+.description-input:focused {
+    -fx-border-color: #4a90e2; /* Telegram blue highlight */
+    -fx-effect: dropshadow(gaussian, rgba(74,144,226,0.4), 4, 0.3, 0, 0);
+}

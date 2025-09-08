@@ -1441,3 +1441,21 @@
     -fx-font-size: 12px;
     -fx-text-fill: #777;
 }
+
+/* Dark theme: Channel Manage styles */
+.description-input {
+    -fx-background-color: #1f2a36;     /* darker to match card */
+    -fx-control-inner-background: #1f2a36;
+    -fx-border-color: #444444;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 6;
+    -fx-font-size: 13px;
+    -fx-text-fill: #dddddd;            /* normal text */
+    -fx-prompt-text-fill: #888888;     /* dimmed placeholder text */
+}
+
+.description-input:focused {
+    -fx-border-color: #4a90e2; /* Telegram blue */
+    -fx-effect: dropshadow(gaussian, rgba(74,144,226,0.5), 6, 0.4, 0, 0);
+}

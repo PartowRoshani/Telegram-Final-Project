@@ -208,7 +208,62 @@ public class ChannelInfoController {
     }
 
     private void openManageChannel() {
-        // TODO similar to ManageGroupController
+        new Thread(() -> {
+            try {
+                JSONObject req = new JSONObject()
+                        .put("action", "view_channel")
+                        .put("channel_id", channelId.toString()); // ✅ matches server case
+
+                JSONObject resp = ActionHandler.sendWithResponse(req);
+
+                if (resp == null || !"success".equalsIgnoreCase(resp.optString("status"))) {
+                    Platform.runLater(() -> MainController.getInstance().showAlert(
+                            "Error",
+                            resp != null ? resp.optString("message") : "Server not responding.",
+                            Alert.AlertType.ERROR
+                    ));
+                    return;
+                }
+
+                JSONObject data = resp.optJSONObject("data");
+                if (data == null) {
+                    Platform.runLater(() -> MainController.getInstance().showAlert(
+                            "Error",
+                            "Malformed server response.",
+                            Alert.AlertType.ERROR
+                    ));
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    try {
+                        FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                                "/org/to/telegramfinalproject/Fxml/manage_channel.fxml"));
+                        Node overlay = loader.load();
+
+                        ManageChannelController controller = loader.getController();
+                        controller.setChannelData(data); // ✅ pass JSON to controller
+
+                        MainController.getInstance().showOverlay(overlay);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        MainController.getInstance().showAlert(
+                                "Error",
+                                "Could not load Manage Channel scene.",
+                                Alert.AlertType.ERROR
+                        );
+                    }
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                Platform.runLater(() -> MainController.getInstance().showAlert(
+                        "Error",
+                        "Error while fetching channel info: " + e.getMessage(),
+                        Alert.AlertType.ERROR
+                ));
+            }
+        }).start();
     }
 
     private void openAddSubscriberScene() {
