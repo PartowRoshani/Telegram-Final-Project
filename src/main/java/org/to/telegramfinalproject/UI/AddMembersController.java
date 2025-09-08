@@ -206,11 +206,9 @@ public class AddMembersController {
 
     private Image loadAvatar(String path) {
         try {
-            // 1) اگر ریسورس داخلی باشد
             var in = getClass().getResourceAsStream(path);
             if (in != null) return new Image(in);
 
-            // 2) اگر URL کامل یا file URI
             return new Image(path, true);
         } catch (Exception e) {
             return new Image(
@@ -233,7 +231,6 @@ public class AddMembersController {
 
         List<String> ids = selectedContacts.stream().map(Contact::getId).toList();
 
-        // تلاش برای batch
         JSONObject batchReq = new JSONObject()
                 .put("action", "add_members_to_group")
                 .put("group_id", groupInternalId.toString())
@@ -248,11 +245,10 @@ public class AddMembersController {
                 return;
             }
 
-            // fallback: تک‌به‌تک
             boolean allOk = true;
             for (String uid : ids) {
                 JSONObject single = new JSONObject()
-                        .put("action", "add_member_to_group")
+                        .put("action", "add_members_to_group")
                         .put("group_id", groupInternalId.toString())
                         .put("user_id", uid);
                 JSONObject r = ActionHandler.sendWithResponse(single);
