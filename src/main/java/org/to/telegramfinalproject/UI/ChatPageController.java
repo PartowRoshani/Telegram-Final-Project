@@ -19,10 +19,13 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
 import javafx.scene.shape.Circle;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Client.ActionHandler;
@@ -33,6 +36,7 @@ import org.to.telegramfinalproject.Models.ChatEntry;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -583,7 +587,6 @@ public class ChatPageController {
         String name = f.getName().toLowerCase();
         if (name.matches(".*\\.(png|jpg|jpeg|gif|bmp|webp)$")) return "IMAGE";
         if (name.matches(".*\\.(mp3|wav|m4a|ogg|aac)$")) return "AUDIO";
-        // اگر خواستی دقیق‌تر: با Files.probeContentType هم تست کن
         return null;
     }
 
@@ -816,11 +819,13 @@ public class ChatPageController {
                 leaveGroupItem.setOnAction(e -> onLeaveGroupMenuClicked(entry));
             }
             case "channel" -> {
+                archiveItem.setVisible(true);
                 viewChannelItem.setVisible(true);
                 leaveChannelItem.setVisible(true);
 
+                archiveItem.setOnAction(e -> toggleArchive(entry));
                 viewChannelItem.setOnAction(e -> openInfoScene(entry));
-                leaveChannelItem.setOnAction(e -> leaveChannelButton(entry));
+                leaveChannelItem.setOnAction(e -> onLeaveChannelMenuClicked(entry));
             }
         }
 
@@ -972,7 +977,8 @@ public class ChatPageController {
 
         JSONObject resp = ActionHandler.sendWithResponse(req);
         if (resp != null && "success".equalsIgnoreCase(resp.optString("status"))) {
-            // TODO: close chat + refresh sidebar
+            MainController.getInstance().refreshChatListUI();
+            AppRouter.showMain();
             MainController.getInstance().closeCurrentChat();
         }
     }
@@ -1236,15 +1242,13 @@ public class ChatPageController {
             bubble.getChildren().add(imageNode);
 
         } else if ("AUDIO".equals(t)) {
-            Label ph = new Label("🎵 Audio");
-            ph.setWrapText(true);
-            String bg = outgoing ? mine : theirs;
-            ph.setStyle("-fx-background-color:" + bg + ";" +
-                    "-fx-padding:8 12;" +
-                    "-fx-background-radius:12;" +
-                    "-fx-max-width: 520;");
-            bubble.getChildren().add(ph);
+            final MediaPathResolver resolver =
+                    new MediaPathResolver(Paths.get(System.getProperty("user.dir"), "uploads"));
 
+            String playable = resolver.toFileUri(fileUrl);
+
+            Node audioNode = buildAudioNodeLocal(playable, content);
+            bubble.getChildren().add(audioNode);
         } else {
             Label ph = new Label("[" + t + "]");
             ph.setWrapText(true);
@@ -1679,6 +1683,114 @@ public class ChatPageController {
             }
         }
     }
+    // imports لازم:
+// import javafx.scene.media.Media;
+// import javafx.scene.media.MediaPlayer;
+// import javafx.util.Duration;
+
+
+    private Node buildAudioNodeLocal(String localPathOrUri, String caption) {
+        HBox root = new HBox(8);
+        root.setAlignment(Pos.CENTER_LEFT);
+
+        Button btn = new Button("▶");
+        btn.setMinWidth(32);
+
+        Slider seek = new Slider(0, 1, 0);
+        seek.setPrefWidth(180);
+
+        Label time = new Label("0:00");
+        VBox right = new VBox(4, new HBox(8, btn, seek, time));
+        if (caption != null && !caption.isBlank()) {
+            Label cap = new Label(caption);
+            cap.setWrapText(true);
+            right.getChildren().add(cap);
+        }
+        root.getChildren().add(right);
+
+        // مسیر را به file URI تبدیل کن
+        String playable = toFileUri(localPathOrUri);
+        if (playable == null) {
+            btn.setDisable(true); seek.setDisable(true); time.setText("no audio");
+            return root;
+        }
+
+        // قبل از ساخت Media، وجود فایل را چک کن
+        try {
+            java.net.URI uri = java.net.URI.create(playable);
+            java.nio.file.Path p = java.nio.file.Paths.get(uri);
+            if (!java.nio.file.Files.exists(p)) {
+                btn.setDisable(true); seek.setDisable(true); time.setText("not found");
+                System.err.println("Audio file not found: " + p);
+                return root;
+            }
+        } catch (Exception ignore) { /* اگر نشد، ادامه می‌دهیم */ }
+
+        MediaPlayer[] holder = new MediaPlayer[1];
+        try {
+            Media media = new Media(playable);
+            MediaPlayer player = new MediaPlayer(media);
+            holder[0] = player;
+
+            player.setOnReady(() -> {
+                double secs = player.getMedia().getDuration().toSeconds();
+                if (secs <= 0) secs = 1;
+                seek.setMax(secs);
+                time.setText(fmtClock(secs));
+            });
+
+            player.currentTimeProperty().addListener((o, ov, nv) -> {
+                if (!seek.isValueChanging()) seek.setValue(nv.toSeconds());
+            });
+
+            seek.valueChangingProperty().addListener((obs, was, is) -> {
+                if (!is && holder[0] != null) holder[0].seek(Duration.seconds(seek.getValue()));
+            });
+            seek.setOnMouseReleased(e -> {
+                if (holder[0] != null) holder[0].seek(Duration.seconds(seek.getValue()));
+            });
+
+            btn.setOnAction(e -> {
+                if (holder[0] == null) return;
+                if (holder[0].getStatus() == MediaPlayer.Status.PLAYING) {
+                    holder[0].pause(); btn.setText("▶");
+                } else {
+                    holder[0].play();  btn.setText("⏸");
+                }
+            });
+
+            player.setOnEndOfMedia(() -> { btn.setText("▶"); player.seek(Duration.ZERO); });
+
+            media.setOnError(() -> System.err.println("Media error: "  + media.getError()));
+            player.setOnError(() -> System.err.println("Player error: " + player.getError()));
+
+            root.sceneProperty().addListener((obs, old, nw) -> {
+                if (old != null && nw == null && holder[0] != null) { holder[0].dispose(); holder[0] = null; }
+            });
+
+        } catch (Exception ex) {
+            btn.setDisable(true); seek.setDisable(true); time.setText("error");
+            System.err.println("Build media failed: " + ex.getMessage() + " | uri=" + playable);
+        }
+
+        return root;
+    }
+
+
+    private String toFileUri(String pathOrUri) {
+        if (pathOrUri == null || pathOrUri.isBlank()) return null;
+        if (pathOrUri.startsWith("file:/")) return pathOrUri;
+
+        java.io.File f = new java.io.File(pathOrUri);
+        return f.toURI().toString();   // -> file:///C:/... یا file:///home/...
+    }
+
+
+    private String fmtClock(double secsD) {
+        int secs = (int)Math.round(secsD);
+        return (secs/60) + ":" + String.format("%02d", secs%60);
+    }
+
 
     public void onRealTimeMessageDeleted(JSONObject ev) {
         String msgId = str(ev, "message_id");
@@ -2727,8 +2839,7 @@ public class ChatPageController {
             return;
         }
 
-        // ========== Owner case ==========
-        // گرفتن لیست ادمین‌ها
+
         JSONObject req = new JSONObject()
                 .put("action", "view_group_admins")
                 .put("group_id", entry.getId().toString());
@@ -2802,7 +2913,6 @@ public class ChatPageController {
             return;
         }
 
-        // ارسال درخواست انتقال مالکیت
         JSONObject promoteReq = new JSONObject()
                 .put("action", "transfer_group_ownership")
                 .put("group_id", entry.getId().toString());
@@ -2820,7 +2930,6 @@ public class ChatPageController {
             return;
         }
 
-        // بعد از انتقال، لفت بده
         sendLeaveRequest(entry.getId(), myUuidStr);
     }
 
@@ -2856,6 +2965,145 @@ public class ChatPageController {
     }
 
 
+
+
+    // === CHANNEL: Leave/Transfer logic ===
+    private void onLeaveChannelMenuClicked(ChatEntry entry) {
+        if (entry == null || !"channel".equalsIgnoreCase(entry.getType())) {
+            alert(Alert.AlertType.INFORMATION, "This action is only available for channels.");
+            return;
+        }
+
+        String myUuidStr = Session.getUserUUID();
+        if (myUuidStr == null || myUuidStr.isBlank()) {
+            alert(Alert.AlertType.ERROR, "Cannot determine your identity.");
+            return;
+        }
+
+        // If I'm not the owner → simple leave
+        if (!entry.isOwner()) {
+            if (confirm("Leave Channel", "Are you sure you want to leave this channel?")) {
+                sendLeaveChannelRequest(entry.getId(), myUuidStr);
+            }
+            return;
+        }
+
+        // I'm the owner → must pick a new owner among existing admins
+        JSONObject req = new JSONObject()
+                .put("action", "view_channel_admins")
+                .put("channel_id", entry.getId().toString()); // server expects channel_id here
+
+        JSONObject res = ActionHandler.sendWithResponse(req);
+        if (res == null || !"success".equalsIgnoreCase(res.optString("status"))) {
+            alert(Alert.AlertType.ERROR, "Failed to fetch channel admins.");
+            return;
+        }
+
+        JSONArray admins = res.getJSONObject("data").optJSONArray("admins");
+        if (admins == null || admins.isEmpty()) {
+            alert(Alert.AlertType.WARNING, "No other admins available. Promote someone first.");
+            return;
+        }
+
+        // Build candidate list (exclude myself)
+        List<JSONObject> candidates = new ArrayList<>();
+        for (int i = 0; i < admins.length(); i++) {
+            JSONObject a = admins.optJSONObject(i);
+            if (a == null) continue;
+            String uuid = a.optString("internal_uuid", "");
+            if (!uuid.isBlank() && uuid.equals(myUuidStr)) continue; // skip myself
+            candidates.add(a);
+        }
+
+        if (candidates.isEmpty()) {
+            alert(Alert.AlertType.WARNING, "No other admins available.");
+            return;
+        }
+
+        // Dialog to choose the new owner
+        Dialog<JSONObject> dialog = new Dialog<>();
+        dialog.setTitle("Transfer Ownership");
+        dialog.setHeaderText("Select a new owner before leaving the channel");
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        ListView<JSONObject> listView = new ListView<>();
+        listView.getItems().addAll(candidates);
+        listView.setCellFactory(v -> new ListCell<>() {
+            @Override protected void updateItem(JSONObject item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    String displayName = item.optString("profile_name", "Unknown");
+                    String displayId   = item.optString("user_id", "");
+                    setText(displayName + (displayId.isBlank() ? "" : " (" + displayId + ")"));
+                }
+            }
+        });
+
+        dialog.getDialogPane().setContent(listView);
+        Node okBtn = dialog.getDialogPane().lookupButton(ButtonType.OK);
+        okBtn.setDisable(true);
+
+        listView.getSelectionModel().selectedItemProperty().addListener((obs, oldV, sel) -> {
+            okBtn.setDisable(sel == null);
+        });
+
+        dialog.setResultConverter(bt ->
+                bt == ButtonType.OK ? listView.getSelectionModel().getSelectedItem() : null);
+
+        Optional<JSONObject> pick = dialog.showAndWait();
+        if (pick.isEmpty()) return;
+
+        JSONObject selected = pick.get();
+        String newOwnerUuid   = selected.optString("internal_uuid", "").trim();
+        String newOwnerUserId = selected.optString("user_id", "").trim();
+
+        if (newOwnerUuid.isEmpty() && newOwnerUserId.isEmpty()) {
+            alert(Alert.AlertType.ERROR, "Selected admin has no valid id.");
+            return;
+        }
+
+        // Transfer ownership
+        JSONObject promoteReq = new JSONObject()
+                .put("action", "transfer_channel_ownership")
+                .put("channel_id", entry.getId().toString());
+
+        // Prefer internal UUID; include user_id only if UUID missing (server quirks!)
+        if (!newOwnerUuid.isEmpty()) {
+            promoteReq.put("new_owner_id", newOwnerUuid);
+        } else {
+            promoteReq.put("new_owner_user_id", newOwnerUserId);
+        }
+
+        JSONObject promoteRes = ActionHandler.sendWithResponse(promoteReq);
+        if (promoteRes == null || !"success".equalsIgnoreCase(promoteRes.optString("status"))) {
+            String msg = (promoteRes != null) ? promoteRes.optString("message", "Ownership transfer failed.") : "null response";
+            alert(Alert.AlertType.ERROR, msg);
+            return;
+        }
+
+        // After successful transfer, leave the channel myself
+        sendLeaveChannelRequest(entry.getId(), myUuidStr);
+    }
+
+    private void sendLeaveChannelRequest(UUID channelId, String myUuidStr) {
+        JSONObject req = new JSONObject()
+                .put("action", "leave_chat")
+                .put("user_id", myUuidStr)
+                .put("chat_id", channelId.toString())
+                .put("chat_type", "channel");
+
+        JSONObject res = ActionHandler.sendWithResponse(req);
+        if (res != null && "success".equalsIgnoreCase(res.optString("status"))) {
+            alert(Alert.AlertType.INFORMATION, "You left the channel.");
+            MainController.getInstance().refreshChatListUI();
+            AppRouter.showMain();
+        } else {
+            String msg = (res != null) ? res.optString("message", "Leave failed.") : "null response";
+            alert(Alert.AlertType.ERROR, msg);
+        }
+    }
 
 
 }
