@@ -286,10 +286,43 @@ public class ChannelInfoController {
             );
         }
     }
-
     private void handleDeleteChannel() {
-        System.out.println("Deleting channel...");
-        // TODO: implement backend call
+        ChatEntry entry = Session.currentChatEntry;
+
+        if (entry == null || !"channel".equalsIgnoreCase(entry.getType())) {
+            alert(Alert.AlertType.INFORMATION, "This action is only available for channels.");
+            return;
+        }
+
+        if (!confirm("Delete Channel",
+                "Are you sure you want to DELETE this channel?\nThis action cannot be undone.")) {
+            return;
+        }
+
+        JSONObject req = new JSONObject()
+                .put("action", "delete_channel")
+                .put("channel_id", entry.getId().toString());
+
+        JSONObject res = ActionHandler.sendWithResponse(req);
+
+        if (res != null && "success".equalsIgnoreCase(res.optString("status"))) {
+            alert(Alert.AlertType.INFORMATION, "✅ Channel deleted successfully.");
+            MainController.getInstance().refreshChatListUI();
+            AppRouter.showMain();
+        } else {
+            String msg = (res != null) ? res.optString("message", "Failed to delete channel.") : "null response";
+            alert(Alert.AlertType.ERROR, "❌ " + msg);
+        }
+    }
+
+    private boolean confirm(String title, String msg) {
+        Alert a = new Alert(Alert.AlertType.CONFIRMATION, msg, ButtonType.OK, ButtonType.CANCEL);
+        a.setTitle(title);
+        return a.showAndWait().filter(btn -> btn == ButtonType.OK).isPresent();
+    }
+
+    private void alert(Alert.AlertType type, String msg) {
+        new Alert(type, msg, ButtonType.OK).show();
     }
 
     private void updateIcons(boolean dark) {
