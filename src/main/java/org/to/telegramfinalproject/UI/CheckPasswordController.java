@@ -100,7 +100,6 @@ public class CheckPasswordController {
     private void validatePassword() {
         String entered = (passwordVisible ? visiblePasswordField.getText() : passwordField.getText()).trim();
         if (entered.isEmpty()) {
-            // استایل خطا مثل قبل
             if (!passwordField.getStyleClass().contains("error"))
                 passwordField.getStyleClass().add("error");
             if (!visiblePasswordField.getStyleClass().contains("error"))
@@ -110,7 +109,6 @@ public class CheckPasswordController {
             return;
         }
 
-        // تماس با سرور
         org.json.JSONObject req = new org.json.JSONObject()
                 .put("action", "verify_password")
                 .put("current_password", entered);
@@ -119,12 +117,11 @@ public class CheckPasswordController {
         boolean ok = (resp != null && "success".equalsIgnoreCase(resp.optString("status")));
 
         if (ok) {
-            // پاک کردن خطاها
             passwordField.getStyleClass().remove("error");
             visiblePasswordField.getStyleClass().remove("error");
             passwordLabel.getStyleClass().remove("error");
 
-            openChangeCredentials(entered); // ← پسورد فعلی را پاس بده
+            openChangeCredentials(entered);
         } else {
             if (!passwordField.getStyleClass().contains("error"))
                 passwordField.getStyleClass().add("error");
@@ -165,8 +162,8 @@ public class CheckPasswordController {
             Node overlay = loader.load();
 
             ChangeCredentialsController c = loader.getController();
-            c.setCurrentPassword(currentPassword);                 // ← مهم
-            c.prefillFromSession();                                // ← پیش‌پر کردن
+            c.setCurrentPassword(currentPassword);
+            c.prefillFromSession();
 
             MainController.getInstance().showOverlay(overlay);
         } catch (IOException ex) {

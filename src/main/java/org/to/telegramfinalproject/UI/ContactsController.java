@@ -30,15 +30,12 @@ public class ContactsController {
     @FXML private ScrollPane contactsScroll;
     @FXML private Button searchIcon;
 
-    /** منبع داده UI — با کانتکت‌های واقعی پر می‌شود */
     private final List<ContactVM> allContacts = new ArrayList<>();
 
     @FXML
     public void initialize() {
-        // 1) لود اولیه‌ی کانتکت‌ها از سشن/سرور
         loadContactsAndRender();
 
-        // 2) سرچ محلی روی لیست
         searchField.textProperty().addListener((obs, ov, nv) -> {
             String f = nv == null ? "" : nv.trim().toLowerCase();
             List<ContactVM> filtered = allContacts.stream()
@@ -49,14 +46,11 @@ public class ContactsController {
             renderContacts(filtered);
         });
 
-        // 3) فوکوس خودکار روی سرچ
         Platform.runLater(() -> searchField.requestFocus());
 
-        // 4) بستن اورلی
         closeFooterButton.setOnAction(e -> MainController.getInstance().closeOverlay(contactsCard.getParent()));
         overlayBackground.setOnMouseClicked(e -> MainController.getInstance().closeOverlay(contactsCard.getParent()));
 
-        // 5) اسکرول نرم
         contactsScroll.getStylesheets().add(getClass().getResource("/org/to/telegramfinalproject/CSS/scrollpane.css").toExternalForm());
         contactsScroll.setPannable(true);
         contactsScroll.setFitToWidth(true);
@@ -66,23 +60,18 @@ public class ContactsController {
             contactsScroll.setVvalue(contactsScroll.getVvalue() - deltaY);
         });
 
-        // 6) ثبت صحنه برای ThemeManager
         Platform.runLater(() -> {
             if (contactsCard.getScene() != null) {
                 ThemeManager.getInstance().registerScene(contactsCard.getScene());
             }
         });
 
-        // 7) واکنش به تغییر تم
         ThemeManager.getInstance().darkModeProperty().addListener((obs, oldVal, newVal) -> updateSearchIcon(newVal));
         updateSearchIcon(ThemeManager.getInstance().isDarkMode());
     }
 
-    // -----------------------
-    // لود داده و رندر لیست
-    // -----------------------
+
     private void loadContactsAndRender() {
-        // اگر Session.contactEntries از قبل لود شده، از همان استفاده می‌کنیم.
         CompletableFuture
                 .supplyAsync(() -> {
                     try {
@@ -181,23 +170,19 @@ public class ContactsController {
     private Image loadAvatarSafe(String urlOrResource) {
         try {
             if (urlOrResource != null) {
-                // حالت Resource داخلی
                 if (urlOrResource.startsWith("/")) {
                     return new Image(Objects.requireNonNull(
                             getClass().getResourceAsStream(urlOrResource)));
                 }
-                // حالت URL وب یا مسیر فایل
                 if (urlOrResource.startsWith("http://") ||
                         urlOrResource.startsWith("https://") ||
                         urlOrResource.startsWith("file:")) {
                     return new Image(urlOrResource, true); // true = لود async
                 }
             }
-            // fallback به پیش‌فرض
             return new Image(Objects.requireNonNull(
                     getClass().getResourceAsStream("/org/to/telegramfinalproject/Avatars/default_user_profile.png")));
         } catch (Exception e) {
-            // هر مشکلی → پیش‌فرض
             return new Image(Objects.requireNonNull(
                     getClass().getResourceAsStream("/org/to/telegramfinalproject/Avatars/default_user_profile.png")));
         }
@@ -291,12 +276,10 @@ public class ContactsController {
     }
 
 
-    // -----------------------
-    // ViewModel ساده‌ی کانتکت
-    // -----------------------
+
     private static class ContactVM {
-        final UUID contactId;      // internal UUID (واقعی)
-        final String userId;       // @id نمایش (اختیاری)
+        final UUID contactId;      // internal UUID
+        final String userId;       // @id
         final String profileName;
         final String imageUrl;
 

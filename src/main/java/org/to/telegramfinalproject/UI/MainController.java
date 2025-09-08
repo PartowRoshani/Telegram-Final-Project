@@ -1060,7 +1060,6 @@ public class MainController {
     private void openSearchResult(SearchResult r) {
         switch (r.type) {
             case USER: {
-                // 1) اگه قبلاً چت پرایوت با این یوزر داری، از همون استفاده کن
                 UUID existingChatId = findExistingPrivateChatId(r.uuid);
 
                 ChatEntry ce = new ChatEntry();
@@ -1074,8 +1073,7 @@ public class MainController {
                     ce.setId(existingChatId.toString());
                     mode = ChatViewMode.NORMAL;
                 } else {
-                    // هنوز چتی وجود ندارد → Preview (بدون ساخت چت)
-                    // برای Preview از uuid خودِ طرف مقابل به‌عنوان id موقت استفاده می‌کنیم
+
                     ce.setId(r.uuid.toString());
                     mode = isContact(r.uuid) ? ChatViewMode.NORMAL : ChatViewMode.NEEDS_ADD_CONTACT;
                 }
@@ -1188,19 +1186,16 @@ public class MainController {
     private boolean isSavedMessages(ChatEntry c) {
         if (c == null) return false;
 
-        // اگر تایپ اختصاصی داری
         if ("saved".equalsIgnoreCase(c.getType())) return true;
 
-        // اگر با نام مشخص ذخیره می‌کنی
         String n = c.getName();
         if (n != null && n.equalsIgnoreCase("Saved Messages")) return true;
 
-        // حالت پرایوت با خودِ کاربر
         String me = (org.to.telegramfinalproject.Client.Session.currentUser != null)
                 ? org.to.telegramfinalproject.Client.Session.currentUser.optString("internal_uuid", "")
                 : "";
         try {
-            UUID other = c.getOtherUserId(); // اگر این فیلد را داری
+            UUID other = c.getOtherUserId();
             if ("private".equalsIgnoreCase(c.getType()) &&
                     other != null && other.toString().equalsIgnoreCase(me)) {
                 return true;
@@ -1294,12 +1289,10 @@ public class MainController {
             org.to.telegramfinalproject.Client.Session.chatList.add(0, entry);
             org.to.telegramfinalproject.Client.Session.activeChats.add(0, entry);
         }
-        // سایدبارت اگر متدی برای رفرش دارد صداش بزن (اسمش را با کلاس خودت هماهنگ کن)
         try {
-            this.refreshChatListUI(); // اگر نداری، این خط را حذف کن
+            this.refreshChatListUI();
         } catch (Exception ignore) {}
 
-        // نمایش پیج چت
         if (getChatPageController() != null) {
             getChatPageController().showChat(entry);
         }
@@ -1320,13 +1313,11 @@ public class MainController {
     public void ensureArchivedHeaderRow() {
         boolean hasArchived = Session.archivedChats != null && !Session.archivedChats.isEmpty();
 
-        // اگر آرشیو نداریم، هدر قبلی را حذف کن و برگرد
         if (!hasArchived) {
             chatListContainer.getChildren().removeIf(n -> ARCHIVED_ROW_KEY.equals(n.getUserData()));
             return;
         }
 
-        // اگر قبلاً هست، دوباره نساز
         boolean exists = chatListContainer.getChildren().stream()
                 .anyMatch(n -> ARCHIVED_ROW_KEY.equals(n.getUserData()));
         if (exists) return;
@@ -1343,7 +1334,6 @@ public class MainController {
         headerRow.getChildren().addAll(title, spacer, openBtn);
         headerRow.setMinHeight(36); headerRow.setPrefHeight(36);
 
-        // در ابتدای همان لیست اصلیِ چت‌ها
         chatListContainer.getChildren().add(0, headerRow);
     }
 
@@ -1355,7 +1345,6 @@ public class MainController {
     public void refreshArchivedListUI() {
         chatListContainer.getChildren().clear();
 
-        // Back row (بماند)
         HBox backRow = new HBox();
         Label back = new Label("← Back to Active");
         back.getStyleClass().add("archived-back");
@@ -1367,10 +1356,9 @@ public class MainController {
         backRow.setStyle("-fx-padding: 6 10 8 10;");
         chatListContainer.getChildren().add(backRow);
 
-        // ✅ از همین سل‌ساز FXML استفاده کن تا دقیقا هم‌شکل اکتیو باشد
         if (Session.archivedChats != null && !Session.archivedChats.isEmpty()) {
             for (ChatEntry e : Session.archivedChats) {
-                addChatNode(e);  // ⬅️ همونی که در اکتیو استفاده می‌کنی
+                addChatNode(e);
             }
         } else {
             Label empty = new Label("No archived chats");
@@ -1381,31 +1369,27 @@ public class MainController {
 
 
 
-    // ساخت یک سل آیتم (برای اکتیو/آرشیو)
     private HBox buildChatCell(ChatEntry e, boolean archivedView) {
         HBox row = new HBox(8);
         ImageView avatar = new ImageView(); avatar.setFitWidth(36); avatar.setFitHeight(36);
-        // ... لود تصویر از e.getImageUrl() اگر داری
         Label name = new Label(e.getName());
         Region spacer = new Region(); HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
-        Label last = new Label(safeLastLine(e)); // آخرین پیام/زمان (اختیاری)
+        Label last = new Label(safeLastLine(e));
 
         row.getChildren().addAll(avatar, name, spacer, last);
         row.getStyleClass().add("chat-row");
 
-        // کلیک روی آیتم → openChat
         row.setOnMouseClicked(ev -> openChat(e));
 
         return row;
     }
 
     private String safeLastLine(ChatEntry e) {
-        String s = e.getLastMessagePreview(); // اگر داری
+        String s = e.getLastMessagePreview();
         return s != null ? s : "";
     }
 
 
-    // title fallback: اول name بعد displayId، در نهایت پیش‌فرض
     private String safeTitle(ChatEntry e) {
         if (e.getName() != null && !e.getName().isBlank()) return e.getName();
         if (e.getDisplayId() != null && !e.getDisplayId().isBlank()) return e.getDisplayId();
@@ -1413,7 +1397,6 @@ public class MainController {
         return "Unknown";
     }
 
-    // image fallback: اگر خالی بود، آواتار پیش‌فرض
     private String safeImage(String img) {
         return (img != null && !img.isBlank())
                 ? img

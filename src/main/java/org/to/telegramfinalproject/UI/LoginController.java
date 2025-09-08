@@ -151,8 +151,8 @@ public class LoginController {
                         return;
                     }
 
-                    // موفق: Session از داخل send پر شده
-                    goMain(); // بدون Alert → مستقیم به main.fxml
+
+                    goMain();
                 });
 
             } catch (Exception ex) {
@@ -200,7 +200,7 @@ public class LoginController {
         PauseTransition pause = new PauseTransition(Duration.millis(50));
         pause.setOnFinished(event -> {
             errorLabel.setText(message);
-            errorLabel.setStyle("-fx-text-fill: red;"); // 🔴 force red
+            errorLabel.setStyle("-fx-text-fill: red;");
             errorLabel.setVisible(true);
         });
         pause.play();

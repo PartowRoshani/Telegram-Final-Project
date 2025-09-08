@@ -137,8 +137,8 @@ public class EditProfileController {
         File file = fileChooser.showOpenDialog(profileImageView.getScene().getWindow());
 
         if (file != null) {
-            pickedAvatarFile = file; // ← ذخیره کن برای ارسال هنگام خروج
-            profileImageView.setImage(new Image(file.toURI().toString())); // پیش‌نمایش
+            pickedAvatarFile = file;
+            profileImageView.setImage(new Image(file.toURI().toString()));
         }
     }
 
@@ -192,16 +192,13 @@ public class EditProfileController {
             if (ActionHandler.instance.wasSuccess()) {
                 String url = ActionHandler.instance.getLastMessage();
                 if (url != null && !url.isBlank()) {
-                    // قبلاً اینجا مستقیم bust می‌زدیم → مشکل ایجاد می‌کرد
-                    // currentUser.put("image_url", url);
 
-                    // ✔️ نسخه‌ی امن:
-                    String extracted = extractImageUrl(url); // از helper پایین
+
+                    String extracted = extractImageUrl(url);
                     if (isLikelyImageUrl(extracted)) {
-                        String finalUrl = addCacheBusterIfHttp(extracted); // فقط برای http/https
+                        String finalUrl = addCacheBusterIfHttp(extracted);
                         Session.currentUser.put("image_url", finalUrl);
                     } else {
-                        // اگر سرور چیز عجیبی مثل "Welcome Farid" برگردوند، نادیده بگیر
                         System.out.println("Upload avatar returned a non-image value: " + url);
                     }
                 }
@@ -267,15 +264,12 @@ public class EditProfileController {
                 );
             }
 
-            // 2) خودِ کارت Settings را فوراً از Session ریفرش کن
             if (parentSettings != null) {
                 parentSettings.populateFromSession();
             }
 
-            // 3) سایدبار بالایی (اسم/آواتار خود کاربر) اگر داری
             MainController.getInstance().refreshSidebarUserFromSession();
 
-            // 4) بستن اورلی ادیت
 //            MainController.getInstance().goBack(overlayBackground);
             MainController.getInstance().closeOverlay(editCard.getParent());
 
@@ -302,7 +296,6 @@ public class EditProfileController {
 
     private boolean isLikelyImageUrl(String s) {
         if (s == null || s.isBlank()) return false;
-        // URL کامل، مسیر نسبی سرور، یا file: و پسوند تصویر
         return s.startsWith("http://") || s.startsWith("https://")
                 || s.startsWith("file:")
                 || s.startsWith("/")
@@ -314,19 +307,15 @@ public class EditProfileController {
         if (url.startsWith("http://") || url.startsWith("https://")) {
             return url + (url.contains("?") ? "&" : "?") + "v=" + System.currentTimeMillis();
         }
-        // برای مسیر لوکال/نسبی اصلاً ?v اضافه نکن (روی ویندوز مشکل می‌دهد)
         return url;
     }
 
-    /** اگر سرور به‌جای URL، JSON یا متن دیگری داد، اینجا URL را دربیار. */
     private String extractImageUrl(String raw) {
         if (raw == null) return null;
         String s = raw.trim();
-        // اگر برگشتی JSON است (بعضی سرویس‌ها data.display_url برمی‌گردانند)
         if (s.startsWith("{") && s.endsWith("}")) {
             try {
                 org.json.JSONObject j = new org.json.JSONObject(s);
-                // هر کلیدی که سرویس‌ات استفاده می‌کند را امتحان کن
                 if (j.has("display_url")) return j.optString("display_url", null);
                 if (j.has("url"))         return j.optString("url", null);
                 if (j.has("data")) {
@@ -338,7 +327,7 @@ public class EditProfileController {
                 }
             } catch (Exception ignore) {}
         }
-        return s; // در غیر این صورت همان raw
+        return s;
     }
 
 }

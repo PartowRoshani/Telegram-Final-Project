@@ -142,7 +142,7 @@ public class IntroController {
 
     @FXML
     private void handleStartMessaging(ActionEvent event) {
-        AppRouter.showLogin(); // همون Scene می‌مونه، فقط Root عوض میشه
+        AppRouter.showLogin();
     }
 
     @FXML private void goRegister() { AppRouter.showRegister(); }
