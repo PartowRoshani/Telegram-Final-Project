@@ -90,7 +90,7 @@ Implemented with **PostgreSQL**. Main tables include:
 1. Clone the repository.  
 2. Set up the PostgreSQL database using the provided `init.sql`.  
 3. In IntelliJ IDEA (with Gradle):  
-   - Run `MainServer` first. You should see `Listening ...` in the console.  
+   - Run `MainServer` first. You should see `🔁 All users set to offline` in the console.  
    - Run `TelegramApplication`. The intro screen (with “Start Messaging”) will appear.  
 4. Login/Register to start chatting.  
 
