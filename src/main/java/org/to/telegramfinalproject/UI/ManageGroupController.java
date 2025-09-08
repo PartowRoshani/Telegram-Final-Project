@@ -14,6 +14,8 @@ import org.to.telegramfinalproject.Client.ActionHandler;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -116,11 +118,25 @@ public class ManageGroupController {
         groupIdField.setText(originalGroupId);
 
         if (!originalImageUrl.isBlank()) {
-            groupImage.setImage(new Image(originalImageUrl, true));
+            String uri = resolveLocalUri(originalImageUrl);
+            if (uri != null) {
+                groupImage.setImage(new Image(uri, true));
+            }
         }
+
 
         adminCount.setText(String.valueOf(countRole(data, "admin") + 1));
         memberCount.setText(String.valueOf(countRole(data, "member") + Integer.parseInt(adminCount.getText())));
+    }
+
+    private String resolveLocalUri(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        if (raw.startsWith("file:/") || raw.startsWith("http")) return raw;
+
+        Path base = Paths.get(System.getProperty("user.dir"), "uploads");
+        Path resolved = base.resolve(raw.startsWith("/") ? raw.substring(1) : raw)
+                .normalize();
+        return resolved.toUri().toString(); // file:///C:/.../uploads/avatars/2025-09-05/...
     }
 
     private int countRole(JSONObject groupData, String role) {

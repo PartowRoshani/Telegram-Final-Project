@@ -13,6 +13,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.shape.Circle;
 import javafx.util.Duration;
+import org.json.JSONObject;
 import org.to.telegramfinalproject.Client.Session;
 import org.to.telegramfinalproject.Models.ChatEntry;
 import org.to.telegramfinalproject.Client.ActionHandler;
@@ -96,7 +97,11 @@ public class MainController {
     // Keep track of the scene user comes from
     private final Deque<Node> navigationStack = new ArrayDeque<>();
     private final Map<UUID, ChatItemController> itemControllers = new HashMap<>();
+    private final java.util.Set<UUID> enrichInFlight = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
 
+
+    private static final String SAVED_TITLE  = "Saved Messages";
+    private static final String SAVED_AVATAR = "/org/to/telegramfinalproject/Avatars/saved_messages.png";
 
     //For realtime handling
     public void onChatUpdated(UUID chatId, String chatType, LocalDateTime lastTs,
@@ -351,10 +356,8 @@ public class MainController {
             }
         }
 
-        // اگر “Archived Chats” یا هدر دیگری داری، قبلش اضافه کن (اختیاری)
-        // addArchivedHeaderIfYouHaveOne();
+//         addArchivedHeaderIfYouHaveOne();
 
-        // 1) همیشه Saved اول بیاد (اگر وجود داشت)
         if (saved != null) {
             addChatNode(saved);
         }
@@ -408,33 +411,98 @@ public class MainController {
 //        }
 //    }
 
-
     private void addChatNode(ChatEntry chat) {
         try {
             FXMLLoader fx = new FXMLLoader(getClass().getResource("/org/to/telegramfinalproject/Fxml/chat_item.fxml"));
             Node item = fx.load();
             ChatItemController cc = fx.getController();
 
-            String preview = chat.getLastMessagePreview() == null ? "" : chat.getLastMessagePreview();
+            // --- saved detection
+            boolean saved = isSaved(chat);
 
-            String timeText = chat.getLastMessageTime() == null
-                    ? ""
-                    : formatChatTime(chat.getLastMessageTime());
+            String title    = safeTitle(chat);
+            String preview  = chat.getLastMessagePreview() == null ? "" : chat.getLastMessagePreview();
+            String timeText = chat.getLastMessageTime() == null ? "" : formatChatTime(chat.getLastMessageTime());
+            String imageUrl = safeImage(chat.getImageUrl());
 
-            // If chat has a profile picture, pass it; otherwise null
-            String imageUrl = (chat.getImageUrl() != null && !chat.getImageUrl().isEmpty())
-                    ? chat.getImageUrl()
-                    : null;
+            // --- force Saved Messages title & avatar
+            if (saved) {
+                title    = SAVED_TITLE;
+                imageUrl = SAVED_AVATAR;
+            }
 
-            cc.setChatData(chat.getName(), preview, timeText, chat.getUnreadCount(), imageUrl, chat.getType());
+            cc.setChatData(title, preview, timeText, chat.getUnreadCount(), imageUrl, chat.getType());
             item.setOnMouseClicked(e -> openChat(chat));
             chatListContainer.getChildren().add(item);
 
             itemControllers.put(chat.getId(), cc);
+
+            // --- no enrich for Saved
+            boolean needName  = (chat.getName() == null || chat.getName().isBlank());
+            boolean needImage = (chat.getImageUrl() == null || chat.getImageUrl().isBlank());
+            if (!saved && (needName || needImage)) {
+                enrichChatEntryAsync(chat);
+            }
         } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
+    private boolean isSaved(ChatEntry e) {
+        if (e == null) return false;
+        if (e.isSavedMessages()) return true;
+        return "saved".equalsIgnoreCase(e.getType()); // اگر type اختصاصی داری
+    }
+
+
+    public void updateSingleChatCell(ChatEntry entry) {
+        ChatItemController cc = itemControllers.get(entry.getId());
+        if (cc != null) {
+            Platform.runLater(() -> cc.setChatData(
+                    safeTitle(entry),
+                    entry.getLastMessagePreview() == null ? "" : entry.getLastMessagePreview(),
+                    entry.getLastMessageTime() == null ? "" : formatChatTime(entry.getLastMessageTime()),
+                    entry.getUnreadCount(),
+                    safeImage(entry.getImageUrl()),
+                    entry.getType()
+            ));
+        } else {
+            refreshChatListUI(); // اگر پیدا نشد، کل لیست را رفرش کن
+        }
+    }
+
+    public void enrichChatEntryAsync(ChatEntry entry) {
+        if (entry == null) return;
+        // اگر در حال دریافت هستیم، تکراری نفرست
+        if (!enrichInFlight.add(entry.getId())) return;
+
+        new Thread(() -> {
+            try {
+                JSONObject req = new JSONObject()
+                        .put("action", "get_header_info")
+                        .put("receiver_id", entry.getId().toString())
+                        .put("receiver_type", entry.getType())
+                        .put("viewer_id", Session.getUserUUID());
+
+                JSONObject res = ActionHandler.sendWithResponse(req);
+                if (res != null && "success".equalsIgnoreCase(res.optString("status"))) {
+                    JSONObject d = res.optJSONObject("data");
+                    if (d != null) {
+                        String name  = d.optString("name", "");
+                        String image = d.optString("image_url", "");
+                        Platform.runLater(() -> {
+                            if (!name.isBlank())  entry.setName(name);
+                            if (!image.isBlank()) entry.setImageUrl(image);
+                            updateSingleChatCell(entry); // فقط همان آیتم را نوسازی کن
+                        });
+                    }
+                }
+            } catch (Exception ignored) {
+            } finally {
+                enrichInFlight.remove(entry.getId());
+            }
+        }).start();
+    }
+
 
     private String mapTypeToLabel(String t) {
         switch (t.toUpperCase()) {
@@ -992,7 +1060,6 @@ public class MainController {
     private void openSearchResult(SearchResult r) {
         switch (r.type) {
             case USER: {
-                // 1) اگه قبلاً چت پرایوت با این یوزر داری، از همون استفاده کن
                 UUID existingChatId = findExistingPrivateChatId(r.uuid);
 
                 ChatEntry ce = new ChatEntry();
@@ -1006,8 +1073,7 @@ public class MainController {
                     ce.setId(existingChatId.toString());
                     mode = ChatViewMode.NORMAL;
                 } else {
-                    // هنوز چتی وجود ندارد → Preview (بدون ساخت چت)
-                    // برای Preview از uuid خودِ طرف مقابل به‌عنوان id موقت استفاده می‌کنیم
+
                     ce.setId(r.uuid.toString());
                     mode = isContact(r.uuid) ? ChatViewMode.NORMAL : ChatViewMode.NEEDS_ADD_CONTACT;
                 }
@@ -1120,19 +1186,16 @@ public class MainController {
     private boolean isSavedMessages(ChatEntry c) {
         if (c == null) return false;
 
-        // اگر تایپ اختصاصی داری
         if ("saved".equalsIgnoreCase(c.getType())) return true;
 
-        // اگر با نام مشخص ذخیره می‌کنی
         String n = c.getName();
         if (n != null && n.equalsIgnoreCase("Saved Messages")) return true;
 
-        // حالت پرایوت با خودِ کاربر
         String me = (org.to.telegramfinalproject.Client.Session.currentUser != null)
                 ? org.to.telegramfinalproject.Client.Session.currentUser.optString("internal_uuid", "")
                 : "";
         try {
-            UUID other = c.getOtherUserId(); // اگر این فیلد را داری
+            UUID other = c.getOtherUserId();
             if ("private".equalsIgnoreCase(c.getType()) &&
                     other != null && other.toString().equalsIgnoreCase(me)) {
                 return true;
@@ -1201,13 +1264,11 @@ public class MainController {
                 if (Session.chatList == null) Session.chatList = new ArrayList<>();
                 Session.chatList.add(ce);
             }
-            // اگر activeChats استفاده می‌کنی:
             if (Session.activeChats != null && Session.activeChats.stream().noneMatch(c -> id.equals(c.getId()))) {
                 Session.activeChats.add(ce);
             }
         } catch (Exception ignore) {}
 
-        // (اختیاری) مرتب‌سازی بر اساس زمان آخرین پیام
         Comparator<ChatEntry> byTimeDesc = (a,b) -> {
             LocalDateTime t1 = a.getLastMessageTime(), t2 = b.getLastMessageTime();
             if (t1 == null && t2 == null) return 0;
@@ -1223,18 +1284,15 @@ public class MainController {
 
 
     public void addChatAndSelect(org.to.telegramfinalproject.Models.ChatEntry entry) {
-        // در Session نگه‌داری
         if (org.to.telegramfinalproject.Client.Session.chatList.stream()
                 .noneMatch(c -> c.getId().equals(entry.getId()))) {
             org.to.telegramfinalproject.Client.Session.chatList.add(0, entry);
             org.to.telegramfinalproject.Client.Session.activeChats.add(0, entry);
         }
-        // سایدبارت اگر متدی برای رفرش دارد صداش بزن (اسمش را با کلاس خودت هماهنگ کن)
         try {
-            this.refreshChatListUI(); // اگر نداری، این خط را حذف کن
+            this.refreshChatListUI();
         } catch (Exception ignore) {}
 
-        // نمایش پیج چت
         if (getChatPageController() != null) {
             getChatPageController().showChat(entry);
         }
@@ -1255,13 +1313,11 @@ public class MainController {
     public void ensureArchivedHeaderRow() {
         boolean hasArchived = Session.archivedChats != null && !Session.archivedChats.isEmpty();
 
-        // اگر آرشیو نداریم، هدر قبلی را حذف کن و برگرد
         if (!hasArchived) {
             chatListContainer.getChildren().removeIf(n -> ARCHIVED_ROW_KEY.equals(n.getUserData()));
             return;
         }
 
-        // اگر قبلاً هست، دوباره نساز
         boolean exists = chatListContainer.getChildren().stream()
                 .anyMatch(n -> ARCHIVED_ROW_KEY.equals(n.getUserData()));
         if (exists) return;
@@ -1278,7 +1334,6 @@ public class MainController {
         headerRow.getChildren().addAll(title, spacer, openBtn);
         headerRow.setMinHeight(36); headerRow.setPrefHeight(36);
 
-        // در ابتدای همان لیست اصلیِ چت‌ها
         chatListContainer.getChildren().add(0, headerRow);
     }
 
@@ -1290,7 +1345,6 @@ public class MainController {
     public void refreshArchivedListUI() {
         chatListContainer.getChildren().clear();
 
-        // Back row (بماند)
         HBox backRow = new HBox();
         Label back = new Label("← Back to Active");
         back.getStyleClass().add("archived-back");
@@ -1302,10 +1356,9 @@ public class MainController {
         backRow.setStyle("-fx-padding: 6 10 8 10;");
         chatListContainer.getChildren().add(backRow);
 
-        // ✅ از همین سل‌ساز FXML استفاده کن تا دقیقا هم‌شکل اکتیو باشد
         if (Session.archivedChats != null && !Session.archivedChats.isEmpty()) {
             for (ChatEntry e : Session.archivedChats) {
-                addChatNode(e);  // ⬅️ همونی که در اکتیو استفاده می‌کنی
+                addChatNode(e);
             }
         } else {
             Label empty = new Label("No archived chats");
@@ -1316,27 +1369,38 @@ public class MainController {
 
 
 
-    // ساخت یک سل آیتم (برای اکتیو/آرشیو)
     private HBox buildChatCell(ChatEntry e, boolean archivedView) {
         HBox row = new HBox(8);
         ImageView avatar = new ImageView(); avatar.setFitWidth(36); avatar.setFitHeight(36);
-        // ... لود تصویر از e.getImageUrl() اگر داری
         Label name = new Label(e.getName());
         Region spacer = new Region(); HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
-        Label last = new Label(safeLastLine(e)); // آخرین پیام/زمان (اختیاری)
+        Label last = new Label(safeLastLine(e));
 
         row.getChildren().addAll(avatar, name, spacer, last);
         row.getStyleClass().add("chat-row");
 
-        // کلیک روی آیتم → openChat
         row.setOnMouseClicked(ev -> openChat(e));
 
         return row;
     }
 
     private String safeLastLine(ChatEntry e) {
-        String s = e.getLastMessagePreview(); // اگر داری
+        String s = e.getLastMessagePreview();
         return s != null ? s : "";
+    }
+
+
+    private String safeTitle(ChatEntry e) {
+        if (e.getName() != null && !e.getName().isBlank()) return e.getName();
+        if (e.getDisplayId() != null && !e.getDisplayId().isBlank()) return e.getDisplayId();
+        if ("saved".equalsIgnoreCase(e.getType()) || e.isSavedMessages()) return "Saved Messages";
+        return "Unknown";
+    }
+
+    private String safeImage(String img) {
+        return (img != null && !img.isBlank())
+                ? img
+                : "/org/to/telegramfinalproject/Avatars/default_user_profile.png";
     }
 
 

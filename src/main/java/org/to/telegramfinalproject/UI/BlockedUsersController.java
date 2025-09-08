@@ -27,14 +27,12 @@ public class BlockedUsersController {
     @FXML private ListView<HBox> blockedList;
     @FXML private VBox blockedCard;
 
-    // نگاشت برای حذف سریع ردیف بعد از Unblock
     private final Map<UUID, HBox> rowByUserId = new HashMap<>();
 
     @FXML
     public void initialize() {
         backButton.setGraphic(makeIcon("/org/to/telegramfinalproject/Icons/back_button_dark.png"));
 
-        // بارگذاری واقعی از سرور
         loadBlockedUsers();
 
         closeButton.setOnAction(e -> MainController.getInstance().closeOverlay(overlayBackground.getParent()));
@@ -72,7 +70,6 @@ public class BlockedUsersController {
     /* ===================== Networking ===================== */
 
     private void loadBlockedUsers() {
-        // درخواست به سرور
         new Thread(() -> {
             JSONObject req = new JSONObject().put("action", "get_blocked_users");
             JSONObject resp = ActionHandler.sendWithResponse(req);
@@ -102,8 +99,8 @@ public class BlockedUsersController {
         new Thread(() -> {
             JSONObject req = new JSONObject()
                     .put("action", "toggle_block")
-                    .put("user_id", me)              // UUID من
-                    .put("target_id", targetId.toString()); // UUID طرف
+                    .put("user_id", me)              // UUID
+                    .put("target_id", targetId.toString()); // UUID
 
             JSONObject resp = ActionHandler.sendWithResponse(req);
             boolean ok = resp != null && "success".equalsIgnoreCase(resp.optString("status"));
@@ -127,7 +124,6 @@ public class BlockedUsersController {
         blockedList.getItems().clear();
         rowByUserId.clear();
 
-        // انتظار میره هر آبجکت حداقل: internal_uuid, profile_name, user_id/username/display_id, image_url داشته باشه
         IntStream.range(0, list.length()).forEach(i -> {
             JSONObject o = list.optJSONObject(i);
             if (o == null) return;
@@ -229,7 +225,6 @@ public class BlockedUsersController {
     }
 
     private void showToast(String msg) {
-        // ساده: از Alert استفاده کن؛ اگر Toast اختصاصی داری جایگزینش کن
         Alert a = new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK);
         if (a.getDialogPane().getScene() != null) {
             ThemeManager.getInstance().registerScene(a.getDialogPane().getScene());

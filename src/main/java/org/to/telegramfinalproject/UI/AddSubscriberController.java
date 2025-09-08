@@ -29,20 +29,17 @@ public class AddSubscriberController {
     @FXML private Button skipButton;
     @FXML private Button addButton;
 
-    // اطلاعات کانال
     private UUID channelInternalId;
     private String channelName;
     private String channelDisplayId;
     private File channelImageFile;
     private String description;
 
-    // انتخاب‌ها و منبع داده
     private final Set<Contact> selected = new HashSet<>();
     private final List<Contact> allContacts = new ArrayList<>();
 
     @FXML
     public void initialize() {
-        // اسکرول نرم
         contactsScroll.getStylesheets().add(
                 getClass().getResource("/org/to/telegramfinalproject/CSS/scrollpane.css").toExternalForm()
         );
@@ -54,7 +51,6 @@ public class AddSubscriberController {
             contactsScroll.setVvalue(contactsScroll.getVvalue() - deltaY);
         });
 
-        // تم آیکن
         Platform.runLater(() -> {
             if (addMembersCard.getScene() != null) {
                 ThemeManager.getInstance().registerScene(addMembersCard.getScene());
@@ -63,22 +59,18 @@ public class AddSubscriberController {
         ThemeManager.getInstance().darkModeProperty().addListener((obs, ov, nv) -> updateSearchIcon(nv));
         updateSearchIcon(ThemeManager.getInstance().isDarkMode());
 
-        // بستن اُورلی
         overlayBackground.setOnMouseClicked(e -> MainController.getInstance().closeOverlay(addMembersCard.getParent()));
         skipButton.setOnAction(e -> MainController.getInstance().closeOverlay(addMembersCard.getParent()));
         addButton.setOnAction(e -> onAddSubscribers());
 
-        // سرچ
         searchField.textProperty().addListener((obs, ov, nv) -> applyFilter(nv));
         Platform.runLater(() -> searchField.requestFocus());
 
-        // لود کانتکت‌ها از Session
         loadContactsFromSession();
         updateCount();
         renderContacts(allContacts);
     }
 
-    /** NewChannelController این را بعد از ساخت کانال صدا بزند */
     public void setChannelInfo(UUID internalId, String name, String displayId, File imageFile, String description) {
         this.channelInternalId = internalId;
         this.channelName = name;
@@ -87,7 +79,6 @@ public class AddSubscriberController {
         this.description = description;
     }
 
-    // برای سازگاری با امضای قدیمی (اختیاری)
     public void setChannelInfo(String name, String id, String description, File image) {
         this.channelName = name;
         this.channelDisplayId = id;
@@ -226,7 +217,6 @@ public class AddSubscriberController {
                 return;
             }
 
-            // fallback: تک‌به‌تک
             boolean allOk = true;
             for (String uid : ids) {
                 JSONObject single = new JSONObject()
@@ -277,9 +267,8 @@ public class AddSubscriberController {
         a.show();
     }
 
-    // ===== مدل Contact =====
     public static class Contact {
-        private final String id;      // internal_uuid کاربر
+        private final String id;      // internal_uuid
         private final String name;
         private final String status;
         private final String imageUrl;

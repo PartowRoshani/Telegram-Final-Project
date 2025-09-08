@@ -7,6 +7,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Circle;
 import org.to.telegramfinalproject.Client.AvatarLocalResolver;
+import org.to.telegramfinalproject.Models.ChatEntry;
 
 import java.util.Objects;
 
@@ -120,8 +121,7 @@ public class ChatItemController {
 
     // ChatItemController.java
     @FXML private ImageView avatarImage;
-    // اگر نوع چت نیاز داری برای دیفالت‌ها (private|group|channel)
-    private String chatType; // اگر داری از setChatData بگیرش و نگه دار
+    private String chatType;
 
     public void updateAvatar(String url) {
         try {
@@ -139,6 +139,12 @@ public class ChatItemController {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private String safeTitle(ChatEntry e) {
+        if (e.getName() != null && !e.getName().isBlank()) return e.getName();
+        if (e.getDisplayId() != null && !e.getDisplayId().isBlank()) return e.getDisplayId();
+        return "Unknown";
     }
 
 }

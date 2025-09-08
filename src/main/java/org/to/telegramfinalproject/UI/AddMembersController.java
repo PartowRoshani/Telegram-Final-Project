@@ -29,7 +29,6 @@ public class AddMembersController {
     @FXML private Button cancelButton;
     @FXML private Button createButton;
 
-    // گروه هدف
     private UUID groupInternalId;
     private String groupName;
     private String groupDisplayId;
@@ -42,9 +41,7 @@ public class AddMembersController {
 
     private Mode mode = Mode.CREATE; // default
 
-    // انتخاب‌ها
     private final Set<Contact> selectedContacts = new HashSet<>();
-    // همه‌ی کانتکت‌ها
     private final List<Contact> allContacts = new ArrayList<>();
 
     @FXML
@@ -61,7 +58,6 @@ public class AddMembersController {
             contactsScroll.setVvalue(contactsScroll.getVvalue() - deltaY);
         });
 
-        // آیکن سرچ با تم
         Platform.runLater(() -> {
             if (addMembersCard.getScene() != null) {
                 ThemeManager.getInstance().registerScene(addMembersCard.getScene());
@@ -70,19 +66,15 @@ public class AddMembersController {
         ThemeManager.getInstance().darkModeProperty().addListener((obs, ov, nv) -> updateSearchIcon(nv));
         updateSearchIcon(ThemeManager.getInstance().isDarkMode());
 
-        // بستن اُورلی
         cancelButton.setOnAction(e -> MainController.getInstance().closeOverlay(addMembersCard.getParent()));
         overlayBackground.setOnMouseClicked(e -> MainController.getInstance().closeOverlay(addMembersCard.getParent()));
 
-        // دکمه Add (افزودن اعضا)
         createButton.setOnAction(e -> onAddMembers());
 
-        // سرچ
         searchField.textProperty().addListener((obs, ov, nv) -> applyFilter(nv));
 
         Platform.runLater(() -> searchField.requestFocus());
 
-        // دیتا را از Session بارگذاری کن
         loadContactsFromSession();
         updateMemberCount();
         renderContacts(allContacts);
@@ -132,7 +124,6 @@ public class AddMembersController {
                 allContacts.add(new Contact(id, name, status, imageUrl));
             }
         }
-        // اگر خالی بود، چیزی نشون نده (یا می‌تونی دمو بسازی)
         allContacts.sort(Comparator.comparing(Contact::getName, String.CASE_INSENSITIVE_ORDER));
     }
 
@@ -206,11 +197,9 @@ public class AddMembersController {
 
     private Image loadAvatar(String path) {
         try {
-            // 1) اگر ریسورس داخلی باشد
             var in = getClass().getResourceAsStream(path);
             if (in != null) return new Image(in);
 
-            // 2) اگر URL کامل یا file URI
             return new Image(path, true);
         } catch (Exception e) {
             return new Image(
@@ -233,7 +222,6 @@ public class AddMembersController {
 
         List<String> ids = selectedContacts.stream().map(Contact::getId).toList();
 
-        // تلاش برای batch
         JSONObject batchReq = new JSONObject()
                 .put("action", "add_members_to_group")
                 .put("group_id", groupInternalId.toString())
@@ -248,11 +236,10 @@ public class AddMembersController {
                 return;
             }
 
-            // fallback: تک‌به‌تک
             boolean allOk = true;
             for (String uid : ids) {
                 JSONObject single = new JSONObject()
-                        .put("action", "add_member_to_group")
+                        .put("action", "add_members_to_group")
                         .put("group_id", groupInternalId.toString())
                         .put("user_id", uid);
                 JSONObject r = ActionHandler.sendWithResponse(single);
@@ -299,9 +286,8 @@ public class AddMembersController {
         a.show();
     }
 
-    // ================== مدل Contact ==================
     public static class Contact {
-        private final String id;      // internal_uuid کاربر
+        private final String id;      // internal_uuid
         private final String name;
         private final String status;
         private final String imageUrl;
