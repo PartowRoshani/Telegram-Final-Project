@@ -8,12 +8,14 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.to.telegramfinalproject.Client.ActionHandler;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.UUID;
 
 public class ManageGroupController {
 
@@ -44,18 +46,34 @@ public class ManageGroupController {
         changePicButton.setOnAction(e -> choosePicture());
         saveButton.setOnAction(e -> saveChanges());
 
-        manageAdminsButton.setOnAction(e -> openManageAdminsScene());
+        manageAdminsButton.setOnAction(e -> openManageAdminsScene(data));
         manageMembersButton.setOnAction(e -> openManageMembersScene(data));
     }
 
-    private void openManageAdminsScene() {
+    private void openManageAdminsScene(JSONObject data) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(
                     "/org/to/telegramfinalproject/Fxml/manage_admins.fxml"));
             Node overlay = loader.load();
 
-//            ManageAdminsController controller = loader.getController();
-//            controller.setGroupId(UUID.fromString(groupId));
+            ManageAdminsController controller = loader.getController();
+
+            String gid = data.optString("internal_uuid");
+            JSONArray members = data.optJSONArray("members");
+            JSONArray admins = new JSONArray();
+
+            // filter only admins
+            if (members != null) {
+                for (int i = 0; i < members.length(); i++) {
+                    JSONObject m = members.getJSONObject(i);
+                    String role = m.optString("role", "member");
+                    if ("admin".equalsIgnoreCase(role) || "owner".equalsIgnoreCase(role)) {
+                        admins.put(m);
+                    }
+                }
+            }
+
+            controller.setGroupData(gid, admins);
 
             MainController.getInstance().showOverlay(overlay);
         } catch (IOException e) {
@@ -101,8 +119,8 @@ public class ManageGroupController {
             groupImage.setImage(new Image(originalImageUrl, true));
         }
 
-        adminCount.setText(String.valueOf(countRole(data, "admin")));
-        memberCount.setText(String.valueOf(countRole(data, "member")));
+        adminCount.setText(String.valueOf(countRole(data, "admin") + 1));
+        memberCount.setText(String.valueOf(countRole(data, "member") + Integer.parseInt(adminCount.getText())));
     }
 
     private int countRole(JSONObject groupData, String role) {
@@ -112,7 +130,7 @@ public class ManageGroupController {
         for (int i = 0; i < arr.length(); i++) {
             if (role.equalsIgnoreCase(arr.getJSONObject(i).optString("role"))) count++;
         }
-        return count + 1;
+        return count;
     }
 
     private void choosePicture() {
