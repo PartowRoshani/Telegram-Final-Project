@@ -26,7 +26,7 @@ tasks.withType(JavaCompile) {
 
 application {
   mainModule = 'org.to.telegramfinalproject'
-  mainClass = 'org.to.telegramfinalproject.HelloApplication'
+  mainClass = 'org.to.telegramfinalproject.Server.MainServer'
 }
 
 javafx {

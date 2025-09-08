@@ -34,7 +34,7 @@
                             <!-- Add Member -->
                             <MenuItem fx:id="addMemberItem" text="Add member">
                                 <graphic>
-                                    <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <ImageView fx:id="addMemberIcon" fitWidth="16" fitHeight="16" preserveRatio="true">
                                         <image>
                                             <Image url="@/org/to/telegramfinalproject/Icons/add_member_dark.png"/>
                                         </image>
@@ -45,7 +45,7 @@
                             <!-- Manage Group -->
                             <MenuItem fx:id="manageGroupItem" text="Manage group">
                                 <graphic>
-                                    <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                    <ImageView fx:id="manageChannelIcon" fitWidth="16" fitHeight="16" preserveRatio="true">
                                         <image>
                                             <Image url="@/org/to/telegramfinalproject/Icons/manage_dark.png"/>
                                         </image>

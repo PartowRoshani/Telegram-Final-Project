@@ -1,14 +1,122 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
-<?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.image.Image?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="org.to.telegramfinalproject.UI.ChannelInfoController"
-            prefHeight="400.0" prefWidth="600.0">
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="org.to.telegramfinalproject.UI.ChannelInfoController"
+           styleClass="overlay-root">
 
-</AnchorPane>
+    <!-- Background (click to close) -->
+    <Pane fx:id="overlayBackground" styleClass="overlay-background"/>
+
+    <!-- Channel card -->
+    <VBox fx:id="channelCard" styleClass="profile-card" spacing="16"
+          prefWidth="360" maxWidth="360"
+          prefHeight="500" maxHeight="500">
+
+        <!-- ===== Header: Title + More + Close ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Channel Info" styleClass="profile-title" HBox.hgrow="ALWAYS"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+
+            <!-- More -->
+            <Button fx:id="infoMoreButton" styleClass="icon-button">
+                <graphic>
+                    <ImageView fx:id="moreIcon" fitWidth="18" fitHeight="18" preserveRatio="true"/>
+                </graphic>
+                <contextMenu>
+                    <ContextMenu fx:id="infoMoreMenu">
+                        <items>
+                            <!-- Add Members -->
+                            <MenuItem fx:id="addMembersBtn" text="Add members">
+                                <graphic>
+                                    <ImageView fx:id="addMemberIcon" fitWidth="16" fitHeight="16" preserveRatio="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/add_member_dark.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </MenuItem>
+
+                            <!-- Manage Channel -->
+                            <MenuItem fx:id="manageChannelBtn" text="Manage channel">
+                                <graphic>
+                                    <ImageView fx:id="manageChannelIcon" fitWidth="16" fitHeight="16" preserveRatio="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/manage_dark.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </MenuItem>
+
+                            <!-- Delete Channel (owner only) -->
+                            <MenuItem fx:id="deleteChannelBtn" text="Delete channel" style="-fx-text-fill: red;" visible="false">
+                                <graphic>
+                                    <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                                        <image>
+                                            <Image url="@/org/to/telegramfinalproject/Icons/delete_red.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </MenuItem>
+                        </items>
+                    </ContextMenu>
+                </contextMenu>
+            </Button>
+
+            <!-- Close -->
+            <Button fx:id="closeButton" styleClass="icon-button" text="✕"/>
+        </HBox>
+
+        <!-- ===== Channel picture + name + subscriber count ===== -->
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <!-- Channel picture -->
+            <ImageView fx:id="channelAvatar" fitWidth="60" fitHeight="60" preserveRatio="true"
+                       styleClass="profile-picture"/>
+
+            <!-- Name + subs stacked -->
+            <VBox alignment="CENTER_LEFT" spacing="4">
+                <Label fx:id="channelName" text="Channel name" styleClass="info-title"/>
+                <Label fx:id="subscriberCount" text="0 subscribers" styleClass="info-subtitle"/>
+                <!-- New description label -->
+                <Label fx:id="channelDescription" text="Channel description..." wrapText="true"
+                       styleClass="info-description"/>
+            </VBox>
+        </HBox>
+
+        <Separator styleClass="section-separator"/>
+
+        <!-- ===== Subscribers list ===== -->
+        <VBox spacing="8" styleClass="info-blocks" VBox.vgrow="ALWAYS">
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <ImageView fx:id="subscribersIcon" fitWidth="26" fitHeight="26" preserveRatio="true">
+                    <image>
+                        <Image url="@/org/to/telegramfinalproject/Icons/group_member_dark.png"/>
+                    </image>
+                </ImageView>
+                <Label fx:id="subscribersHeader" text="0 SUBSCRIBERS" styleClass="profile-info-sub"/>
+                <Pane HBox.hgrow="ALWAYS"/>
+                <Button fx:id="addSubscriberButton" styleClass="icon-button">
+                    <graphic>
+                        <ImageView fitWidth="16" fitHeight="16" preserveRatio="true">
+                            <image>
+                                <Image url="@/org/to/telegramfinalproject/Icons/add_member_dark.png"/>
+                            </image>
+                        </ImageView>
+                    </graphic>
+                </Button>
+            </HBox>
+
+            <ScrollPane fx:id="subscribersScroll" fitToWidth="true" styleClass="member-scroll" VBox.vgrow="ALWAYS">
+                <content>
+                    <VBox fx:id="subscribersList" spacing="10"/>
+                </content>
+            </ScrollPane>
+        </VBox>
+
+    </VBox>
+</StackPane>

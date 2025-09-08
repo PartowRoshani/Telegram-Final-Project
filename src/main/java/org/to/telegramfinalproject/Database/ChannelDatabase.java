@@ -691,4 +691,83 @@ public class ChannelDatabase {
         }
     }
 
+    public static JSONObject getChannelInfo(UUID channelId, UUID viewerUuid) throws SQLException {
+        JSONObject result = new JSONObject();
+
+        try (Connection conn = ConnectionDb.connect()) {
+            // === Channel header (name, subscriber count, etc.)
+            String channelQuery = """
+        SELECT c.internal_uuid, c.channel_id, c.channel_name, c.image_url, c.description,
+               COUNT(s.user_id) as subscriber_count
+        FROM channels c
+        LEFT JOIN channel_subscribers s ON c.internal_uuid = s.channel_id
+        WHERE c.internal_uuid = ?
+        GROUP BY c.internal_uuid, c.channel_id, c.channel_name, c.image_url, c.description
+        """;
+
+            try (PreparedStatement ps = conn.prepareStatement(channelQuery)) {
+                ps.setObject(1, channelId);
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) {
+                    result.put("internal_uuid", rs.getString("internal_uuid"));
+                    result.put("channel_id", rs.getString("channel_id")); // varchar if needed
+                    result.put("channel_name", rs.getString("channel_name"));
+                    result.put("subscriber_count", rs.getInt("subscriber_count"));
+                    result.put("image_url", rs.getString("image_url"));
+                    result.put("description", rs.getString("description")); // ✅ here
+                } else {
+                    return null; // no such channel
+                }
+            }
+
+            // === Subscribers (id, name, role, status, image)
+            JSONArray subscribersArr = new JSONArray();
+
+            String subscribersQuery = """
+        SELECT u.internal_uuid, u.profile_name, u.user_id, u.image_url,
+               cs.role, u.status, u.last_seen
+        FROM channel_subscribers cs
+        JOIN users u ON cs.user_id = u.internal_uuid
+        WHERE cs.channel_id = ?
+        """;
+
+            try (PreparedStatement ps = conn.prepareStatement(subscribersQuery)) {
+                ps.setObject(1, channelId);
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    JSONObject sub = new JSONObject();
+                    sub.put("user_id", rs.getString("internal_uuid"));
+                    sub.put("profile_name", rs.getString("profile_name"));
+                    sub.put("username", rs.getString("user_id"));
+                    sub.put("image_url", rs.getString("image_url"));
+                    sub.put("role", rs.getString("role"));
+                    sub.put("status", rs.getString("status"));
+                    sub.put("last_seen", rs.getString("last_seen"));
+                    subscribersArr.put(sub);
+                }
+            }
+
+            result.put("subscribers", subscribersArr);
+
+            // === Viewer role (so UI knows if viewer can manage/delete)
+            String roleQuery = """
+        SELECT role
+        FROM channel_subscribers
+        WHERE channel_id = ? AND user_id = ?
+        """;
+
+            try (PreparedStatement ps = conn.prepareStatement(roleQuery)) {
+                ps.setObject(1, channelId);
+                ps.setObject(2, viewerUuid);
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) {
+                    result.put("my_role", rs.getString("role"));
+                } else {
+                    result.put("my_role", ""); // not a subscriber
+                }
+            }
+        }
+
+        return result;
+    }
 }
