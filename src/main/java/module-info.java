@@ -15,6 +15,7 @@ module org.to.telegramfinalproject {
     requires spark.core;
     requires javax.servlet.api;
     requires mp3agic;
+    requires jdk.internal.le;
 
     // FXML کنترلرها در این پکیج‌اند:
     opens org.to.telegramfinalproject.UI to javafx.fxml;

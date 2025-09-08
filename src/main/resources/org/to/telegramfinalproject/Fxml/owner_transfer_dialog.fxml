@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<StackPane fx:id="root"
+           xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="org.to.telegramfinalproject.UI.ChatPageController">
+
+    <VBox spacing="0.0">
+        <MenuBar>
+            <menus>
+                <Menu text="Chat">
+                    <items>
+                        <MenuItem fx:id="leaveGroupItem" text="Leave Group"/>
+                    </items>
+                </Menu>
+            </menus>
+        </MenuBar>
+
+        <BorderPane prefWidth="900.0" prefHeight="600.0">
+            <center>
+                <ListView fx:id="messagesList" />
+            </center>
+            <bottom>
+                <HBox spacing="8.0" padding="8.0">
+                    <TextField fx:id="messageField" HBox.hgrow="ALWAYS" promptText="Type a message..."/>
+                    <Button text="Send"/>
+                </HBox>
+            </bottom>
+            <padding>
+                <Insets top="8" right="8" bottom="8" left="8"/>
+            </padding>
+        </BorderPane>
+    </VBox>
+
+    <StackPane fx:id="overlay" visible="false" mouseTransparent="false"
+               style="-fx-background-color: rgba(0,0,0,0.35);">
+        <ProgressIndicator fx:id="loadingIndicator" maxWidth="80" maxHeight="80"/>
+    </StackPane>
+
+</StackPane>

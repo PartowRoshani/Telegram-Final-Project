@@ -289,9 +289,44 @@ public class GroupInfoController {
     }
 
     private void handleDeleteGroup() {
-        System.out.println("Deleting group...");
-        // TODO: implement backend call
+        ChatEntry entry = Session.currentChatEntry;
+
+//        if (entry == null || !"group".equalsIgnoreCase(entry.getType())) {
+//            alert(Alert.AlertType.INFORMATION, "This action is only available for groups.");
+//            return;
+//        }
+
+        if (!confirm("Delete Group",
+                "Are you sure you want to DELETE this group?\nThis action cannot be undone.")) {
+            return;
+        }
+
+        JSONObject req = new JSONObject()
+                .put("action", "delete_group")
+                .put("group_id", entry.getId().toString());
+
+        JSONObject res = ActionHandler.sendWithResponse(req);
+
+        if (res != null && "success".equalsIgnoreCase(res.optString("status"))) {
+            alert(Alert.AlertType.INFORMATION, "✅ Group deleted successfully.");
+            MainController.getInstance().refreshChatListUI();
+            AppRouter.showMain();
+        } else {
+            String msg = (res != null) ? res.optString("message", "Failed to delete group.") : "null response";
+            alert(Alert.AlertType.ERROR, "❌ " + msg);
+        }
     }
+
+    private boolean confirm(String title, String msg) {
+        Alert a = new Alert(Alert.AlertType.CONFIRMATION, msg, ButtonType.OK, ButtonType.CANCEL);
+        a.setTitle(title);
+        return a.showAndWait().filter(btn -> btn == ButtonType.OK).isPresent();
+    }
+    private void alert(Alert.AlertType type, String msg) {
+        new Alert(type, msg, ButtonType.OK).show();
+    }
+
+
 
     private void updateIcons(boolean dark) {
         String suffix = dark ? "_light.png" : "_dark.png";

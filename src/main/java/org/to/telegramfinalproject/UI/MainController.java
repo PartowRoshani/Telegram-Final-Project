@@ -1289,7 +1289,6 @@ public class MainController {
 
 
     public void addChatAndSelect(org.to.telegramfinalproject.Models.ChatEntry entry) {
-        // در Session نگه‌داری
         if (org.to.telegramfinalproject.Client.Session.chatList.stream()
                 .noneMatch(c -> c.getId().equals(entry.getId()))) {
             org.to.telegramfinalproject.Client.Session.chatList.add(0, entry);
