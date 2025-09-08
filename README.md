@@ -1,4 +1,3 @@
-<img width="2093" height="1122" alt="Screenshot 2025-09-08 005216" src="https://github.com/user-attachments/assets/1989ca43-a9b9-4f61-8203-12d1f86682eb" /># Telegram-Clone Project
 
 ## Introduction
 This is the final project of our [**Advanced Programming**](https://github.com/Advanced-Programming-1403) course at Shahid Beheshti University.  
