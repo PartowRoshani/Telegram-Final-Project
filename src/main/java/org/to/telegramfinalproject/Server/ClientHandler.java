@@ -3,6 +3,7 @@ package org.to.telegramfinalproject.Server;
 import javafx.geometry.Side;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.to.telegramfinalproject.Client.Session;
 import org.to.telegramfinalproject.Database.*;
 import org.to.telegramfinalproject.Models.*;
 import org.to.telegramfinalproject.Security.PasswordHashing;
@@ -3057,6 +3058,30 @@ public class ClientHandler implements Runnable {
 
                         } catch (Exception e) {
                             response = new ResponseModel("error", "Error fetching admin permissions: " + e.getMessage());
+                        }
+                        break;
+                    }
+
+                    case "view_channel": {
+                        if (currentUser == null) {
+                            response = new ResponseModel("error", "Unauthorized. Please login first.");
+                            break;
+                        }
+
+                        try {
+                            UUID channelId = UUID.fromString(requestJson.getString("channel_id"));
+                            UUID viewerId = currentUser.getInternal_uuid(); // logged-in user
+
+                            // Query channel details
+                            JSONObject channelData = ChannelDatabase.getChannelInfo(channelId, viewerId);
+
+                            if (channelData == null) {
+                                response = new ResponseModel("error", "Channel not found.");
+                            } else {
+                                response = new ResponseModel("success", "Channel info fetched.", channelData);
+                            }
+                        } catch (Exception e) {
+                            response = new ResponseModel("error", "Error processing channel info: " + e.getMessage());
                         }
                         break;
                     }

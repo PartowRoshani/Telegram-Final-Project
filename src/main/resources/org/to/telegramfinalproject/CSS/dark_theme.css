@@ -1410,3 +1410,34 @@
     -fx-border-color: #555;
     -fx-text-fill: #aaa;
 }
+
+.channel-info-card {
+    -fx-background-color: #2a2a2a;
+}
+
+.channel-title {
+    -fx-text-fill: #f5f5f5;
+}
+
+.channel-subcount {
+    -fx-text-fill: #aaaaaa;
+}
+
+.channel-buttons .button {
+    -fx-background-color: #3c3c3c;
+    -fx-text-fill: #f5f5f5;
+}
+
+.options-button {
+    -fx-text-fill: #dddddd;
+}
+
+.subscriber-item,
+.admin-item {
+    -fx-text-fill: #e0e0e0;
+}
+
+.info-description {
+    -fx-font-size: 12px;
+    -fx-text-fill: #777;
+}

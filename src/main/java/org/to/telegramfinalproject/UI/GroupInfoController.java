@@ -35,6 +35,8 @@ public class GroupInfoController {
     @FXML private MenuItem manageGroupItem;
     @FXML private MenuItem deleteGroupItem;
     @FXML private ImageView moreIcon;
+    @FXML private ImageView manageChannelIcon;
+    @FXML private ImageView addMemberIcon;
 
     @FXML private VBox membersList;
     @FXML private Label membersHeader;
@@ -300,7 +302,8 @@ public class GroupInfoController {
         membersIcon.setImage(loadImage(ICON_PATH + "group" + suffix));
         addMemberButton.setGraphic(makeIcon(ICON_PATH + "add_member" + suffix));
         membersIcon.setImage(loadImage(ICON_PATH + "group_member" + suffix));
-
+        manageChannelIcon.setImage(loadImage(ICON_PATH + "manage" + suffix));
+        addMemberIcon.setImage(loadImage(ICON_PATH + "add_member" + suffix));
     }
 
     // --- helpers -------------------------------------------------------------
